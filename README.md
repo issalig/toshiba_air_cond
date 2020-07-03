@@ -4,7 +4,7 @@ Decode toshiba 2wire ab  signal
 Signal is around 15.6 volts when 1 and 14 when 0. Zener provides 13 volt reference, so signal is 2.6 .. 1 and after diode (0.7) 1.9 0.3, enough to activate photodiode (1.2) when 1 and to not activate it when 0.
 
 
-'''
+```
                               diode  
   A --------------------200R ->|--|
                10k                |-|-------|-------------3v3
@@ -17,7 +17,7 @@ Signal is around 15.6 volts when 1 and 14 when 0. Zener provides 13 volt referen
   B -------------
              
 
-'''
+```
 
 DS0138 analyzer can be used to monitor the signal and a logic analyzer to capture data in to computer.
 
