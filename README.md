@@ -155,22 +155,29 @@ Thus temp is value + 13
 
 ```
 
-Power ON
+Power
 ```
-40 00 11 03 08 41 03 18  # press ON
-00 40 18 02 80 A1 7B # typical answer, maybe confirmation
-00 FE 1C 0D 80 81 8D AC 00 00 7A 00 33 33 01 00 01 B5 # looks like current status
-00 FE 10 02 80 8A E6 # typical answer, maybe confirmation
-00 52 11 04 80 86 84 05 C0 #
-```
+remote, last byte bit0
+master, status in two bits  byte bit0  byte bit2
 
-Power OFF
-```
-40 00 11 03 08 41 02 19  # press OFF
+ON
+40 00 11 03 08 41 03 18    ->03 0000 0011
+                   -                    -
 00 40 18 02 80 A1 7B # typical answer, maybe confirmation
-00 FE 1C 0D 80 81 8C A8 00 00 7A 00 33 33 01 00 01 B0 # looks like current status
-00 FE 10 02 80 8A E6 # typical answer, maybe confirmation
-00 52 11 04 80 86 84 00 C5 #
+00 FE 1C 0D 80 81 8D AC 00 00 7A 00 33 33 01 00 01 B5         -> 8D AC  1000 1101 1010 1100
+                   -  -                                                         -       -
+00 FE 10 02 80 8A E6 
+00 52 11 04 80 86 84 05 C0   -> 5 0101
+                      -            - -
+
+OFF
+40 00 11 03 08 41 02 19   ->02 0000 0010
+                   -                   - 
+00 40 18 02 80 A1 7B 
+00 FE 1C 0D 80 81 8C A8 00 00 7A 00 33 33 01 00 01 B0         -> 8C A8  1000 1100 1010 1000
+00 FE 10 02 80 8A E6                                                            -       -
+00 52 11 04 80 86 84 00 C5   -> 0 0000
+                      -            - -
 ```
 
 Modes
@@ -249,17 +256,17 @@ Fan mode
 ```
 Master 7th byte bit3-bit1
 
-40 00 11 08 08 4C 14 1A 7A 00 33 33 69                 -> A 1010
+40 00 11 08 08 4C 14 1A 7A 00 33 33 69                 -> A 1010  auto
                       -                                      ---
 00 FE 1C 0D 80 81 8D 4C 00 00 7A 00 33 33 01 00 01 55  -> 4 0100
                      -                                      ---
 ---
-40 00 11 08 08 4C 14 1B 7A 00 33 33 68                 -> B 1011
+40 00 11 08 08 4C 14 1B 7A 00 33 33 68                 -> B 1011 level 3
                       -                                      ---
 00 FE 1C 0D 80 81 8D 6C 00 00 7A 00 33 33 01 00 01 75  -> 6 0110
                      -                                      ---
 ---
-40 00 11 08 08 4C 14 1C 7A 00 33 33 6F                  -> A 1100
+40 00 11 08 08 4C 14 1C 7A 00 33 33 6F                  -> A 1100 level 2
                       -                                       ---
 00 FE 1C 0D 80 81 8D 8C 00 00 7A 00 33 33 01 00 01 95   -> 8 1000
                      -                                       ---
@@ -278,6 +285,11 @@ Master 7th byte bit3-bit1
 40 00 55 05 08 81 00 7C 00 E5 
 00 FE 58 0F 80 81 8D AC 00 00 7A 7D E9 00 33 33 01 00 01 67
 
+```
+
+Timer off
+```
+40 00 11 09 08 0C 82 00 00 30 05 01 01 EB 
 ```
 
 Format seems this
