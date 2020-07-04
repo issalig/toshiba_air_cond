@@ -23,6 +23,11 @@ DS0138 analyzer can be used to monitor the signal and a logic analyzer to captur
 
 Use pulseview uart decoder 2400 bps, 8bits, start, stop, even parity
 
+When validated visually you can use the following command line that reads RX data annotations and print one message per line according to 4th byte (message size).
+```
+sigrok-cli -P uart:rx=D0:baudrate=2400:parity_type=even -A uart=rx_data -i  YOURFILE  | awk '{pad =" "; b[len%4]=$2; if(len==3) {bytes="0x"b[len];  printf("%s%s%s%s%s%s%s%s",b[0],pad,b[1],pad,b[2],pad,b[3],pad)} if(len>3) {printf("%s%s",$2,pad);} len=len+1; if(len==4+bytes+1) {print "";len=0;bytes=0}}'
+```
+
 Format seems  to be
 |Source | Dest | XX  | Bytes | Data | CRC |
 
@@ -79,6 +84,7 @@ Temp up
 ```
 
 Temp down from 26 to 18
+```
 40 00 11 08 08 4C 0C 1D 78 00 33 33 74 # press temp down (current 26, 25 after pressing)
 00 40 18 02 80 A1 7B # typical answer, maybe confirmation
 00 FE 1C 0D 80 81 8D AC 00 00 78 00 33 33 01 00 01 B7 # looks like current status
@@ -131,6 +137,7 @@ Temp down from 26 to 18
 
 78 0111 1000 //set target temp to 25 11001 ???
 7A 0111 1010 //set target temp to 26 11010
+```
 
 Power ON
 ```
@@ -154,7 +161,7 @@ Format seems this
 Source Dest XX Bytes Data CRC
 CRC is computed as Checksum8 XOR
 Data starts with 08 if Source is 40 and 80 if source is 00
-
+```
 uint8_t XORChecksum8(const byte *data, size_t dataLength)
 {
   uint8_t value = 0;
@@ -164,5 +171,5 @@ uint8_t XORChecksum8(const byte *data, size_t dataLength)
   }
   return ~value;
 }
-
+```
 
