@@ -29,34 +29,39 @@ sigrok-cli -P uart:rx=D0:baudrate=2400:parity_type=even -A uart=rx_data -i  YOUR
 ```
 
 Format seems  to be
-|Source | Dest | Prio?  | Bytes | Data | CRC |
+|Source | Dest | UNK  | Bytes | Data | CRC |
 
 Data could be | R/W | Operation Code | Params |
 08 would be W, 80 would be R
 
-CRC is computes as Checksum8 XOR (Compute it at https://www.scadacore.com/tools/programming-calculators/online-checksum-calculator/)
+CRC is computed as Checksum8 XOR (Compute it at https://www.scadacore.com/tools/programming-calculators/online-checksum-calculator/)
 
 Dest 00 is master, 40 is remote, FE is broadcast, 52 is ???
 
 Op code from remote
-4C 0C 1D  temp
+4C 0C 1D  temp         40 00 11 08 08 4C 0C 1D 78 00 33 33 74
 0C 81     status
-41        power
+41        power        40 00 11 03 08 41 03 18
 42        mode
 4C 14     fan
 54        save
 0C 82     timer
 
 Op code from master
-81 status
-8A ack??
+81 status              00 FE 1C 0D 80 81 8D AC 00 00 7A 00 33 33 01 00 01 B5
+8A ack (dest FE)
+A1 ack (dest 40)
+86 ?? (dest 52)
 
-Prio is
-10 ack / ping??
-1C status after request
-58 ?? status when idle
-18 ack to dest 40
-11 ??
+UNK is
+10 ack / ping??           00 FE 10 02 80 8A E6
+1C status after request   00 FE 1C 0D 80 81 8D AC 00 00 7A 00 33 33 01 00 01 B5
+58 ?? status when idle    00 FE 58 0F 80 81 8D AC 00 00 7A 84 E9 00 33 33 01 00 01 9E
+18 ack (dest remote)      00 40 18 02 80 A1 7B 
+11 ??                     40 00 11 03 08 41 03 18
+                          00 52 11 04 80 86 84 05 C0
+15 (from remote)          40 00 15 07 08 0C 81 00 00 48 00 9F
+55 (from remote)          40 00 55 05 08 81 00 7E 00 E7 
 
 
 
@@ -216,6 +221,9 @@ OFF
 00 52 11 04 80 86 84 00 C5   -> 0 0000
                       -            - -
 ```
+
+from pg70 http://cyme.com.mx/equipos/sistema_vrf/carrier/Aplication%20Controls%20Manual-A04-007.pdf 
+0x00=unfix,0x 01= heat,0x 02= cool,0x 03= dry 0x 04= fan,0x05 auto 
 
 Modes
 ```
