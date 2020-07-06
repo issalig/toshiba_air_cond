@@ -29,11 +29,36 @@ sigrok-cli -P uart:rx=D0:baudrate=2400:parity_type=even -A uart=rx_data -i  YOUR
 ```
 
 Format seems  to be
-|Source | Dest | XX  | Bytes | Data | CRC |
+|Source | Dest | Prio?  | Bytes | Data | CRC |
+
+Data could be | R/W | Operation Code | Params |
+08 would be W, 80 would be R
 
 CRC is computes as Checksum8 XOR (Compute it at https://www.scadacore.com/tools/programming-calculators/online-checksum-calculator/)
 
 Dest 00 is master, 40 is remote, FE is broadcast, 52 is ???
+
+Op code from remote
+4C 0C 1D  temp
+0C 81     status
+41        power
+42        mode
+4C 14     fan
+54        save
+0C 82     timer
+
+Op code from master
+81 status
+8A ack??
+
+Prio is
+10 ack / ping??
+1C status after request
+58 ?? status when idle
+18 ack to dest 40
+11 ??
+
+
 
 When POWERED OFF
 ```
