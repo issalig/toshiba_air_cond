@@ -29,29 +29,33 @@ sigrok-cli -P uart:rx=D0:baudrate=2400:parity_type=even -A uart=rx_data -i  YOUR
 ```
 
 Format seems  to be
+
 |Source | Dest | UNK  | Bytes | Data | CRC |
 
-Data could be | R/W | Operation Code | Params |
-08 would be W, 80 would be R
+Data 
+
+| R/W | Operation Code | Params |
+
+08  W?, 80 would be R
 
 CRC is computed as Checksum8 XOR (Compute it at https://www.scadacore.com/tools/programming-calculators/online-checksum-calculator/)
 
 Dest 00 is master, 40 is remote, FE is broadcast, 52 is ???
-
+```
 Op code from remote
 4C 0C 1D  temp         40 00 11 08 08 4C 0C 1D 78 00 33 33 74
-0C 81     status
+0C 81     status      
 41        power        40 00 11 03 08 41 03 18
-42        mode
-4C 14     fan
-54        save
+42        mode         40 00 11 03 08 42 02 1A //cool  02 -> 0000 0010
+4C 14     fan          40 00 11 08 08 4C 14 1D 7A 00 33 33 6E  //low
+54        save         40 00 11 04 08 54 01 00 08
 0C 82     timer
 
 Op code from master
 81 status              00 FE 1C 0D 80 81 8D AC 00 00 7A 00 33 33 01 00 01 B5
-8A ack (dest FE)
-A1 ack (dest 40)
-86 ?? (dest 52)
+8A ack (dest FE)       00 FE 10 02 80 8A E6 # every 5s
+A1 ack (dest 40)       00 40 18 02 80 A1 7B
+86 ?? (dest 52)        00 52 11 04 80 86 84 05 C0
 
 UNK is
 10 ack / ping??           00 FE 10 02 80 8A E6
@@ -63,7 +67,22 @@ UNK is
 15 (from remote)          40 00 15 07 08 0C 81 00 00 48 00 9F
 55 (from remote)          40 00 55 05 08 81 00 7E 00 E7 
 
-
+Status
+00 FE 1C 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9
+|  |     |        |  |         |           |- save mode bit0
+|  |-Dst |        |  |         |    |- bit2 HEAT:1 COLD:0
+|-Src    |        |  |         |- bit7..bit1  - 35 =Temp
+         |        |  |-bit3..bit1 fan mode (auto:010 med:011 high:110 low:101 )
+                      -bit2 ON:1 OFF:0
+         |        |-bit3.bit1 (mode cool:010 fan:011 auto 101 heat:001 dry: 100)
+                  |-bit0 ON:1 OFF:0
+         |-Byte count
+         
+         
+00 FE 1C 0D 80 81 8D AC 00 00 7A 00 33 33 01 00 01 B5         -> 8D AC  1000 1101 1010 1100
+                   -  -                                                         -       -         
+         
+```
 
 When POWERED OFF
 ```
@@ -167,33 +186,24 @@ Temp down from 26 to 18
 
 only messages from remote
 method 1
-40 00 11 08 08 4C 0C 1D 7C 00 33 33 70 //27     7C -> 0111 1100    1110  14     30    62
-40 00 11 08 08 4C 0C 1D 7E 00 33 33 72 //28     7E -> 0111 1110    1111  15     31    63
-40 00 11 08 08 4C 0C 1D 80 00 33 33 8C //29     80 -> 1000 0000 -> 0000   0 ???       64
+40 00 11 08 08 4C 0C 1D 7C 00 33 33 70 //27     7C -> 0111 1100  111110  14     30    62
+40 00 11 08 08 4C 0C 1D 7E 00 33 33 72 //28     7E -> 0111 1110  011111  15     31    63
+40 00 11 08 08 4C 0C 1D 80 00 33 33 8C //29     80 -> 1000 0000  100000   0 ???       64
                                                       ---- ---
-40 00 11 08 08 4C 0C 1D 7C 00 33 33 70 //27     7C -> 0111 1100    1110  14           62
-40 00 11 08 08 4C 0C 1D 7A 00 33 33 76 //26     7A -> 0111 1010    1101  13           61  
-40 00 11 08 08 4C 0C 1D 6A 00 33 33 66 //18     6A -> 0110 1010   10101               53  - 35 = 18
+40 00 11 08 08 4C 0C 1D 7C 00 33 33 70 //27     7C -> 0111 1100  111110  14           62
+40 00 11 08 08 4C 0C 1D 7A 00 33 33 76 //26     7A -> 0111 1010  111101  13           61
+40 00 11 08 08 4C 0C 1D 6E 00 33 33 62 //20     6E -> 0110 1110  110111               55
+40 00 11 08 08 4C 0C 1D 6A 00 33 33 66 //18     6A -> 0110 1010  110101               53  - 35 = 18
 
+Full log
+40 00 11 08 08 4C 0C 1D 78 00 33 33 74 //25     78 -> 0111 1000  111100               60
+00 40 18 02 80 A1 7B # typical answer, maybe ack
+00 FE 1C 0D 80 81 8D AC 00 00 78 00 33 33 01 00 01 B7  //78
 
-method 2
+00 52 11 04 80 86 84 05 C0 #this seq was in temp up ???
 
-40 00 11 08 08 4C 0C 1D 6E 00 33 33 62 //20
-40 00 11 08 08 4C 0C 1D 6C 00 33 33 60 //19
-40 00 15 07 08 0C 81 00 00 48 00 9F    //unexpected
-40 00 11 08 08 4C 0C 1D 6A 00 33 33 66 //18
-40 00 55 05 08 81 00 7C 00 E5          //unexpected
-40 00 11 08 08 4C 0C 1D 6C 00 33 33 60 //19
-40 00 11 08 08 4C 0C 1D 6E 00 33 33 62 //20
+00 FE 1C 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9
 
-7A 011-1 101-0 //set target temp to 26 -> 1101 -> 13
-78 011-1 100-0 //set target temp to 25 -> 1100 -> 12
-70 011-1 000-0 //set target temp to 21 -> 1000 ->  8
-6E 011-0 111-0 //set target temp to 20 -> 0111 ->  7
-6C 011-0 110-0 //set target temp to 19 -> 0110 ->  6
-6A 011-0 101-0 //set target temp to 18 -> 0101 ->  5
-
-Thus temp is value + 13
 
 ```
 
@@ -227,7 +237,7 @@ from pg70 http://cyme.com.mx/equipos/sistema_vrf/carrier/Aplication%20Controls%2
 
 Modes
 ```
-From remote (Mode is bit3-bit0 from last data byte)
+From remote (Mode is bit3-bit0 from last data byte) cool:010 fan:011 auto 101 heat:001 dry: 100
 40 00 11 03 08 42 02 1A //cool  02 -> 0000 0010
 40 00 11 03 08 42 03 1B //fan   03 -> 0000 0011
 40 00 11 03 08 42 05 1D //auto  05 -> 0000 0101
@@ -249,7 +259,7 @@ fan
 00 FE 1C 0D 80 81 6D AC 00 00 76 00 33 33 01 00 01 59    // 6D AC 00 -> 0110 1101 1010 1100
 00 52 11 04 80 86 64 01 24                                              ---
 00 52 11 04 80 86 64 01 24                               // 64 -> 0110 0100
-
+                                                                  ---
 auto
 40 00 11 03 08 42 05 1D                                  //auto  05 -> 0000 0101
 00 40 18 02 80 A1 7B                                                         ---
@@ -263,7 +273,7 @@ heat
 40 00 11 03 08 42 01 19                                  //heat  01 -> 0000 0001
 00 40 18 02 80 A1 7B                                                         ---
 00 FE 1C 0D 80 81 35 AC 02 00 76 00 55 55 01 00 01 03    // 35 AC 02 -> 0011 0101 1010 1100 0000 0010   // 55 55 vs 33 33 in other modes
-                                                                        ---                        -       -- -- 
+                                                                        ---                        -       0101 0101    0011 0011
 00 52 11 04 80 86 24 01 64                               //24 -> 0010 0100
                                                                  ---
 dry
@@ -299,7 +309,7 @@ bit0 from 7th in remote message
 
 Fan mode
 ```
-Master 7th byte bit3-bit1
+Master 7th byte bit3-bit1  auto:0x010 med:011 high:110 low:101 
 
 40 00 11 08 08 4C 14 1A 7A 00 33 33 69                 -> A 1010  auto
                       -                                      ---
