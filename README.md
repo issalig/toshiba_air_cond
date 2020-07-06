@@ -5,11 +5,11 @@ Signal is around 15.6 volts when 1 and 14 when 0. Zener provides 13 volt referen
 
 
 ```
-                              diode  
-  A --------------------200R ->|--|
-               10k                |-|-------|-------------3v3
+                              diode  _______
+  A --------------------200R ->|----|       |-------------3v3
+               10k                  |       |
                 |                   | PC817 |
-                --------------------|-------|--|--------- OUT               
+                --------------------|_______|------------ OUT               
                 |                              |
                / \ zener 13v                  1k
                 |                              |
@@ -69,19 +69,35 @@ UNK is
 
 Status
 00 FE 1C 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9
-|  |     |        |  |         |           |- save mode bit0
+|  |     ||       |  |         |    |      |- save mode bit0
+|  |     ||       |  |         |    |  |- bit2 HEAT:1 COLD:0 
 |  |-Dst |        |  |         |    |- bit2 HEAT:1 COLD:0
 |-Src    |        |  |         |- bit7..bit1  - 35 =Temp
          |        |  |-bit3..bit1 fan mode (auto:010 med:011 high:110 low:101 )
-                      -bit2 ON:1 OFF:0
-         |        |-bit3.bit1 (mode cool:010 fan:011 auto 101 heat:001 dry: 100)
-                  |-bit0 ON:1 OFF:0
+         |        |  |-bit2 ON:1 OFF:0
+         |        |-bit7.bit5 (mode cool:010 fan:011 auto 101 heat:001 dry: 100)
+         |        |-bit0 ON:1 OFF:0
          |-Byte count
          
+remote, last byte bit0
+master, status in two bits  byte bit0  byte bit2
+
          
 00 FE 1C 0D 80 81 8D AC 00 00 7A 00 33 33 01 00 01 B5         -> 8D AC  1000 1101 1010 1100
                    -  -                                                         -       -         
-         
+cool
+00 FE 1C 0D 80 81 4D AC 00 00 76 00 33 33 01 00 01 79    // 4D AC 00 -> 0100 1101 1010 1100
+                                                                        ---
+00 FE 1C 0D 80 81 8D AC 00 00 7A 00 33 33 01 00 01 B5   -> A 1010
+                     -                                       ---
+
+Extended status
+00 FE 58 0F 80 81 8D AC 00 00 7A 7A E9 00 33 33 01 00 01 60 
+00 FE 58 0F 80 81 8D A8 00 00 7A 84 E9 00 33 33 01 00 01 9B
+                                    |-always E9
+                                 |-  1000 0100  1000010 66-35=31 (real temp??)  
+                              |-temp 0111 1010 111101 61-35 = 26
+                              
 ```
 
 When POWERED OFF
