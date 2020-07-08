@@ -412,8 +412,8 @@ uint8_t XORChecksum8(const byte *data, size_t dataLength)
 }
 ```
 
-Ohter info
+Info about commercial gateways but no info about protocol :(
 
 Error codes from Toshiba (pg 38) https://cdn.shopify.com/s/files/1/1144/2302/files/BP-STD_Toshiba_v1_08.pdf
 TCS-Net https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf
-
+https://www.intesisbox.com/intesis/product/media/intesisbox_to-ac-knx-16-64_user_manual_en.pdf?v=2.2
