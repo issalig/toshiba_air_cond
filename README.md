@@ -5,23 +5,41 @@ Signal is around 15.6 volts when 1 and 14 when 0. Zener provides 13 volt referen
 
 
 ```
+Read schematic
                               diode  _______
   A --------------------200R ->|----|       |-------------3v3
-               10k                  |       |
                 |                   | PC817 |
-                --------------------|_______|------------ OUT               
-                |                              |
-               / \ zener 13v                  1k
-                |                              |
-                |                             GND
-  B -------------
+               10k                  |       |
+                |                   |       |
+  B ------|>,-----------------------|_______|------------ OUT               
+                                              |
+         zener 13v                            1k
+                                              |
+                                             GND
              
+
+Write schematic (use under your own risk)
+
+              3v3
+               |                
+               1k                ________   zener 13v
+               ------------------|       |----|>,------- A
+               |                 | PC817 |  
+ OUT --200R---|<,            |---|_______|---
+                |            |             1k
+                |            |              |
+               GND          GND             ------------ B
+  
+  
+                                      |
+
+
 
 ```
 
 DS0138 analyzer can be used to monitor the signal and a logic analyzer to capture data in to computer.
 
-Use pulseview uart decoder 2400 bps, 8bits, start, stop, even parity
+To capture data pulseview with uart decoder 2400 bps, 8bits, start, stop, even parity
 
 When validated visually you can use the following command line that reads RX data annotations and print one message per line according to 4th byte (message size).
 ```
@@ -98,6 +116,13 @@ Extended status
                                  |-  1000 0100  1000010 66-35=31 (real temp??)  
                               |-temp 0111 1010 111101 61-35 = 26
                               
+                              
+Current temp from remote (off 27C and blow on thermistor until 30C and cold again)
+bit7..bit0 /2 - 35 =Temp
+40 00 55 05 08 81 00 7C 00 E5  //7C  0111 1100   124    124/2-35 = 27
+40 00 55 05 08 81 00 83 00 1A  //83  1000 0011   131    131/2-35= 30.5
+40 00 55 05 08 81 00 7E 00 E7  //7E  0111 1110   126    126/2-35= 28
+                                                            
 ```
 
 When POWERED OFF
