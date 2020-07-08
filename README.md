@@ -1,10 +1,12 @@
 # toshiba_air_cond
-Decode toshiba 2wire ab  signal
+Decode Toshiba A-B protocol (aka TCC Link)
 
-Signal is around 15.6 volts when 1 and 14 when 0. Zener provides 13 volt reference, so signal is 2.6 .. 1 and after diode (0.7) 1.9 0.3, enough to activate photodiode (1.2) when 1 and to not activate it when 0.
 
 
 ```
+Signal is around 15.6 volts when 1 and 14 when 0. Zener diode provides 13V reference, so signal is 1 .. 2.6 and after diode (0.7 drop) is 0.3 .. 1.9, enough to activate photodiode (1.2) when 1 and to not activate it when 0.
+
+
 Read schematic
                               diode  _______
   A --------------------200R ->|----|       |-------------3v3
@@ -17,6 +19,9 @@ Read schematic
                                               |
                                              GND
              
+Write circuit performs similarly to read circuit. When OUT signal is 1, transistor and pullup resistor are 0, thus optocoupler is OFF and voltage is 15.6 (HIGH). When OUT signal is 0, transistor is off and pullup resistor sends 1 and activates optocoupler and zener diode gives 13V (LOW).
+Some systems recommend to set the Follower in the remote unit.
+
 
 Write schematic (use under your own risk)
 
@@ -84,6 +89,8 @@ UNK is
                           00 52 11 04 80 86 84 05 C0
 15 (from remote)          40 00 15 07 08 0C 81 00 00 48 00 9F
 55 (from remote)          40 00 55 05 08 81 00 7E 00 E7 
+first part is 1,5
+second part is 0,1,8,C
 
 Status
 00 FE 1C 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9
@@ -118,11 +125,12 @@ Extended status
                               
                               
 Current temp from remote (off 27C and blow on thermistor until 30C and cold again)
+3rd byte is 55
 bit7..bit0 /2 - 35 =Temp
 40 00 55 05 08 81 00 7C 00 E5  //7C  0111 1100   124    124/2-35 = 27
 40 00 55 05 08 81 00 83 00 1A  //83  1000 0011   131    131/2-35= 30.5
 40 00 55 05 08 81 00 7E 00 E7  //7E  0111 1110   126    126/2-35= 28
-                                                            
+                     --                                       
 ```
 
 When POWERED OFF
@@ -403,4 +411,9 @@ uint8_t XORChecksum8(const byte *data, size_t dataLength)
   return ~value;
 }
 ```
+
+Ohter info
+
+Error codes from Toshiba (pg 38) https://cdn.shopify.com/s/files/1/1144/2302/files/BP-STD_Toshiba_v1_08.pdf
+TCS-Net https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf
 
