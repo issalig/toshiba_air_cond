@@ -9,6 +9,8 @@ Signal is around 15.6 volts when 1 and 14 when 0. Zener diode provides 13V refer
 Type     VZnom  IZT  for  rzjT    rzjk  at  IZK    IR  at  VR
 1N4743A  13     19        <10     <100      0.25   <5      9.9
 
+Izt=19 mA -> 2.6/19=130ohm  P=VI 2.6*19 =52mW
+
 
 Read schematic
                               diode  _______
@@ -421,19 +423,19 @@ Error codes from Toshiba (pg 38) https://cdn.shopify.com/s/files/1/1144/2302/fil
 TCS-Net https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf
 https://www.intesisbox.com/intesis/product/media/intesisbox_to-ac-knx-16-64_user_manual_en.pdf?v=2.2
 
-Plan B
+Plan B (in fact it was plan A but then I managed to decode AB protocol)
 
-Solder wires to button pads on the remote controller and close circuit to simulate pressing them (with and optocoupler).
+To solder wires to button pads on the remote controller and close circuit to simulate pressing them (with and optocoupler).
 
-```                 _________
-    OUT --- 200R----| PC817 |------- PAD+
-              GND---|_______|---4k7--PAD-
+```                    _________
+    uc OUT --- 200R----| PC817 |------- PAD+
+                 GND---|_______|---4k7--PAD-
                                   
 ```
 
-ESP8266 high level is 3v3 and the maximum current per pin is 12mA (but we will go with safer 10mA). Thus, the resistor for the IR diode of the optocoupler is 3.3-1.2/10=210 ohm -> 200 ohm. 4k7 is a safe value since we just want continuity.
+ESP8266 high level is 3v3 and the maximum current per pin is 12mA (but we will go safer with 10mA). Thus, the resistor for the IR diode of the optocoupler is 3.3-1.2/10=210 -> 200 ohm. 4k7 is a safe value since we just want continuity.
 
-
+Following traces from button pads end in 2k resistors that we will use to solder wires. As R46 is common, we can think is button GND
 ON button is connected to R25 and R46
 Temp down button is connected to R23 adn R46
 Temp up button is connected to R24 and R46
