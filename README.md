@@ -29,13 +29,16 @@ Some systems recommend to set the Follower in the remote unit.
 
 
 Write schematic (use under your own risk)
+https://www.onsemi.com/pub/Collateral/P2N2222A-D.PDF 
+https://learnabout-electronics.org/Downloads/PC817%20optocoupler.pdf
+
 
               3v3
                |                
-               1k                ________   zener 13v
+               200                ________   zener 13v
                ------------------|       |----|>,------- A
                |                 | PC817 |  
- OUT --200R---|<,            |---|_______|---
+ OUT --1k- ---|<,            |---|_______|---
                 |            |             1k
                 |            |              |
                GND          GND             ------------ B
@@ -420,6 +423,8 @@ uint8_t XORChecksum8(const byte *data, size_t dataLength)
 Info about commercial gateways but no info about protocol :(
 
 Connections https://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_CassetteUTP_DI-SDI-111416-E_GB.pdf
+Some info o features  pg52 http://www.toshiba-aircon.co.uk/assets/uploads/pdf/sales_tools/New_Technical_Handbook_version_14_1_3.pdf
+
 
 Error codes from Toshiba (pg 38) https://cdn.shopify.com/s/files/1/1144/2302/files/BP-STD_Toshiba_v1_08.pdf
 TCS-Net https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf
@@ -429,7 +434,8 @@ Plan B (in fact it was plan A but then I managed to decode AB protocol)
 
 To solder wires to button pads on the remote controller and close circuit to simulate pressing them (with and optocoupler).
 
-```                    _________
+``` 
+                       _________
     uc OUT --- 200R----| PC817 |------- PAD+
                  GND---|_______|---4k7--PAD-
                                   
