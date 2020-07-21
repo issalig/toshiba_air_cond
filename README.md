@@ -105,14 +105,13 @@ second part is 0,1,8,C
 00 FE 1C 0D 80 81 CD 8C 00 00 76 00 33 33 01 00 01 D9    // CD 8C 00 -> 1100 1101 1000 1100
 00 FE 10 02 80 8A E6                                                    ---         -
 
-
 Status
 00 FE 1C 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9
 |  |     ||       |  |         |    |      |- save mode bit0
 |  |     ||       |  |         |    |  |- bit2 HEAT:1 COLD:0 
 |  |-Dst |        |  |         |    |- bit2 HEAT:1 COLD:0
 |-Src    |        |  |         |- bit7..bit1  - 35 =Temp
-         |        |  |-bit3..bit1 fan mode (auto:010 med:011 high:110 low:101 )
+         |        |  |-bit7..bit5 fan level (auto:010 med:011 high:110 low:101 )
          |        |  |-bit2 ON:1 OFF:0
          |        |-bit7.bit5 (mode cool:010 fan:011 auto 101 heat:001 dry: 100)
          |        |-bit0 ON:1 OFF:0
