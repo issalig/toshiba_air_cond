@@ -34,11 +34,11 @@ https://learnabout-electronics.org/Downloads/PC817%20optocoupler.pdf
 
 
               3v3                                    13v   
-               |                                  ---|>z---|<---- A               
-               200                ________        |    
-               ------------------|       |---1k--|<    
+               |                                 --->|z---|<---- A               
+               200                _______        |    
+               ------------------|       |---1k--|<  2N2222 
                |                 | PC817 |        |
- OUT --1k- ---|<             |---|_______|---     |
+ OUT --1k- ---|<  2N2222     |---|_______|---     |
                 |            |              |     |
                 |            |              |     |
                GND          GND             ------------------- B
@@ -59,7 +59,7 @@ When validated visually you can use the following command line that reads RX dat
 sigrok-cli -P uart:rx=D0:baudrate=2400:parity_type=even -A uart=rx_data -i  YOURFILE  | awk '{pad =" "; b[len%4]=$2; if(len==3) {bytes="0x"b[len];  printf("%s%s%s%s%s%s%s%s",b[0],pad,b[1],pad,b[2],pad,b[3],pad)} if(len>3) {printf("%s%s",$2,pad);} len=len+1; if(len==4+bytes+1) {print "";len=0;bytes=0}}'
 ```
 
-Format seems  to be
+Data format seems  to be
 
 |Source | Dest | UNK  | Bytes | Data | CRC |
 
@@ -72,6 +72,7 @@ Data
 CRC is computed as Checksum8 XOR (Compute it at https://www.scadacore.com/tools/programming-calculators/online-checksum-calculator/)
 
 Dest 00 is master, 40 is remote, FE is broadcast, 52 is ???
+
 ```
 Op code from remote
 4C 0C 1D  temp         40 00 11 08 08 4C 0C 1D 78 00 33 33 74
@@ -100,13 +101,17 @@ UNK is
 first part is 1,5
 second part is 0,1,8,C
 
+
+00 FE 1C 0D 80 81 CD 8C 00 00 76 00 33 33 01 00 01 D9    // CD 8C 00 -> 1100 1101 1000 1100
+00 FE 10 02 80 8A E6                                                    ---         -
+
 Status
 00 FE 1C 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9
 |  |     ||       |  |         |    |      |- save mode bit0
 |  |     ||       |  |         |    |  |- bit2 HEAT:1 COLD:0 
 |  |-Dst |        |  |         |    |- bit2 HEAT:1 COLD:0
 |-Src    |        |  |         |- bit7..bit1  - 35 =Temp
-         |        |  |-bit3..bit1 fan mode (auto:010 med:011 high:110 low:101 )
+         |        |  |-bit7..bit5 fan level (auto:010 med:011 high:110 low:101 )
          |        |  |-bit2 ON:1 OFF:0
          |        |-bit7.bit5 (mode cool:010 fan:011 auto 101 heat:001 dry: 100)
          |        |-bit0 ON:1 OFF:0
@@ -303,7 +308,7 @@ From remote (Mode is bit3-bit0 from last data byte) cool:010 fan:011 auto 101 he
 40 00 11 03 08 42 04 1C //dry   04 -> 0000 0100
 
 
-Full log (Mode in master is bit3-bit1 from byte 6 (starting from 0)
+Full log for mode changing (Mode in master is bit3-bit1 from byte 6 (starting from 0)
 cool
 40 00 11 03 08 42 02 1A                                  //cool   02 -> 0000 0010
 00 40 18 02 80 A1 7B                                                          ---
@@ -314,18 +319,19 @@ fan
 00 40 18 02 80 A1 7B                                                          ---
 00 52 11 04 80 86 64 01 24 
 00 FE 1C 0D 80 81 6D AC 00 00 76 00 33 33 01 00 01 59    // 6D AC 00 -> 0110 1101 1010 1100
-00 52 11 04 80 86 64 01 24                                              ---
-00 52 11 04 80 86 64 01 24                               // 64 -> 0110 0100
+00 52 11 04 80 86 64 01 24                                              --- 
+00 52 11 04 80 86 64 01 24                               // 64 -> 0110 0100       new value here is 3 
                                                                   ---
 auto
 40 00 11 03 08 42 05 1D                                  //auto  05 -> 0000 0101
 00 40 18 02 80 A1 7B                                                         ---
-40 00 15 02 08 42 1D 
+40 00 15 02 08 42 1D                                     
 00 40 18 04 80 42 05 06 9D                               //requested 05, assigned 06??
 00 FE 1C 0D 80 81 CD 8C 00 00 76 00 33 33 01 00 01 D9    // CD 8C 00 -> 1100 1101 1000 1100
 00 FE 10 02 80 8A E6                                                    ---         -
-00 52 11 04 80 86 C4 01 84                               // C4 -> 1100 0100
-                                                                  ---
+                                                                        mode      fan level bit3-bit1 -> 100 ???
+00 52 11 04 80 86 C4 01 84                               // C4 -> 1100 0100       
+                                                                  ---                                                                                                                       
 heat
 40 00 11 03 08 42 01 19                                  //heat  01 -> 0000 0001
 00 40 18 02 80 A1 7B                                                         ---
@@ -364,31 +370,34 @@ bit0 from 7th in remote message
 00 52 11 04 80 86 84 01 C4 
 ```
 
-Fan mode
+Fan level
 ```
-Master 7th byte bit3-bit1  auto:0x010 med:011 high:110 low:101 
+From remote request 7th byte bit3-bit1  auto:0x010 med:011 high:110 low:101
+From master status  7th byte bit7-bit5
 
+                      *
+ 0  1  2  3  4  5  6  7  8  9 10 11 12
 40 00 11 08 08 4C 14 1A 7A 00 33 33 69                 -> A 1010  auto
                       -                                      ---
 00 FE 1C 0D 80 81 8D 4C 00 00 7A 00 33 33 01 00 01 55  -> 4 0100
                      -                                      ---
----
+...
 40 00 11 08 08 4C 14 1B 7A 00 33 33 68                 -> B 1011 medium
                       -                                      ---
 00 FE 1C 0D 80 81 8D 6C 00 00 7A 00 33 33 01 00 01 75  -> 6 0110
                      -                                      ---
----
+...
 40 00 11 08 08 4C 14 1C 7A 00 33 33 6F                  -> A 1100 high
                       -                                       ---
 00 FE 1C 0D 80 81 8D 8C 00 00 7A 00 33 33 01 00 01 95   -> 8 1000
                      -                                       ---
---
+...
 
 40 00 11 08 08 4C 14 1D 7A 00 33 33 6E                  -> D 1101   low
                       -                                       ---
 00 FE 1C 0D 80 81 8D AC 00 00 7A 00 33 33 01 00 01 B5   -> A 1010
                      -                                       ---
---
+...
 ??
 40 00 15 07 08 0C 81 00 00 48 00 9F                     -> 
                
