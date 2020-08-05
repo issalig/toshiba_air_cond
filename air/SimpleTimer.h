@@ -5,7 +5,7 @@ class SimpleTimer {
     uint64_t _start;
     int _interval;
     bool _enabled;
-    int _unit=1000;
+    int _unit=60*1000;
     
 public:
 

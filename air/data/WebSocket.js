@@ -1,111 +1,134 @@
 var rainbowEnable = false;
 var power = false;
+var save = false;
  
 function updateStatus(data)
 {
-   document.getElementById('serial').innerHTML = data;//"cacasion"; //data.toString(); 
+   document.getElementById('serial').innerHTML = data;//data.toString(); 
 }
 
 var connection = new WebSocket('ws://'+location.hostname+':81/', ['arduino']);
+
 connection.onopen = function () {
     connection.send('Connect ' + new Date());
+    document.getElementById('connection').textContent = "open";
     
-       // Ejemplo 1, peticion desde cliente
    (function scheduleRequest() {
-      //connection.send("L");
-      //send json
+      //send json            
+	  var today = new Date();
+      var curr_time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
         let data = {
-			id: "status"
+			id: "status",
+			value: curr_time
 		}
 		let json = JSON.stringify(data);
 		connection.send(json);
       //end send json
-      setTimeout(scheduleRequest, 500);
+      setTimeout(scheduleRequest, 500); //ask for status every 500 ms
    })();
 };
+
 connection.onerror = function (error) {
     console.log('WebSocket Error ', error);
+    document.getElementById('connection').textContent = "error";
 };
+
 connection.onmessage = function (e) {  //data from server
     console.log('Server: ', e.data);
     //updateStatus(e.data);
     processData(e.data);
 };
+
 connection.onclose = function(e){
     console.log('WebSocket connection closed');
     console.log('Reconnect will be attempted in 1 second.', e.reason);
-    setTimeout(function() {
-      connection();
-    }, 1000);
+    document.getElementById('connection').textContent = "closed";
+    connection = new WebSocket('ws://'+location.hostname+':81/', ['arduino']);
+
+    //setTimeout(function() {
+	//	connection = new WebSocket('ws://'+location.hostname+':81/', ['arduino']);
+	//	console.log('Reconnecting.');
+	//	}, 1000);
 };
 
-function sendData()
-{
-  let ledNumber = document.getElementById('ledNumber');
-  let ledStatus = document.querySelector('input[name="status"]:checked');
+//function sendData()
+//{
+  //let ledNumber = document.getElementById('ledNumber');
+  //let ledStatus = document.querySelector('input[name="status"]:checked');
  
-  let data = {
-     command : "Set",
-     id: ledNumber.value,
-     status: ledStatus.value
-  }
-  let json = JSON.stringify(data);
+  //let data = {
+     //command : "Set",
+     //id: ledNumber.value,
+     //status: ledStatus.value
+  //}
+  //let json = JSON.stringify(data);
  
-  connection.send(json);
-}
+  //connection.send(json);
+//}
  
-function getData()
-{
-  let data = {
-     command : "Get"
-  }
-  let json = JSON.stringify(data);
+//function getData()
+//{
+  //let data = {
+     //command : "Get"
+  //}
+  //let json = JSON.stringify(data);
  
-  connection.send(json);
-}
+  //connection.send(json);
+//}
 
 function processData(data)
 {
   let json = JSON.parse(data); 
   console.log(json);
+
+  if (json.save=='1') save = true; else save=false;
+  if (json.power=='ON') power = true; else power=false;
   
   document.getElementById('save').textContent = json.save;
   document.getElementById('heat').textContent = json.heat;
-  document.getElementById('cold').textContent = json.cold;
+  //document.getElementById('cool').textContent = json.cool;
   document.getElementById('temp').textContent = json.temp;
   document.getElementById('sensor_temp').textContent = json.sensor_temp;
-  document.getElementById('fan').textContent = json.fan;
-  //document.getElementById('fan_str').textContent = json.fan_str;
+  document.getElementById('fan').textContent = json.fan;  
   document.getElementById('mode').textContent = json.mode;
-  //document.getElementById('mode_str').textContent = json.mode_str;
   document.getElementById('power').textContent = json.power;
   document.getElementById('last_cmd').textContent = json.last_cmd;
   
   //document.getElementById('timer_time').textContent = json.timer_time;
   document.getElementById('timer_pending').textContent = json.timer_pending;
 
-}
 
-function powerb() {
-	power = !power;
-	var str = 'W';
-    console.log('POWER: ' + str); 
-    connection.send(str);
-    if (power)
-		document.getElementById('powerb').style.backgroundColor = '#00878F';      
-    else        
-        document.getElementById('powerb').style.backgroundColor = '#999';
-    
-    let data = {
-       id : "power",
-       mode : power
-    }
-     //document.getElementById('power').textContent = json.power;
-     
-    let json = JSON.stringify(data);
+  //reset color
+  document.getElementById('fan_low').style.backgroundColor = '#999';
+  document.getElementById('fan_medium').style.backgroundColor = '#999';
+  document.getElementById('fan_high').style.backgroundColor = '#999';
+  document.getElementById('fan_auto').style.backgroundColor = '#999';
  
-    connection.send(json);
-    console.log('Send: ' + json);         
+  document.getElementById('mode_fan').style.backgroundColor = '#999';
+  document.getElementById('mode_dry').style.backgroundColor = '#999';
+  document.getElementById('mode_cool').style.backgroundColor = '#999';
+  document.getElementById('mode_heat').style.backgroundColor = '#999';
+  
+  document.getElementById('power_on').style.backgroundColor = '#999';
+  document.getElementById('power_off').style.backgroundColor = '#999';
+
+  document.getElementById('save_button').style.backgroundColor = '#999';
+
+  //set color
+  if (json.fan == 'LOW') { document.getElementById('fan_low').style.backgroundColor = '#00878F';}
+  else if (json.fan == 'MED') { document.getElementById('fan_medium').style.backgroundColor = '#00878F'; }
+  else if (json.fan == 'HIGH') { document.getElementById('fan_high').style.backgroundColor = '#00878F'; }
+  else if (json.fan == 'AUTO') { document.getElementById('fan_auto').style.backgroundColor = '#00878F'; }       
+  
+  if (json.mode == 'DRY') { document.getElementById('mode_dry').style.backgroundColor = '#00878F';}
+  else if (json.mode == 'COOL') { document.getElementById('mode_cool').style.backgroundColor = '#00878F'; }
+  else if (json.mode == 'FAN') { document.getElementById('mode_fan').style.backgroundColor = '#00878F'; }
+  else if (json.mode == 'HEAT') { document.getElementById('mode_heat').style.backgroundColor = '#00878F'; }
+  
+  if (json.power == '1') { document.getElementById('power_on').style.backgroundColor = '#00878F';} 
+  else { document.getElementById('power_off').style.backgroundColor = '#00878F';} 
+  
+  if (json.save == '1') { document.getElementById('save_button').style.backgroundColor = '#00878F';} 
 }
 
 function power_on() {
@@ -130,6 +153,18 @@ function power_off() {
     console.log('Send: ' + json);
 }
 
+function save_toggle() {
+	var save_value;
+	if (save) save_value = "0"; else save_value = "1";	
+    let data = {
+       id : "save",
+       value : save_value
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+}
 
 function mode_fan() {
     let data = {
@@ -153,10 +188,21 @@ function mode_dry() {
     console.log('Send: ' + json);
 }
 
-function mode_cold() {
+function mode_cool() {
     let data = {
        id : "mode",
        value : "cool"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+}
+
+function mode_heat() {
+    let data = {
+       id : "mode",
+       value : "heat"
     }
     let json = JSON.stringify(data);
  

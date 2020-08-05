@@ -91,6 +91,18 @@ int air_set_mode_dry(air_status_t *air) {
   air_send_data(air, data, sizeof(data));
 }
 
+int air_set_save_off(air_status_t *air) {
+  //bit0 from 7th in remote message
+  byte data[] = {0x40, 0x00, 0x11, 0x04, 0x08, 0x54, 0x01, 0x00, 0x08};  
+  air_send_data(air, data, sizeof(data));
+}
+
+int air_set_save_on(air_status_t *air) {
+  //bit0 from 7th in remote message
+  byte data[] = {0x40, 0x00, 0x11, 0x04, 0x08, 0x54, 0x01, 0x01, 0x09};  
+  air_send_data(air, data, sizeof(data));
+}
+
 
 int air_set_temp_minus(air_status_t *air)  {
   //               00    01    02    03    04    05    06    07    08    09    10    11   CRC
@@ -155,7 +167,7 @@ int air_set_temp(air_status_t *air, uint8_t target_temp)  {
   data[7] = air->fan | 0b11000; //FAN set bit3 to 1 and bit4 to 1
 
   //compose new message
-  data[8] = ((target_temp + 1) + 35) << 1; //temp is bit7-bit1
+  data[8] = ((target_temp) + 35) << 1; //temp is bit7-bit1
   data[10] = data[11] = 0x01 + 0x04 * air->heat + 0x02 * air->cold;
 
   //compose new message
@@ -296,24 +308,22 @@ void air_decode_command(byte * data, air_status_t *s) {
       s->fan  = (data[7] & 0b11100000) >> 5;
       Serial.println(s->fan);
       switch (s->fan) {
-        case 2:  strcpy(s->fan_str, "AUTO"); break;
-        case 3:  strcpy(s->fan_str, "MED"); break;
-        case 6:  strcpy(s->fan_str, "HIGH"); break;
-        case 5:  strcpy(s->fan_str, "LOW"); break;
-        default: strcpy(s->fan_str, "UNK");
+        case FAN_AUTO:   strcpy(s->fan_str, "AUTO"); break;
+        case FAN_MEDIUM: strcpy(s->fan_str, "MED"); break;
+        case FAN_HIGH:   strcpy(s->fan_str, "HIGH"); break;
+        case FAN_LOW:    strcpy(s->fan_str, "LOW"); break;
+        default: strcpy(s->fan_str, "UNK");        
       }
-
       s->mode = (data[6] & 0b11100000) >> 5;
       switch (s->mode) {
-        case 0b010: strcpy(s->mode_str, "COOL"); break;
-        case 0b011: strcpy(s->mode_str, "FAN"); break;
-        case 0b101: strcpy(s->mode_str, "AUTO"); break;
-        case 0b001: strcpy(s->mode_str, "HEAT"); break;
-        case 0b100: strcpy(s->mode_str, "DRY"); break;
+        case MODE_COOL: strcpy(s->mode_str, "COOL"); break;
+        case MODE_FAN:  strcpy(s->mode_str, "FAN"); break;
+        case MODE_AUTO: strcpy(s->mode_str, "AUTO"); break;
+        case MODE_HEAT: strcpy(s->mode_str, "HEAT"); break;
+        case MODE_DRY:  strcpy(s->mode_str, "DRY"); break;
         default: strcpy(s->mode_str, "UNK");
       }
       s->temp = ((data[10] & 0b11111110) >> 1) - 35;
-
       s->power = data[6] & 0b1;
 
       //extended status data[5] == 0x81 and data[2] == 0x58
@@ -329,22 +339,22 @@ void air_decode_command(byte * data, air_status_t *s) {
       s->save = data[14 + 2] & 0b1;
       s->heat = (data[13 + 2] & 0b100) >> 2;
       s->cold = !s->heat;
-      s->fan = (data[7] & 0b00001110) >> 1;
+      s->fan  = (data[7] & 0b11100000) >> 5;
       switch (s->fan) {
-        case 0b010: strcpy(s->fan_str, "AUTO"); break;
-        case 0b011: strcpy(s->fan_str, "MED"); break;
-        case 0b110: strcpy(s->fan_str, "HIGH"); break;
-        case 0b101: strcpy(s->fan_str, "LOW"); break;
+        case FAN_AUTO: strcpy(s->fan_str, "AUTO"); break;
+        case FAN_MEDIUM: strcpy(s->fan_str, "MED"); break;
+        case FAN_HIGH: strcpy(s->fan_str, "HIGH"); break;
+        case FAN_LOW: strcpy(s->fan_str, "LOW"); break;
         default: strcpy(s->fan_str, "UNK");
       }
 
       s->mode = (data[6] & 0b11100000) >> 5;
       switch (s->mode) {
-        case 0b010: strcpy(s->mode_str, "COOL"); break;
-        case 0b011: strcpy(s->mode_str, "FAN"); break;
-        case 0b101: strcpy(s->mode_str, "AUTO"); break;
-        case 0b001: strcpy(s->mode_str, "HEAT"); break;
-        case 0b100: strcpy(s->mode_str, "DRY"); break;
+        case MODE_COOL: strcpy(s->mode_str, "COOL"); break;
+        case MODE_FAN: strcpy(s->mode_str, "FAN"); break;
+        case MODE_AUTO: strcpy(s->mode_str, "AUTO"); break;
+        case MODE_HEAT: strcpy(s->mode_str, "HEAT"); break;
+        case MODE_DRY: strcpy(s->mode_str, "DRY"); break;
         default: strcpy(s->mode_str, "UNK");
       }
 
@@ -371,6 +381,8 @@ void air_decode_command(byte * data, air_status_t *s) {
 
 }
 
+//reads serial and gets a valid command in air.rx_data
+//calls decode command to fill air structure
 void air_parse_serial(air_status_t *air) {
   int i, j_init, j_end, k;
   uint8_t mylen = 0;
@@ -379,10 +391,12 @@ void air_parse_serial(air_status_t *air) {
   int i_start, i_end, segment_len;
   bool found = false;
 
-  i = air->curr_w_idx;
-  i_start = air->curr_r_idx;
+  //circular buffer avoid loosing parts of messags but it is not working
+  //thus is disabled
+  //i = air->curr_w_idx;
+  //i_start = air->curr_r_idx;
 
-  i = i_start = 0; //with this some bytes will be lost but not a big problem
+  i = i_start = 0; //no circular buffer - with this some bytes will be lost but not a big problem
 
   SoftwareSerial *ss;
   ss = &(air->serial);

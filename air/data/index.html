@@ -3,12 +3,12 @@
 <head>
     <title>Aire Acondicionado</title>
     <link href='main.css' rel='stylesheet' type='text/css'>
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180x180.png">
     <link rel="icon" type="image/png" sizes="144x144"  href="/favicon-144x144.png">
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon.ico">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#00878f">
     <meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0' name='viewport'>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <script src="WebSocket.js" type="text/javascript"></script>
 </head>
 
@@ -25,13 +25,12 @@
                     <td><input class="enabled" id="r" type="range" min="0" max="1" step="1" oninput="sendRGB();" value="0"></td>
                 </tr>
 -->
+				<tr>
+				<td></td>Connection: <div id="connection">---</div></td>
+				</tr>
                 <tr>
-                    <td >Target Temp: </td>
-                    <td> <div id="temp">---</div></td>
-                </tr>
-                <tr>
-                    <td >Current Temp: </td>
-                    <td><div id="sensor_temp">---</div></td>
+                    <td >Target/Curr Temp: </td>
+                    <td> <div id="temp">---</div>/<div id="sensor_temp">---</div></td>
                 </tr>
 				<tr>
                     <td >Mode: </td>
@@ -41,10 +40,12 @@
                     <td >Heat: </td>
                     <td><div id="heat">---</div></td>
                 </tr>
+<!--
                 <tr>
-                    <td >Cold: </td>
-                    <td><div id="cold">---</div></td>
+                    <td >Cool: </td>
+                    <td><div id="cool">---</div></td>
                 </tr>
+-->
                 <tr>
                     <td >Fan: </td>
                     <td><div id="fan">---</div></td>
@@ -74,22 +75,27 @@
 			<label for="timer_on">Timer ON</label>
 			</p>
 			<p>
-            <input class="enabled" id="timer_range" type="range" min="0" max="60" step="1" oninput="timer_changed()" value="30"> <div id="timer_time">-</div> <div id="timer_pending">-</div>
-            <button id="timer_button" class="button" style="background-color:#999" onclick="setACTimer();">Timer</button></p>
+            <input class="enabled" id="timer_range" type="range" min="0" max="60" step="1" oninput="timer_changed()" value="30" width="80%"> <div id="timer_time">-</div> <div id="timer_pending">-</div>
+            <button id="timer_button" class="button" style="background-color:#999" onclick="setACTimer();">Timer</button>            
             </p>    
      
-            <p style="margin:8px 0px"><button id="tempm" class="button" style="background-color:#999" onclick="tempm();">-</button>
+            <p style="margin:8px 0px">
+			<button id="save_button" class="button" style="background-color:#999" onclick="save_toggle();">Save</button>				
+			<button id="tempm" class="button" style="background-color:#999" onclick="tempm();">-</button>
             <button id="tempp" class="button" style="background-color:#999" onclick="tempp();">+</button><br>
             <button id="mode_fan" class="button" style="background-color:#999" onclick="mode_fan();">Fan</button>
             <button id="mode_dry" class="button" style="background-color:#999" onclick="mode_dry();">Dry</button>
-            <button id="mode_cold" class="button" style="background-color:#999" onclick="mode_cold();">Cold</button><br>
+            <button id="mode_cool" class="button" style="background-color:#999" onclick="mode_cool();">Cool</button>
+            <button id="mode_heat" class="button" style="background-color:#999" onclick="mode_heat();">Heat</button><br>
             <button id="fan_low" class="button" style="background-color:#999" onclick="fan_low();">Low</button>
             <button id="fan_medium" class="button" style="background-color:#999" onclick="fan_medium();">Med</button>
             <button id="fan_high" class="button" style="background-color:#999" onclick="fan_high();">High</button>
-            <button id="fan_auto" class="button" style="background-color:#999" onclick="fan_auto();">Auto</button>
+            <button id="fan_auto" class="button" style="background-color:#999" onclick="fan_auto();">Auto</button>            
             </p>
-            <p style="margin:8px 0px"><button id="powerb" class="button" style="background-color:#999" onclick="power_on();">ON</button></p>
-            <p style="margin:8px 0px"><button id="powerb" class="button" style="background-color:#999" onclick="power_off();">OFF</button></p>
+            <p style="margin:8px 0px">
+			<button id="power_on" class="button" style="background-color:#999" onclick="power_on();">ON</button>
+            <button id="power_off" class="button" style="background-color:#999" onclick="power_off();">OFF</button>
+            </p>
 			<a href="/edit.html">Edit</a>
         </div>
     </center>

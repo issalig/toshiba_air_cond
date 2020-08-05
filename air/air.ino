@@ -4,10 +4,17 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 #include <FS.h>
-#include <WebSocketsServer.h>
+#include <WebSocketsServer.h> //Links2004 ///arduino websockets gil maimon
 #include <ArduinoJson.h>  //by Benoit Blanchon
 #include "toshiba_serial.hpp"
 #include "SimpleTimer.hpp"
+
+const char *w_ssid = "";
+const char *w_passwd = "";
+
+IPAddress ip(192,168,2,200);     
+IPAddress gateway(192,168,2,1);   
+IPAddress subnet(255,255,255,0);   
 
 air_status_t air_status;
 SimpleTimer timerAC;
@@ -49,9 +56,9 @@ void setup() {
 
   startServer();               // Start a HTTP server with a file read handler and an upload handler
 
-  // Start air conditioning structure and software serial
+  init_air_serial(&air_status); // Start air conditioning structure and software serial
 
-  init_air_serial(&air_status);
+  //timerAC.setUnit(60*1000);    //set unit to minutes
 }
 
 void handleTimer() {
@@ -73,25 +80,46 @@ void handleTimer() {
 
 bool power = false;             // power is off in startup
 unsigned long prevMillis = millis();
-int hue = 0;
 
 void loop() {
   webSocket.loop();                           // constantly check for websocket events
   server.handleClient();                      // run the server
   ArduinoOTA.handle();                        // listen for OTA events
 
+  //air_parse_serial(&air_status);
+
   handleTimer();
 }
 
 /*__________________________________________________________SETUP_FUNCTIONS__________________________________________________________*/
 
-void startWiFi() { // Start a Wi-Fi access point, and try to connect to some given access points. Then wait for either an AP or STA connection
+void startWiFi(){ //fixed IP
+  WiFi.mode(WIFI_STA);
+  WiFi.config(ip, gateway, subnet);
+  WiFi.begin(w_ssid, w_passwd);
+  Serial.print("Connected to:\t");
+  Serial.println(w_ssid); 
+ 
+  // wait for connection
+  while (WiFi.status() != WL_CONNECTED) 
+  {
+    delay(200); 
+   Serial.print('.');
+  }
+ 
+  // show IP
+  Serial.println("Connection stablished.");  
+  Serial.print("IP address:\t");
+  Serial.println(WiFi.localIP());
+}
+
+void startWiFi_ap() { // Start a Wi-Fi access point, and try to connect to some given access points. Then wait for either an AP or STA connection
   WiFi.softAP(ssid, password);             // Start the access point
   Serial.print("Access Point \"");
   Serial.print(ssid);
   Serial.println("\" started\r\n");
 
-  wifiMulti.addAP("ssid", "pass");   // add Wi-Fi networks you want to connect to
+  wifiMulti.addAP(w_ssid, w_passwd);   // add Wi-Fi networks you want to connect to
   //wifiMulti.addAP("ssid_from_AP_2", "your_password_for_AP_2");
   //wifiMulti.addAP("ssid_from_AP_3", "your_password_for_AP_3");
 
@@ -267,9 +295,9 @@ String air2json(air_status_t *air)
   jsonDoc["cold"] = air->cold;
   jsonDoc["temp"] = air->temp;
   jsonDoc["sensor_temp"] = air->sensor_temp;
-  jsonDoc["fan"] = air->fan;
+  jsonDoc["fan"] = air->fan_str;
   //jsonDoc["fan_str"] = air->fan_str;
-  jsonDoc["mode"] = air->mode;
+  jsonDoc["mode"] = air->mode_str;
   //jsonDoc["mode_str"] = air->mode_str;
   jsonDoc["power"] = air->power;
   jsonDoc["timer_pending"] = timerAC.pendingTime();
@@ -278,7 +306,7 @@ String air2json(air_status_t *air)
   int i;
   String message;
   for (i = 0; i < MAX_CMD_BUFFER && i < (air_status.last_cmd[3] + 5) ; i++)
-    message += ((air_status.last_cmd[i] < 10) ? "0" : "")  + String(air_status.last_cmd[i], HEX) + " ";
+    message += ((air_status.last_cmd[i] < 0x10) ? "0" : "")  + String(air_status.last_cmd[i], HEX) + " ";
 
   jsonDoc["last_cmd"] = message;
 
@@ -290,15 +318,15 @@ String air2json(air_status_t *air)
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) { // When a WebSocket message is received
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
-      Serial.printf("[%u] Disconnected!\n", num);
+      Serial.printf("WS [%u] Disconnected!\n", num);
       break;
     case WStype_CONNECTED: {              // if a new websocket connection is established
         IPAddress ip = webSocket.remoteIP(num);
-        Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
+        Serial.printf("WS [%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
       }
       break;
     case WStype_TEXT:                     // if new text data is received
-      Serial.printf("[%u] Received: %s\n", num, payload);
+      Serial.printf("WS [%u] Received: %s\n", num, payload);
 
       //decode json
       StaticJsonDocument<200> jsonDoc;
@@ -327,11 +355,14 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
 
       } else if (jsonDoc["id"] == "temp") {
         int val = atoi(jsonDoc["temp"]);
+        
+        //if (jsonDoc["temp"] == "1") { //
         if (val == 1) {
           val = air_status.temp + 1;
           if (val > 30) val = 30;
           if (val < 19) val = 19;
           air_set_temp(&air_status, val);
+        //} else if (jsonDoc["temp"] == "0") { //
         } else if (val == 0) {
           val = air_status.temp - 1;
           if (val > 30) val = 30;
@@ -342,11 +373,9 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
           if (val < 19) val = 19;
           air_set_temp(&air_status, val);
         }
-
       }
       else if (jsonDoc["id"] == "timer") {
         Serial.println("Received timer");
-        Serial.printf("%s\n", payload);
         int val = atoi(jsonDoc["timer_time"]);
         timerAC.setInterval(val);
         timerAC.start();
@@ -355,7 +384,6 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       }
       else if (jsonDoc["id"] == "mode") {
         Serial.println("Received mode");
-        Serial.printf("%s\n", payload);
         if (jsonDoc["value"] == "cool") {
           air_set_mode(&air_status, MODE_COOL);
         } else if (jsonDoc["value"] == "dry") {
@@ -366,7 +394,6 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       }
       else if (jsonDoc["id"] == "fan") {
         Serial.println("Received fan");
-        Serial.printf("%s\n", payload);
         if (jsonDoc["value"] == "low") {
           air_set_fan(&air_status, FAN_LOW);
         } else if (jsonDoc["value"] == "medium") {
@@ -377,20 +404,25 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
           air_set_fan(&air_status, FAN_AUTO);
         }
       }
+      else if (jsonDoc["id"] == "save") {
+        Serial.println("Received save");
+        if (jsonDoc["value"] == "1") {
+          air_set_save_on(&air_status);
+        } else if (jsonDoc["value"] == "0") {
+          air_set_save_off(&air_status);
+        }
+      }
       else if (jsonDoc["id"] == "status") {                      // last cmd
-        Serial.print("STATUS");
-        //process air commands
+        Serial.println("Status");
+        //parse and decode air commands
         air_parse_serial(&air_status);
 
-        //String message = String(millis(), DEC);
         int i;
         String message;
         for (i = 0; i < MAX_CMD_BUFFER && i < (air_status.last_cmd[3] + 5) ; i++)
-          message += String(air_status.last_cmd[i], HEX) + " ";
+          message += (air_status.last_cmd[i]<0x10)?"0":""+String(air_status.last_cmd[i], HEX) + " ";
 
         Serial.print(message);
-
-        //webSocket.broadcastTXT(message);
 
         message = air2json(&air_status);
         webSocket.broadcastTXT(message);
