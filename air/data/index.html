@@ -18,57 +18,8 @@
             <h1>Aire acondicionado</h1>
         </header>
         <div>
-            <table>
-<!--
-                <tr>
-                    <td >R: </td>
-                    <td><input class="enabled" id="r" type="range" min="0" max="1" step="1" oninput="sendRGB();" value="0"></td>
-                </tr>
--->
-				<tr>
-				<td></td>Connection: <div id="connection">---</div></td>
-				</tr>
-                <tr>
-                    <td >Target/Curr Temp: </td>
-                    <td> <div id="temp">---</div>/<div id="sensor_temp">---</div></td>
-                </tr>
-				<tr>
-                    <td >Mode: </td>
-                    <td><div id="mode">---</div></td>
-                </tr>
-                <tr>
-                    <td >Heat: </td>
-                    <td><div id="heat">---</div></td>
-                </tr>
-<!--
-                <tr>
-                    <td >Cool: </td>
-                    <td><div id="cool">---</div></td>
-                </tr>
--->
-                <tr>
-                    <td >Fan: </td>
-                    <td><div id="fan">---</div></td>
-                </tr>
-                <tr>
-                    <td >Save: </td>
-                    <td><div id="save">---</div></td>
-                </tr>
-                <tr>
-                    <td >Power: </td>
-                    <td><div id="power">---</div></td>
-                </tr>
-
-                <tr>
-                    <td >Cmd: </td>                    
-                </tr>
-                <tr>                    
-                    <td><div id="last_cmd">---</div></td>
-                </tr>
-                
-            </table>         
-            
-            <p>
+			Target/Curr Temp: <div id="temp">---</div>/<div id="sensor_temp">---</div>
+             
             <input type="radio" id="timer_off" name="timer_r" value="timer_off">
 			<label for="timer_off">Timer OFF</label>
 			<input type="radio" id="timer_on" name="timer_r" value="timer_on">
@@ -96,7 +47,65 @@
 			<button id="power_on" class="button" style="background-color:#999" onclick="power_on();">ON</button>
             <button id="power_off" class="button" style="background-color:#999" onclick="power_off();">OFF</button>
             </p>
+                        
 			<a href="/edit.html">Edit</a>
+			
+			            <table>
+<!--
+                <tr>
+                    <td >R: </td>
+                    <td><input class="enabled" id="r" type="range" min="0" max="1" step="1" oninput="sendRGB();" value="0"></td>
+                </tr>
+-->
+				<tr>
+				<td></td>Connection: <div id="connection">---</div></td>
+				</tr>
+<!--
+                <tr>
+                    <td >Target/Curr Temp: </td>
+                    <td> <div id="temp">---</div>/<div id="sensor_temp">---</div></td>
+                </tr>
+-->
+<!--
+				<tr>
+                    <td >Mode: </td>
+                    <td><div id="mode">---</div></td>
+                </tr>
+                <tr>
+                    <td >Heat: </td>
+                    <td><div id="heat">---</div></td>
+                </tr>
+-->
+<!--
+                <tr>
+                    <td >Cool: </td>
+                    <td><div id="cool">---</div></td>
+                </tr>
+-->
+<!--
+                <tr>
+                    <td >Fan: </td>
+                    <td><div id="fan">---</div></td>
+                </tr>
+                <tr>
+                    <td >Save: </td>
+                    <td><div id="save">---</div></td>
+                </tr>
+                <tr>
+                    <td >Power: </td>
+                    <td><div id="power">---</div></td>
+                </tr>
+-->
+
+                <tr>
+                    <td >Cmd: </td>                    
+                </tr>
+                <tr>                    
+                    <td><div id="last_cmd">---</div></td>
+                </tr>
+                
+            </table>         
+
         </div>
     </center>
 </body>

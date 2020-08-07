@@ -82,17 +82,22 @@ function processData(data)
   console.log(json);
 
   if (json.save=='1') save = true; else save=false;
-  if (json.power=='ON') power = true; else power=false;
+  if (json.power=='1') power = true; else power=false;
   
-  document.getElementById('save').textContent = json.save;
-  document.getElementById('heat').textContent = json.heat;
+  //document.getElementById('save').textContent = json.save;
+  //document.getElementById('heat').textContent = json.heat;
   //document.getElementById('cool').textContent = json.cool;
   document.getElementById('temp').textContent = json.temp;
   document.getElementById('sensor_temp').textContent = json.sensor_temp;
-  document.getElementById('fan').textContent = json.fan;  
-  document.getElementById('mode').textContent = json.mode;
-  document.getElementById('power').textContent = json.power;
-  document.getElementById('last_cmd').textContent = json.last_cmd;
+  //document.getElementById('fan').textContent = json.fan;  
+  //document.getElementById('mode').textContent = json.mode;
+  //document.getElementById('power').textContent = json.power;
+  
+  //add last cmd if not the same
+  textlen = document.getElementById('last_cmd').textContent.length;
+  cmdlen = json.last_cmd.length;
+  if (document.getElementById('last_cmd').textContent[textlen-2] != json.last_cmd[cmdlen-2])
+  document.getElementById('last_cmd').innerHTML += '<br>' + json.last_cmd;
   
   //document.getElementById('timer_time').textContent = json.timer_time;
   document.getElementById('timer_pending').textContent = json.timer_pending;

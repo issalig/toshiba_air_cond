@@ -106,7 +106,7 @@ int air_set_save_on(air_status_t *air) {
 
 int air_set_temp_minus(air_status_t *air)  {
   //               00    01    02    03    04    05    06    07    08    09    10    11   CRC
-  byte data[] = {0x40, 0x00, 0x11, 0x08, 0x08, 0x4C, 0x0C, 0x1D, 0x7A, 0x00, 0x33, 0x33, 0x76}; // press temp up   (current 25, 26 after pressing)
+  byte data[] = {0x40, 0x00, 0x11, 0x08, 0x08, 0x4C, 0x0C, 0x1D, 0x7A, 0x00, 0x33, 0x33, 0x76};
   byte heat, cold, temp, mode, fan;
 
   //get status
@@ -391,7 +391,7 @@ void air_parse_serial(air_status_t *air) {
   int i_start, i_end, segment_len;
   bool found = false;
 
-  //circular buffer avoid loosing parts of messags but it is not working
+  //circular buffer avoids loosing parts of messages but it is not working
   //thus is disabled
   //i = air->curr_w_idx;
   //i_start = air->curr_r_idx;
@@ -467,8 +467,9 @@ void air_parse_serial(air_status_t *air) {
 
   } //end for j_init
 
-  air->curr_w_idx = i;
-  air->curr_r_idx = i_start;
+  //circular buffer avoids loosing parts of messages but it is not working
+  //air->curr_w_idx = i;
+  //air->curr_r_idx = i_start;
 }
 
 
@@ -478,7 +479,7 @@ void air_send_data(air_status_t *air, byte *data, int len) {
   SoftwareSerial *ss;
   ss = &(air->serial);
 
-  ss->enableIntTx(true);
+  ss->enableIntTx(true); //enable TX
 
 #ifdef DEBUG
   Serial.println("");
@@ -496,7 +497,7 @@ void air_send_data(air_status_t *air, byte *data, int len) {
   Serial.println("");
 #endif
 
-  ss->enableIntTx(false);
+  ss->enableIntTx(false); //disable TX
 
 }
 
