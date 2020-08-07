@@ -1,6 +1,15 @@
 # toshiba_air_cond
 Decode Toshiba A-B protocol (aka TCC Link)
 
+TO-DOS
+
+-Reconnect WebScokets when connection closes
+
+-Redesign HTML page
+
+-Use DC buck/boost from A-B line to power ESP8266 (tried, but not working)
+
+-Guess timer opcodes if any (not sure if remote takes care of it internally)
 
 
 ```
@@ -33,8 +42,8 @@ https://www.onsemi.com/pub/Collateral/P2N2222A-D.PDF
 https://learnabout-electronics.org/Downloads/PC817%20optocoupler.pdf
 
 
-              3v3             
-               |                             |--------|<------- A               
+              3v3                                   1N4001
+               |                             |--------<------- A               
                200                _______    |     |               
                ------------------|       |---|     ^ z13v
                |                 | PC817 |         |
