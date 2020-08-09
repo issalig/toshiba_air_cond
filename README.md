@@ -11,6 +11,7 @@ TO-DOS
 
 -Guess timer opcodes if any (not sure if remote takes care of it internally)
 
+-Check other circuits as https://easyeda.com/marcegli/door-opener https://frog32.ch/smart-intercom.html
 
 ```
 Signal is around 15.6 volts when 1 and 14 when 0. Zener diode provides 13V reference, so signal is 1 .. 2.6 and after diode (0.7 drop) is 0.3 .. 1.9, enough to activate photodiode (1.2V) when 1 and to not activate it when 0.
