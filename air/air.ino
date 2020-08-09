@@ -9,8 +9,8 @@
 #include "toshiba_serial.hpp"
 #include "SimpleTimer.hpp"
 
-const char *w_ssid = "";
-const char *w_passwd = "";
+const char *w_ssid = "x";
+const char *w_passwd = "x";
 
 IPAddress ip(192,168,2,200);     
 IPAddress gateway(192,168,2,1);   
@@ -32,8 +32,19 @@ const char *password = "aire";   // The password required to connect to it, leav
 const char *OTAName = "ESP8266";           // A name and a password for the OTA service
 const char *OTAPassword = "esp8266";
 
-
 const char* mdnsName = "aire"; // Domain name for the mDNS responder
+
+#include "DHT.h"
+const int DHTPin = D2;
+#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+DHT dht(DHTPin, DHTTYPE);
+SimpleTimer timerDHT;
+int DHTinterval = 120;  //every 5 minutes
+#define MAX_DHT_DATA 288*2 // for two days
+float dht_h[MAX_DHT_DATA];
+float dht_t[MAX_DHT_DATA];
+int dht_idx=0;
+
 
 /*__________________________________________________________SETUP__________________________________________________________*/
 
@@ -58,7 +69,10 @@ void setup() {
 
   init_air_serial(&air_status); // Start air conditioning structure and software serial
 
-  //timerAC.setUnit(60*1000);    //set unit to minutes
+  timerDHT.setInterval(DHTinterval);
+  dht.begin();
+  dht_h[0] = dht.readHumidity();
+  dht_t[0] = dht.readTemperature();
 }
 
 void handleTimer() {
@@ -74,6 +88,17 @@ void handleTimer() {
     }
   }
 
+}
+
+void handleDHT() {
+    if (timerDHT.isTime()) {
+      Serial.println("Reading DHT");
+      // Reading temperature or humidity takes about 250 milliseconds!
+      dht_h[dht_idx*0] = dht.readHumidity();
+      dht_t[dht_idx*0] = dht.readTemperature();
+      dht_idx=(dht_idx+1)%MAX_DHT_DATA;
+      timerDHT.setInterval(DHTinterval); //if it is time set it again      
+    }
 }
 
 /*__________________________________________________________LOOP__________________________________________________________*/
@@ -259,30 +284,14 @@ void handleFileUpload() { // upload a new file to the SPIFFS
   }
 }
 
-void json2air(String request, air_status_t *air)
+/*void json2air(String request, air_status_t *air)
 {
   StaticJsonDocument<200> jsonDoc;
   DeserializationError error = deserializeJson(jsonDoc, request);
   if (error) {
     return;
   }
-
-  air->save = jsonDoc["timer_mode"];
-  air->save = jsonDoc["timer_time"];
-
-  /*
-    air->heat = jsonDoc["heat"];
-    air->cold = jsonDoc["cold"];
-    air->temp = jsonDoc["temp"];
-    air->sensor_temp; jsonDoc["sensor_temp"];
-    air->fan = jsonDoc["fan"];
-    //air->fan_str = jsonDoc["fan_str"];
-    air->mode = jsonDoc["mode"];
-    //air->mode_str=jsonDoc["mode_str"];
-    air->power = jsonDoc["power"];
-    //jsonDoc["last_cmd"] = air->last_cmd;
-  */
-}
+}*/
 
 String air2json(air_status_t *air)
 {
@@ -296,13 +305,13 @@ String air2json(air_status_t *air)
   jsonDoc["temp"] = air->temp;
   jsonDoc["sensor_temp"] = air->sensor_temp;
   jsonDoc["fan"] = air->fan_str;
-  //jsonDoc["fan_str"] = air->fan_str;
   jsonDoc["mode"] = air->mode_str;
-  //jsonDoc["mode_str"] = air->mode_str;
   jsonDoc["power"] = air->power;
   jsonDoc["timer_pending"] = timerAC.pendingTime();
   jsonDoc["timer_time"] = timerAC.getInterval();
-
+  jsonDoc["dht_temp"] = dht_t[0]; // dht_t[(dht_idx-1)>0?dht_idx-1:dht_idx];
+  jsonDoc["dht_hum"] = dht_h[0]; //dht_h[(dht_idx-1)>0?dht_idx-1:dht_idx];
+ 
   int i;
   String message;
   for (i = 0; i < MAX_CMD_BUFFER && i < (air_status.last_cmd[3] + 5) ; i++)

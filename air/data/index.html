@@ -6,9 +6,11 @@
     <link rel="icon" type="image/png" sizes="144x144"  href="/favicon-144x144.png">
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon.ico">
     <link rel="manifest" href="/manifest.json">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <meta name="theme-color" content="#00878f">
     <meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0' name='viewport'>
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+	<!--> <script src="https://canvasjs.com/assets/script/canvasjs.min.js"></script> </-->
     <script src="WebSocket.js" type="text/javascript"></script>
 </head>
 
@@ -18,7 +20,8 @@
             <h1>Aire acondicionado</h1>
         </header>
         <div>
-			Target/Curr Temp: <div id="temp">---</div>/<div id="sensor_temp">---</div>
+			Target/Curr Temp: <div id="temp"  style="font-size:7vw" >-</div><i class="material-icons">input</i><div id="sensor_temp"  style="font-size:3vw">-</div>
+             <div id="dht_temp"  style="font-size:3vw">-</div><div id="dht_hum"  style="font-size:3vw">-</div>%
              
             <input type="radio" id="timer_off" name="timer_r" value="timer_off">
 			<label for="timer_off">Timer OFF</label>
@@ -47,10 +50,8 @@
 			<button id="power_on" class="button" style="background-color:#999" onclick="power_on();">ON</button>
             <button id="power_off" class="button" style="background-color:#999" onclick="power_off();">OFF</button>
             </p>
-                        
-			<a href="/edit.html">Edit</a>
-			
-			            <table>
+                        						
+			<table>
 <!--
                 <tr>
                     <td >R: </td>
@@ -97,14 +98,19 @@
                 </tr>
 -->
 
-                <tr>
-                    <td >Cmd: </td>                    
+                <tr>					
+                    <td > <input id="check_cmd" type="checkbox"/> Cmd: </td>                    
                 </tr>
                 <tr>                    
                     <td><div id="last_cmd">---</div></td>
                 </tr>
                 
             </table>         
+
+			<a href="/edit.html">Edit</a><br>
+			<!--
+			<div id="chartContainer" style="height: 370px; width: 100%;"></div>
+			-->
 
         </div>
     </center>

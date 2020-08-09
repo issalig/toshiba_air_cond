@@ -1,6 +1,6 @@
 #include "SimpleTimer.h"
 
-SimpleTimer::SimpleTimer(int interval) : _interval(interval) {
+SimpleTimer::SimpleTimer(int interval) : _interval(interval) {  // interval is seconds
     _enabled = 0;
 }
 

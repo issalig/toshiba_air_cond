@@ -1,6 +1,6 @@
-var rainbowEnable = false;
 var power = false;
 var save = false;
+var debug_cmd = false;
  
 function updateStatus(data)
 {
@@ -89,16 +89,22 @@ function processData(data)
   //document.getElementById('cool').textContent = json.cool;
   document.getElementById('temp').textContent = json.temp;
   document.getElementById('sensor_temp').textContent = json.sensor_temp;
+  document.getElementById('dht_temp').textContent = json.dht_temp;
+  document.getElementById('dht_hum').textContent = json.dht_hum;
   //document.getElementById('fan').textContent = json.fan;  
   //document.getElementById('mode').textContent = json.mode;
   //document.getElementById('power').textContent = json.power;
   
-  //add last cmd if not the same
-  textlen = document.getElementById('last_cmd').textContent.length;
-  cmdlen = json.last_cmd.length;
-  if (document.getElementById('last_cmd').textContent[textlen-2] != json.last_cmd[cmdlen-2])
-  document.getElementById('last_cmd').innerHTML += '<br>' + json.last_cmd;
+  debug_cmd=document.getElementById('check_cmd').checked;
   
+  if (debug_cmd){
+	//add last cmd if not the same
+	textlen = document.getElementById('last_cmd').textContent.length;
+	cmdlen = json.last_cmd.length;
+	if (document.getElementById('last_cmd').textContent[textlen-2] != json.last_cmd[cmdlen-2])
+	document.getElementById('last_cmd').innerHTML += '<br>' + json.last_cmd;
+  } else document.getElementById('last_cmd').innerHTML = json.last_cmd;
+
   //document.getElementById('timer_time').textContent = json.timer_time;
   document.getElementById('timer_pending').textContent = json.timer_pending;
 
@@ -299,37 +305,86 @@ function setACTimer(){
     console.log('Send: ' + json); 
 }
 
-function sendRGB() {
-    var r = document.getElementById('r').value**2/1023;
-    var g = document.getElementById('g').value**2/1023;
-    var b = document.getElementById('b').value**2/1023;
-    
-    var rgb = r << 20 | g << 10 | b;
-    var rgbstr = '#'+ rgb.toString(16);    
-    console.log('RGB: ' + rgbstr); 
-    connection.send(rgbstr);
-}
+//chart
+//window.onload = function () {
 
-function rainbowEffect(){
-    rainbowEnable = ! rainbowEnable;
-    if(rainbowEnable){
-        connection.send("R");
-        document.getElementById('rainbow').style.backgroundColor = '#00878F';
-        document.getElementById('r').className = 'disabled';
-        document.getElementById('g').className = 'disabled';
-        document.getElementById('b').className = 'disabled';
-        document.getElementById('r').disabled = true;
-        document.getElementById('g').disabled = true;
-        document.getElementById('b').disabled = true;
-    } else {
-        connection.send("N");
-        document.getElementById('rainbow').style.backgroundColor = '#999';
-        document.getElementById('r').className = 'enabled';
-        document.getElementById('g').className = 'enabled';
-        document.getElementById('b').className = 'enabled';
-        document.getElementById('r').disabled = false;
-        document.getElementById('g').disabled = false;
-        document.getElementById('b').disabled = false;
-        sendRGB();
-    }  
-}
+//var chart = new CanvasJS.Chart("chartContainer", {
+	//animationEnabled: true,
+	//title:{
+		//text: "Temperature / Humidity"
+	//},
+	//axisX: {
+		//valueFormatString: "DD MMM,YY"
+	//},
+	//axisY: {
+		//title: "Temperature (in °C)",
+		//suffix: " °C"
+	//},
+	//legend:{
+		//cursor: "pointer",
+		//fontSize: 16,
+		//itemclick: toggleDataSeries
+	//},
+	//toolTip:{
+		//shared: true
+	//},
+	//data: [{
+		//name: "Myrtle Beach",
+		//type: "spline",
+		//yValueFormatString: "#0.## °C",
+		//showInLegend: true,
+		//dataPoints: [
+			//{ x: new Date(2017,6,24), y: 31 },
+			//{ x: new Date(2017,6,25), y: 31 },
+			//{ x: new Date(2017,6,26), y: 29 },
+			//{ x: new Date(2017,6,27), y: 29 },
+			//{ x: new Date(2017,6,28), y: 31 },
+			//{ x: new Date(2017,6,29), y: 30 },
+			//{ x: new Date(2017,6,30), y: 29 }
+		//]
+	//},
+	//{
+		//name: "Martha Vineyard",
+		//type: "spline",
+		//yValueFormatString: "#0.## °C",
+		//showInLegend: true,
+		//dataPoints: [
+			//{ x: new Date(2017,6,24), y: 20.5 },
+			//{ x: new Date(2017,6,25), y: 20.5 },
+			//{ x: new Date(2017,6,26), y: 25 },
+			//{ x: new Date(2017,6,27), y: 25 },
+			//{ x: new Date(2017,6,28), y: 25 },
+			//{ x: new Date(2017,6,29), y: 25 },
+			//{ x: new Date(2017,6,30), y: 25 }
+		//]
+	//},
+	//{
+		//name: "Nantucket",
+		//type: "spline",
+		//yValueFormatString: "#0.## °C",
+		//showInLegend: true,
+		//dataPoints: [
+			//{ x: new Date(2017,6,24), y: 22 },
+			//{ x: new Date(2017,6,25), y: 19 },
+			//{ x: new Date(2017,6,26), y: 23 },
+			//{ x: new Date(2017,6,27), y: 24 },
+			//{ x: new Date(2017,6,28), y: 24 },
+			//{ x: new Date(2017,6,29), y: 23 },
+			//{ x: new Date(2017,6,30), y: 23 }
+		//]
+	//}]
+//});
+//chart.render();
+
+//function toggleDataSeries(e){
+	//if (typeof(e.dataSeries.visible) === "undefined" || e.dataSeries.visible) {
+		//e.dataSeries.visible = false;
+	//}
+	//else{
+		//e.dataSeries.visible = true;
+	//}
+	//chart.render();
+//}
+
+//}
+

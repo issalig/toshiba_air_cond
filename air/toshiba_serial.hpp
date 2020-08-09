@@ -351,7 +351,7 @@ void air_decode_command(byte * data, air_status_t *s) {
       s->mode = (data[6] & 0b11100000) >> 5;
       switch (s->mode) {
         case MODE_COOL: strcpy(s->mode_str, "COOL"); break;
-        case MODE_FAN: strcpy(s->mode_str, "FAN"); break;
+        case MODE_FAN:  strcpy(s->mode_str, "FAN"); break;
         case MODE_AUTO: strcpy(s->mode_str, "AUTO"); break;
         case MODE_HEAT: strcpy(s->mode_str, "HEAT"); break;
         case MODE_DRY: strcpy(s->mode_str, "DRY"); break;
