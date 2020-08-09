@@ -11,7 +11,8 @@ TO-DOS
 
 -Guess timer opcodes if any (not sure if remote takes care of it internally)
 
--Check other circuits as https://easyeda.com/marcegli/door-opener https://frog32.ch/smart-intercom.html https://electronics.stackexchange.com/questions/458996/logic-level-converter-for-nodemcu-esp8266-input-24v-16v-hi-lo-500-baud https://sudonull.com/post/18480-We-pump-the-intercom-with-the-MQTT-protocol-to-control-from-the-phone
+-Check other circuits as https://easyeda.com/marcegli/door-opener https://frog32.ch/smart-intercom.html https://electronics.stackexchange.com/questions/458996/logic-level-converter-for-nodemcu-esp8266-input-24v-16v-hi-lo-500-baud https://sudonull.com/post/18480-We-pump-the-intercom-with-the-MQTT-protocol-to-control-from-the-phone https://hackaday.com/2019/01/07/building-an-esp8266-doorbell-on-hard-mode/
+https://daeconsulting.co.za/2018/12/17/theres-someone-at-the-door/
 
 ```
 Signal is around 15.6 volts when 1 and 14 when 0. Zener diode provides 13V reference, so signal is 1 .. 2.6 and after diode (0.7 drop) is 0.3 .. 1.9, enough to activate photodiode (1.2V) when 1 and to not activate it when 0.
