@@ -3,9 +3,9 @@ Decode Toshiba A-B protocol (aka TCC Link)
 
 TO-DOS
 
--Reconnect WebScokets when connection closes
+-Reconnect WebScokets when connection closes (WIP, parsing does not crash now)
 
--Redesign HTML page
+-Redesign HTML page (WIP, fixed divs)
 
 -Use DC buck/boost from A-B line to power ESP8266 (tried, but not working)
 
