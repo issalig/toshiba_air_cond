@@ -7,6 +7,10 @@ TO-DOS
 
 -Redesign HTML page (WIP, fixed divs)
 
+-Simple decode example
+
+-Protocol documentation
+
 -Use DC buck/boost from A-B line to power ESP8266 (tried, but not working)
 
 -Guess timer opcodes if any (not sure if remote takes care of it internally)
