@@ -3,7 +3,9 @@ Decode Toshiba A-B protocol (aka TCC Link)
 
 TO-DOS
 
--Reconnect WebScokets when connection closes (WIP, parsing does not crash now)
+-Reconnect WebScokets when connection closes (caused by parsing crash)
+
+-Fix parsing to support round buffer and not to loose partial frames (not necessary)
 
 -Redesign HTML page (WIP, fixed divs)
 
@@ -97,12 +99,20 @@ Op code from remote
 4C 14     fan          40 00 11 08 08 4C 14 1D 7A 00 33 33 6E  //low
 54        save         40 00 11 04 08 54 01 00 08
 0C 82     timer
+40 00 15 07 08 0c 81 00 00 48 00 9f 
+00 40 18 08 80 0c 00 03 00 00 48 00 97 
 
 Op code from master
 81 status              00 FE 1C 0D 80 81 8D AC 00 00 7A 00 33 33 01 00 01 B5
 8A ack (dest FE)       00 FE 10 02 80 8A E6 # every 5s
 A1 ack (dest 40)       00 40 18 02 80 A1 7B
 86 ?? (dest 52)        00 52 11 04 80 86 84 05 C0
+                       00 52 11 04 80 86 84 01 C4   DRY,LOW
+                       00 52 11 04 80 86 64 01 24   FAN,LOW
+                       00 52 11 04 80 86 44 01 04   COOL,LOW
+                       00 52 11 04 80 86 44 05 00   COOL,MED
+                       
+0C (ASNWER TO 0c)      00 40 18 08 80 0C 00 03 00 00 48 00 97 
 
 UNK is
 10 ack / ping??           00 FE 10 02 80 8A E6
