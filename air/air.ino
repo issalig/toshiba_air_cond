@@ -1,5 +1,9 @@
+//dependencies
+//https://github.com/plerup/espsoftwareserial
+
+
 #include <ESP8266WiFi.h>
-#include <ESP8266WiFiMulti.h>
+//#include <ESP8266WiFiMulti.h>
 #include <ArduinoOTA.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
@@ -7,19 +11,19 @@
 #include <WebSocketsServer.h> //Links2004 ///arduino websockets gil maimon
 #include <ArduinoJson.h>  //by Benoit Blanchon
 #include "toshiba_serial.hpp"
-#include "SimpleTimer.hpp"
+#include "MySimpleTimer.hpp"
 
-const char *w_ssid = "x";
-const char *w_passwd = "x";
+const char *w_ssid = "semesa";
+const char *w_passwd = "mestiamorosita";
 
-IPAddress ip(192,168,2,200);     
-IPAddress gateway(192,168,2,1);   
-IPAddress subnet(255,255,255,0);   
+IPAddress ip(192, 168, 2, 200 );
+IPAddress gateway(192, 168, 2, 1);
+IPAddress subnet(255, 255, 255, 0);
 
 air_status_t air_status;
-SimpleTimer timerAC;
+MySimpleTimer timerAC;
 
-ESP8266WiFiMulti wifiMulti;       // Create an instance of the ESP8266WiFiMulti class, called 'wifiMulti'
+//ESP8266WiFiMulti wifiMulti;       // Create an instance of the ESP8266WiFiMulti class, called 'wifiMulti'
 
 ESP8266WebServer server(80);       // create a web server on port 80
 WebSocketsServer webSocket(81);    // create a websocket server on port 81
@@ -38,13 +42,18 @@ const char* mdnsName = "aire"; // Domain name for the mDNS responder
 const int DHTPin = D2;
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 DHT dht(DHTPin, DHTTYPE);
-SimpleTimer timerDHT;
-int DHTinterval = 120;  //every 5 minutes
-#define MAX_DHT_DATA 288*2 // for two days
+MySimpleTimer timerDHT;
+int DHTinterval = 30;//120;  //every 5 minutes
+#define MAX_DHT_DATA 144//288 // for one day
 float dht_h[MAX_DHT_DATA];
 float dht_t[MAX_DHT_DATA];
-int dht_idx=0;
+float ac_sensor[MAX_DHT_DATA];
+float ac_target[MAX_DHT_DATA];
 
+int dht_idx = 0;
+
+MySimpleTimer timerStatus;
+MySimpleTimer timerReadSerial;
 
 /*__________________________________________________________SETUP__________________________________________________________*/
 
@@ -69,21 +78,48 @@ void setup() {
 
   init_air_serial(&air_status); // Start air conditioning structure and software serial
 
-  timerDHT.setInterval(DHTinterval);
+  startReadSerial();
+  startStatus();
+  startDHT();
+
+
+}
+
+void startDHT() {
+  timerDHT.setUnit(1000);
+  timerDHT.setInterval(2);//DHTinterval);
+  timerDHT.repeat();
+  timerDHT.start();
   dht.begin();
   dht_h[0] = dht.readHumidity();
   dht_t[0] = dht.readTemperature();
+  ac_sensor[0] = air_status.sensor_temp;
+  ac_target[0] = air_status.target_temp;
+}
+
+void startStatus() {
+  timerStatus.setUnit(1000);
+  timerStatus.setInterval(10);
+  timerStatus.repeat();
+  timerStatus.start();
+}
+
+void startReadSerial() {
+  timerReadSerial.setUnit(1000);
+  timerReadSerial.setInterval(1);
+  timerReadSerial.repeat();
+  timerReadSerial.start();
 }
 
 void handleTimer() {
   if (timerAC.isTime()) {
-    if (air_status.timer_mode_req == 0) {
+    if (air_status.timer_mode_req == TIMER_POWER_OFF) {
       //set power off
-      Serial.print("TIMER - POWER OFF");
+      Serial.println("TIMER - POWER OFF");
       air_set_power_off(&air_status);
     } else {
       //set power on
-      Serial.print("TIMER - POWER ON");
+      Serial.println("TIMER - POWER ON");
       air_set_power_on(&air_status);
     }
   }
@@ -91,54 +127,69 @@ void handleTimer() {
 }
 
 void handleDHT() {
-    if (timerDHT.isTime()) {
-      Serial.println("Reading DHT");
-      // Reading temperature or humidity takes about 250 milliseconds!
-      dht_h[dht_idx*0] = dht.readHumidity();
-      dht_t[dht_idx*0] = dht.readTemperature();
-      dht_idx=(dht_idx+1)%MAX_DHT_DATA;
-      timerDHT.setInterval(DHTinterval); //if it is time set it again      
-    }
+  if (timerDHT.isTime()) {
+    Serial.println("Reading DHT");
+    // Reading temperature or humidity takes about 250 milliseconds!
+    dht_h[dht_idx] = dht.readHumidity();
+    dht_t[dht_idx] = dht.readTemperature();
+
+    ac_target[dht_idx] = air_status.target_temp;
+    ac_sensor[dht_idx] = air_status.sensor_temp;
+    dht_idx = (dht_idx + 1) % MAX_DHT_DATA;
+    
+  }
+}
+
+void handleStatus() {
+  if (timerStatus.isTime()) {
+    air_print_status(&air_status);
+  }
+}
+
+void handleReadSerial() {
+  if (timerReadSerial.isTime()) {
+    air_parse_serial(&air_status);
+  }
 }
 
 /*__________________________________________________________LOOP__________________________________________________________*/
 
-bool power = false;             // power is off in startup
-unsigned long prevMillis = millis();
-
 void loop() {
+
+  handleTimer();
+  handleDHT();
+  handleStatus();
+  handleReadSerial();
+
   webSocket.loop();                           // constantly check for websocket events
   server.handleClient();                      // run the server
   ArduinoOTA.handle();                        // listen for OTA events
-
-  //air_parse_serial(&air_status);
-
-  handleTimer();
 }
 
 /*__________________________________________________________SETUP_FUNCTIONS__________________________________________________________*/
 
-void startWiFi(){ //fixed IP
+void startWiFi() { //fixed IP
   WiFi.mode(WIFI_STA);
   WiFi.config(ip, gateway, subnet);
   WiFi.begin(w_ssid, w_passwd);
   Serial.print("Connected to:\t");
-  Serial.println(w_ssid); 
- 
+  Serial.println(w_ssid);
+
   // wait for connection
-  while (WiFi.status() != WL_CONNECTED) 
+  while (WiFi.status() != WL_CONNECTED)
   {
-    delay(200); 
-   Serial.print('.');
+    delay(200);
+    Serial.print('.');
   }
- 
+
   // show IP
-  Serial.println("Connection stablished.");  
+  Serial.println("Connection stablished.");
   Serial.print("IP address:\t");
   Serial.println(WiFi.localIP());
 }
 
-void startWiFi_ap() { // Start a Wi-Fi access point, and try to connect to some given access points. Then wait for either an AP or STA connection
+/*
+  void startWiFi_ap() { // Start a Wi-Fi access point, and try to connect to some given access points. Then wait for either an AP or STA connection
   WiFi.softAP(ssid, password);             // Start the access point
   Serial.print("Access Point \"");
   Serial.print(ssid);
@@ -163,7 +214,8 @@ void startWiFi_ap() { // Start a Wi-Fi access point, and try to connect to some 
     Serial.print("Station connected to ESP8266 AP");
   }
   Serial.println("\r\n");
-}
+  }
+*/
 
 void startOTA() { // Start the OTA service
   ArduinoOTA.setHostname(OTAName);
@@ -285,39 +337,48 @@ void handleFileUpload() { // upload a new file to the SPIFFS
 }
 
 /*void json2air(String request, air_status_t *air)
-{
+  {
   StaticJsonDocument<200> jsonDoc;
   DeserializationError error = deserializeJson(jsonDoc, request);
   if (error) {
     return;
   }
-}*/
+  }*/
 
-String air2json(air_status_t *air)
+String air_to_json(air_status_t *air)
 {
   String response;
-  StaticJsonDocument<300> jsonDoc;
+  StaticJsonDocument<400> jsonDoc;
 
   jsonDoc["id"] = "status";
   jsonDoc["save"] = air->save;
   jsonDoc["heat"] = air->heat;
   jsonDoc["cold"] = air->cold;
-  jsonDoc["temp"] = air->temp;
+  jsonDoc["temp"] = air->target_temp;
   jsonDoc["sensor_temp"] = air->sensor_temp;
   jsonDoc["fan"] = air->fan_str;
   jsonDoc["mode"] = air->mode_str;
   jsonDoc["power"] = air->power;
+  jsonDoc["timer_mode"] = air->timer_mode_req;
+  jsonDoc["timer_enabled"] = timerAC.isEnabled();
   jsonDoc["timer_pending"] = timerAC.pendingTime();
   jsonDoc["timer_time"] = timerAC.getInterval();
   jsonDoc["dht_temp"] = dht_t[0]; // dht_t[(dht_idx-1)>0?dht_idx-1:dht_idx];
   jsonDoc["dht_hum"] = dht_h[0]; //dht_h[(dht_idx-1)>0?dht_idx-1:dht_idx];
- 
-  int i;
-  String message;
-  for (i = 0; i < MAX_CMD_BUFFER && i < (air_status.last_cmd[3] + 5) ; i++)
-    message += ((air_status.last_cmd[i] < 0x10) ? "0" : "")  + String(air_status.last_cmd[i], HEX) + " ";
+  jsonDoc["decode_errors"] = air->decode_errors;
 
-  jsonDoc["last_cmd"] = message;
+  int i;
+  String str;
+  for (i = 0; (i < MAX_CMD_BUFFER) && (i < (air->last_cmd[3] + 5)) ; i++)
+    str += ((air->last_cmd[i] < 0x10) ? "0" : "")  + String(air->last_cmd[i], HEX) + " ";
+  jsonDoc["last_cmd"] = str;
+
+  str = "";
+  //for (i = air->curr_r_idx; (i < MAX_RX_BUFFER) && (i< air->curr_w_idx); i++) round buffer
+  for (i = 0; (i < MAX_RX_BUFFER) && (i < air->curr_w_idx); i++) //not round buffer
+    //for (i = air->curr_r_idx;  i!= air->curr_w_idx; i=(i+1)%MAX_RX_BUFFER)
+    str += ((air->rx_data[i] < 0x10) ? "0" : "")  + String(air->rx_data[i], HEX) + " ";
+  jsonDoc["rx_data"] = str;
 
   serializeJson(jsonDoc, response);
 
@@ -345,35 +406,24 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       }
 
       if (jsonDoc["id"] == "power") {            // power
-        /*
-        if (air_status.power) {
-          //set power off
-          Serial.print("TIMER - POWER OFF");
-          air_set_power_off(&air_status);
-        } else {
-          //set power on
-          Serial.print("TIMER - POWER ON");
-          air_set_power_on(&air_status);
-        }
-        */
         if (jsonDoc["value"] == "on") {
-            air_set_power_on(&air_status);
+          air_set_power_on(&air_status);
         } else if (jsonDoc["value"] == "off") {
-            air_set_power_off(&air_status);
+          air_set_power_off(&air_status);
         }
 
       } else if (jsonDoc["id"] == "temp") {
         int val = atoi(jsonDoc["temp"]);
-        
+
         //if (jsonDoc["temp"] == "1") { //
         if (val == 1) {
-          val = air_status.temp + 1;
+          val = air_status.target_temp + 1;
           if (val > 30) val = 30;
           if (val < 19) val = 19;
           air_set_temp(&air_status, val);
-        //} else if (jsonDoc["temp"] == "0") { //
+          //} else if (jsonDoc["temp"] == "0") { //
         } else if (val == 0) {
-          val = air_status.temp - 1;
+          val = air_status.target_temp - 1;
           if (val > 30) val = 30;
           if (val < 19) val = 19;
           air_set_temp(&air_status, val);
@@ -388,8 +438,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
         int val = atoi(jsonDoc["timer_time"]);
         timerAC.setInterval(val);
         timerAC.start();
-        //air->timer_mode=jsonDoc["timer_mode"];
-        //air->timer_time=jsonDoc["timer_time"];
+        air_status.timer_mode_req = jsonDoc["timer_mode"];
+        air_status.timer_time_req = val;
       }
       else if (jsonDoc["id"] == "mode") {
         Serial.println("Received mode");
@@ -421,19 +471,80 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
           air_set_save_off(&air_status);
         }
       }
-      else if (jsonDoc["id"] == "status") {                      // last cmd
+      else if (jsonDoc["id"] == "status") {
         Serial.println("Status");
-        //parse and decode air commands
-        air_parse_serial(&air_status);
 
-        int i;
         String message;
-        for (i = 0; i < MAX_CMD_BUFFER && i < (air_status.last_cmd[3] + 5) ; i++)
-          message += (air_status.last_cmd[i]<0x10)?"0":""+String(air_status.last_cmd[i], HEX) + " ";
+        //int i;
+        //for (i = 0; i < MAX_CMD_BUFFER && i < (air_status.last_cmd[3] + 5) ; i++)
+        //  message += ((air_status.last_cmd[i] < 0x10) ? "0" : "" ) + String(air_status.last_cmd[i], HEX) + " ";
+        //Serial.println(message);
 
-        Serial.print(message);
+        message = air_to_json(&air_status);
+        webSocket.broadcastTXT(message);
+      }
+      else if (jsonDoc["id"] == "timeseries") {
+        Serial.println("TimeSeries");
+        String message;
 
-        message = air2json(&air_status);
+
+        //message = timeseries_to_json(&air_status);
+
+        //StaticJsonDocument<400> docTimeSeries;
+        DynamicJsonDocument docTimeSeries(10000);  //3000 hold around 150 vals
+
+        docTimeSeries["id"] = "timeseries";
+        //docTimeSeries["name"] = "dht_t";
+        docTimeSeries["n"] = MAX_DHT_DATA;
+
+        JsonArray arr = docTimeSeries.createNestedArray("dht_t");
+        //arr.add(5);
+        int i;
+        arr.add(dht_t[dht_idx]);
+        for (i = (dht_idx + 1) % MAX_DHT_DATA; i != dht_idx; i = (i + 1) % MAX_DHT_DATA) {
+          //for(i=0;i<6;i++){
+          //Serial.print("J");Serial.print(i);Serial.print(" ");
+          arr.add(dht_t[i]);
+        }
+
+        //serializeJson(docTimeSeries, message);
+        //webSocket.broadcastTXT(message);
+
+        //delay(50);
+          
+        //docTimeSeries.clear();
+        //docTimeSeries["id"] = "timeseries";
+        //docTimeSeries["name"] = "dht_h";
+        //docTimeSeries["n"] = MAX_DHT_DATA;
+       
+        JsonArray arr2 = docTimeSeries.createNestedArray("dht_h");
+    
+        arr2.add(dht_h[dht_idx]);
+        for (i = (dht_idx + 1) % MAX_DHT_DATA; i != dht_idx; i = (i + 1) % MAX_DHT_DATA) {
+          //for(i=0;i<6;i++){
+          //Serial.print("J");Serial.print(i);Serial.print(" ");
+          arr2.add(dht_h[i]);
+        }
+
+        JsonArray arr3 = docTimeSeries.createNestedArray("ac_target_t");
+    
+        arr3.add(ac_target[dht_idx]);
+        for (i = (dht_idx + 1) % MAX_DHT_DATA; i != dht_idx; i = (i + 1) % MAX_DHT_DATA) {
+          //for(i=0;i<6;i++){
+          //Serial.print("J");Serial.print(i);Serial.print(" ");
+          arr3.add(ac_target[i]);
+        }
+
+        JsonArray arr4 = docTimeSeries.createNestedArray("ac_sensor_t");
+    
+        arr4.add(ac_sensor[dht_idx]);
+        for (i = (dht_idx + 1) % MAX_DHT_DATA; i != dht_idx; i = (i + 1) % MAX_DHT_DATA) {
+          //for(i=0;i<6;i++){
+          //Serial.print("J");Serial.print(i);Serial.print(" ");
+          arr4.add(ac_sensor[i]);
+        }
+        
+        serializeJson(docTimeSeries, message);
         webSocket.broadcastTXT(message);
       }
       break;

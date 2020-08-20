@@ -1,27 +1,28 @@
 
 #include <Arduino.h>
 
-class SimpleTimer {
+class MySimpleTimer {
     uint64_t _start;
     int _interval;
-    bool _enabled;
-    int _unit=60*1000;
-    
-public:
+    bool _enabled = false;
+    int _unit = 60 * 1000;
+    bool _repeat = false;
+
+  public:
 
     /// Constructor, that initialize timer
     /// \param interval An interval in msec
-    explicit SimpleTimer(int interval = 0);
-      
+    explicit MySimpleTimer(int interval = 0);
+
     /// Check if timer is ready
     /// \return True if is timer is ready
     bool isTime();
 
     /// Return pending time
     int pendingTime();
-    
+
     /// Set the time interval
-    /// \param interval An interval in msec    
+    /// \param interval An interval in msec
     void setInterval(int interval);
 
     /// Get interval
@@ -29,13 +30,22 @@ public:
 
     /// Set unit
     void setUnit(int unit);
-    
-    /// Enable timer    
+
+    /// Enable timer
     void enable();
 
-    /// Disable timer    
+    /// Disable timer
     void disable();
-    
-    /// Reset a timer
+
+    /// is enabled?
+    bool isEnabled();
+
+    /// repeat
+    void repeat();
+
+    /// do not repeat
+    void dontRepeat();
+
+    /// Start tiner
     void start();
 };

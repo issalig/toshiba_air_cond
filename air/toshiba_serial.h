@@ -22,11 +22,14 @@
 #define MODE_HEAT 1
 #define MODE_DRY  4
 
+#define TIMER_POWER_OFF 0
+#define TIMER_POWER_ON  1
+
 typedef struct {
   uint8_t save;
   uint8_t heat;
   uint8_t cold;
-  uint8_t temp;
+  uint8_t target_temp;
   float sensor_temp;
   uint8_t fan;
   char fan_str[5];
@@ -37,8 +40,10 @@ typedef struct {
   byte rx_data[MAX_RX_BUFFER];  //serial rx data
   int curr_w_idx = 0;
   int curr_r_idx = 0;
-  bool timer_mode_req;
+  uint8_t timer_mode_req;
   uint8_t timer_time_req;
-    
+  bool timer_enabled;
+  int decode_errors=0;
+  
   SoftwareSerial serial;
 } air_status_t;

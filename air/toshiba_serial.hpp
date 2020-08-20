@@ -48,6 +48,10 @@ int check_crc(const byte *data, size_t len) {
         Serial.print(data[k], HEX);
         Serial.print(" ");
       }
+      Serial.print("- ");
+      Serial.print(my_crc, HEX);
+      Serial.print("- ");
+      Serial.print(crc, HEX);
 #endif
     }
   }
@@ -57,14 +61,16 @@ int check_crc(const byte *data, size_t len) {
 
 
 void air_print_status(air_status_t *s) {
+  Serial.println("");
   Serial.print(" Power: "); Serial.print(s->power);
   Serial.print(" Mode: "); Serial.print(s->mode_str);
   Serial.print(" Fan: "); Serial.print(s->fan_str);
   Serial.print(" SensorTemp: "); Serial.print(s->sensor_temp);
-  Serial.print(" Temp: "); Serial.print(s->temp);
+  Serial.print(" Temp: "); Serial.print(s->target_temp);
   Serial.print(" Cold: "); Serial.print(s->cold);
   Serial.print(" Heat: "); Serial.print(s->heat);
   Serial.print(" Save: "); Serial.print(s->save);
+  Serial.print(" Errors: "); Serial.print(s->decode_errors);
   Serial.println("");
 }
 
@@ -93,13 +99,13 @@ int air_set_mode_dry(air_status_t *air) {
 
 int air_set_save_off(air_status_t *air) {
   //bit0 from 7th in remote message
-  byte data[] = {0x40, 0x00, 0x11, 0x04, 0x08, 0x54, 0x01, 0x00, 0x08};  
+  byte data[] = {0x40, 0x00, 0x11, 0x04, 0x08, 0x54, 0x01, 0x00, 0x08};
   air_send_data(air, data, sizeof(data));
 }
 
 int air_set_save_on(air_status_t *air) {
   //bit0 from 7th in remote message
-  byte data[] = {0x40, 0x00, 0x11, 0x04, 0x08, 0x54, 0x01, 0x01, 0x09};  
+  byte data[] = {0x40, 0x00, 0x11, 0x04, 0x08, 0x54, 0x01, 0x01, 0x09};
   air_send_data(air, data, sizeof(data));
 }
 
@@ -112,9 +118,9 @@ int air_set_temp_minus(air_status_t *air)  {
   //get status
   //compose new message
 #ifdef DEBUG
-  Serial.println(""); Serial.print("Set temp "); Serial.print(air->temp - 1);  Serial.print(" ");  Serial.print(sizeof(data));
+  Serial.println(""); Serial.print("Set temp "); Serial.print(air->target_temp - 1);  Serial.print(" ");  Serial.print(sizeof(data));
 #endif
-  data[8] = ((air->temp - 1) + 35) << 1; //temp is bit7-bit1
+  data[8] = ((air->target_temp - 1) + 35) << 1; //temp is bit7-bit1
   data[10] = data[11] = air->heat ? 0x55 : 0x33;
 
   //compute crc
@@ -138,9 +144,9 @@ int air_set_temp_plus(air_status_t *air)  {
   //get status
   //compose new message
 #ifdef DEBUG
-  Serial.println(""); Serial.print("Set temp "); Serial.print(air->temp + 1);  Serial.print(" ");  Serial.print(sizeof(data));
+  Serial.println(""); Serial.print("Set temp "); Serial.print(air->target_temp + 1);  Serial.print(" ");  Serial.print(sizeof(data));
 #endif
-  data[8] = ((air->temp + 1) + 35) << 1; //temp is bit7-bit1
+  data[8] = ((air->target_temp + 1) + 35) << 1; //temp is bit7-bit1
   data[10] = data[11] = air->heat ? 0x55 : 0x33;
 
   //compute crc
@@ -153,7 +159,7 @@ int air_set_temp_plus(air_status_t *air)  {
     Serial.print(data[k], HEX);
 #endif
 
-//byte data2[] = {0x40, 0x00, 0x11, 0x08, 0x08, 0x4C, 0x0C, 0x1D, 0x78, 0x00, 0x33, 0x33, 0x74};
+  //byte data2[] = {0x40, 0x00, 0x11, 0x08, 0x08, 0x4C, 0x0C, 0x1D, 0x78, 0x00, 0x33, 0x33, 0x74};
 
   air_send_data(air, data, sizeof(data));
 }
@@ -182,19 +188,19 @@ int air_set_temp(air_status_t *air, uint8_t target_temp)  {
   }
 #endif
 
-//40 00 11 08 08 4C 0C 1D 78 00 33 33 74 
+  //40 00 11 08 08 4C 0C 1D 78 00 33 33 74
 
-air_send_data(air, data, sizeof(data));
+  air_send_data(air, data, sizeof(data));
 
 }
 
 int air_set_mode(air_status_t *air, uint8_t value)  {
-//From remote (Mode is bit3-bit0 from last data byte) cool:010 fan:011 auto 101 heat:001 dry: 100
-    //               00    01    02    03    04    05    06   CRC
+  //From remote (Mode is bit3-bit0 from last data byte) cool:010 fan:011 auto 101 heat:001 dry: 100
+  //               00    01    02    03    04    05    06   CRC
   byte data[] = {0x40, 0x00, 0x11, 0x03, 0x08, 0x42, 0x04, 0x1C}; // dry
-  
+
   //set mode
-  data[6] = value; 
+  data[6] = value;
 
   //compose new message
   //compute crc
@@ -208,26 +214,29 @@ int air_set_mode(air_status_t *air, uint8_t value)  {
   }
 #endif
 
-air_send_data(air, data, sizeof(data));
+  air_send_data(air, data, sizeof(data));
 
 }
 
 // To check this, specially if we have no information, for example cannot read from RX
 
 int air_set_fan(air_status_t *air, uint8_t value)  {
-     //Master 7th byte bit4=1 bit3-bit1  auto:0x010 med:011 high:110 low:101 
-    //             00    01    02    03    04    05    06    07    08    09    10    11   CRC
-  byte data[] = {0x40, 0x00, 0x11, 0x08, 0x08, 0x4C, 0x14, 0x1D, 0x7A, 0x00, 0x33, 0x33, 0x6E}; //LOW
+  //Master 7th byte bit4=1 bit3-bit1  auto:0x010 med:011 high:110 low:101
+  //             00    01    02    03    04    05    06    07    08    09    10    11   CRC
+  byte data[] = {0x40, 0x00, 0x11, 0x08, 0x08, 0x4C, 0x13, 0x1D, 0x7A, 0x00, 0x33, 0x33, 0x6E}; //LOW, FAN
 
   //set mode
-  data[7] = 0b11000 + value; 
+  data[6] = 0x10 + air->mode;
 
-  //set 8 current temp
-  data[8] = ((air->temp) + 35) << 1; //temp is bit7-bit1
+  //set fan level
+  data[7] = 0b11000 + value;
+
+  //set 8 current temp  (not sure if we should fill this pr leave 7A)
+  data[8] = ((air->target_temp) + 35) << 1; //temp is bit7-bit1
 
   //set other 10, 11
   data[10] = data[11] = air->heat ? 0x55 : 0x33;
-  
+
   //compose new message
   //compute crc
   data[12] = XORChecksum8(data, sizeof(data) - 1);
@@ -240,7 +249,7 @@ int air_set_fan(air_status_t *air, uint8_t value)  {
   }
 #endif
 
-air_send_data(air, data, sizeof(data));
+  air_send_data(air, data, sizeof(data));
 
 }
 
@@ -312,7 +321,7 @@ void air_decode_command(byte * data, air_status_t *s) {
         case FAN_MEDIUM: strcpy(s->fan_str, "MED"); break;
         case FAN_HIGH:   strcpy(s->fan_str, "HIGH"); break;
         case FAN_LOW:    strcpy(s->fan_str, "LOW"); break;
-        default: strcpy(s->fan_str, "UNK");        
+        default: strcpy(s->fan_str, "UNK");
       }
       s->mode = (data[6] & 0b11100000) >> 5;
       switch (s->mode) {
@@ -323,7 +332,7 @@ void air_decode_command(byte * data, air_status_t *s) {
         case MODE_DRY:  strcpy(s->mode_str, "DRY"); break;
         default: strcpy(s->mode_str, "UNK");
       }
-      s->temp = ((data[10] & 0b11111110) >> 1) - 35;
+      s->target_temp = ((data[10] & 0b11111110) >> 1) - 35;
       s->power = data[6] & 0b1;
 
       //extended status data[5] == 0x81 and data[2] == 0x58
@@ -358,24 +367,41 @@ void air_decode_command(byte * data, air_status_t *s) {
         default: strcpy(s->mode_str, "UNK");
       }
 
-      s->temp = ((data[10] & 0b11111110) >> 1) - 35;
+      s->target_temp = ((data[10] & 0b11111110) >> 1) - 35;
       s->power = data[6] & 0b1;
 
       //s->sensor_temp = - (data[11] / 2.0 - 35); //TO CHECK
-      
+
     }  else if (data[2] == 0x55) {
       //data[2]==0x55 data[5]==0x81
       s->sensor_temp = data[7] / 2.0 - 35;
     }
   } else if (data[5] == 0x8A) {
+    //ack from master?
+    //00 FE 10 02 80 8A E6
 
   } else if (data[5] == 0xA1) {
+    //ping?
+    //00 40 18 02 80 A1 7B
 
-  } else if (data[5] == 0x86) {    
-    s->mode=data[6] >> 5; //byte  6 bit7-bit5
-    s->power=data[7] & 1; //byte7 bit0
-    //bit2??
+  } else if (data[5] == 0x86) {
+    //mode status?
+    //00 52 11 04 80 86 84 05 C0
+    s->mode = data[6] >> 5; //byte6 bit7-bit5
 
+    //s->power=data[7] & 1; //byte7 bit0
+    //s->cold=(data[7] >> 2) &0b1 //bit2??
+
+    //00 52 11 04 80 86 84 05 C0   dry       1000 >> 1 = 100 -> MODE_DRY;   101
+    //00 52 11 04 80 86 44 05 00   cool      0100                       ;   101
+    //00 52 11 04 80 86 64 01 24   fan       0110                       ;   001
+    //00 52 11 04 80 86 44 01 04   cool auto 0100                       ;   001
+
+    //00 52 11 04 80 86 84 01 C4   DRY,LOW      0001
+    //00 52 11 04 80 86 64 01 24   FAN,LOW/HIGH/MED
+    //00 52 11 04 80 86 44 01 04   COOL,LOW     0001       101
+    //00 52 11 04 80 86 44 05 00   COOL,MED     0101   ->  100
+    
   } else if (data[5] == 0x55) {
   }
 
@@ -393,15 +419,15 @@ void air_parse_serial(air_status_t *air) {
 
   //circular buffer avoids loosing parts of messages but it is not working
   //thus is disabled
-  //i = air->curr_w_idx;
-  //i_start = air->curr_r_idx;
+  air->curr_w_idx = air->curr_r_idx = 0; //no circular buffer - with this some bytes will be lost but not a big problem
+  i = air->curr_w_idx; i_start = air->curr_r_idx;
 
-  i = i_start = 0; //no circular buffer - with this some bytes will be lost but not a big problem
+  //i = i_start = 0; //no circular buffer - with this some bytes will be lost but not a big problem
 
   SoftwareSerial *ss;
   ss = &(air->serial);
 
-  //producer
+  //STEP 1 producer reads from serial
   Serial.print("Receiving data ");
   while (ss->available()) {
     ch = (byte)ss->read();
@@ -411,29 +437,32 @@ void air_parse_serial(air_status_t *air) {
     i = (i + 1) % MAX_RX_BUFFER;
   }
 
-  //consumer
+  //STEP 2 consumer parses data and fill air_status structure
   Serial.println("");
   Serial.print("Parsing data ");
   //try all combinations
-  for (j_init = i_start; j_init != i; j_init = (j_init + 1) % MAX_RX_BUFFER) {
-    segment_len = air->rx_data[(j_init + 3) % MAX_RX_BUFFER] + 5; //packet should be
-    if (segment_len <= 32) {
+  //for (j_init = i_start; j_init != i; j_init = (j_init + 1) % MAX_RX_BUFFER) { //round buffer friendly
+  for (j_init = i_start; j_init < i; j_init = (j_init + 1) % MAX_RX_BUFFER) { //not round buffer
+
+    segment_len = air->rx_data[(j_init + 3) % MAX_RX_BUFFER] + 5; //packet is byte size plus 5
+    if (segment_len <  MAX_CMD_BUFFER ) { //max size of cmd packets are 32 bytes
 #ifdef DEBUG
       Serial.println("");
       Serial.print("Try: ");
       Serial.print("("); Serial.print(j_init); Serial.print(")");
 #endif
-      for (k = 0; (k < segment_len && k < 32); k++) {
+      //get message according to length byte
+      for (k = 0; (k < segment_len && k < MAX_CMD_BUFFER); k++) {
         cmd[k] = air->rx_data[(j_init + k) % MAX_RX_BUFFER];
 #ifdef DEBUG
         Serial.print(cmd[k] < 0x10 ? " 0" : " ");
         Serial.print(cmd[k], HEX);
 #endif
       }
-
-      if (check_crc(cmd, segment_len)) { //check crc for segment_len
+      Serial.println("");
+      //if valid crc, decode data
+      if (check_crc(cmd, segment_len)) {
         mylen = cmd[3] + 5;
-        Serial.println("");
         Serial.print("Cmd: ");
         for (k = 0; k < mylen; k++) {
           Serial.print(cmd[k] < 0x10 ? " 0" : " ");
@@ -443,33 +472,34 @@ void air_parse_serial(air_status_t *air) {
         //air->last_cmd[(mylen<32)?mylen:31]='\0';
 
         Serial.println("");
-        //decode
-        if (mylen > 4) {
-          if (cmd[5] == 0x81) { //status
-            air_decode_command(cmd, air);
-            air_print_status(air);
-          }
+        if (mylen > 4) { //min valid package is 5 bytes long with 0 data bytes
+          //if (cmd[5] == 0x81) { //decode only 0x81 -> status
+          air_decode_command(cmd, air);
+          //air_print_status(air);
+          //}
         }
         i_start = (j_init + segment_len) % MAX_RX_BUFFER;
-        j_init = i_start - 1;
+        j_init = (i_start - 1) % MAX_RX_BUFFER;
         j_end = j_init;
-        Serial.print(air->rx_data[i_start], HEX);
+        Serial.print(air->rx_data[i_start % MAX_RX_BUFFER], HEX);
         found = true;
       } //end if crc
     } //end if segment_len
 
     if (!found) {
       Serial.println(""); Serial.print("Skipping ");
-      Serial.print(air->rx_data[j_init], HEX);
+      Serial.print("("); Serial.print(j_init); Serial.print(")");
+      Serial.print(air->rx_data[j_init % MAX_RX_BUFFER], HEX);
       i_start = j_init;
+      air->decode_errors = air->decode_errors + 1;
     }
     found = false;
 
   } //end for j_init
 
   //circular buffer avoids loosing parts of messages but it is not working
-  //air->curr_w_idx = i;
-  //air->curr_r_idx = i_start;
+  air->curr_w_idx = i;
+  air->curr_r_idx = i_start;
 }
 
 
@@ -497,6 +527,11 @@ void air_send_data(air_status_t *air, byte *data, int len) {
   Serial.println("");
 #endif
 
+
+  //copy cmd in last_cmd
+  for (i = 0; i < len; i++) {
+    air->last_cmd[i] = data[i];
+  }
   ss->enableIntTx(false); //disable TX
 
 }
@@ -516,7 +551,28 @@ void air_send_test_data(air_status_t *air) {
     0x00, 0xFE, 0x1C, 0x0D, 0x80, 0x81, 0x8D, 0xAC, 0x00, 0x00, 0x76, 0x00, 0x33, 0x33, 0x01, 0x00, 0x01, 0xB9,
     0x00, 0xFE, 0x1C, 0x0D, 0x80, 0x81, 0xCD, 0x8C, 0x00, 0x00, 0x76, 0x00, 0x33, 0x33, 0x01, 0x00, 0x01, 0xD9,
     0x00 , 0xFE , 0x58 , 0x0F , 0x80 , 0x81 , 0x8C, 0xA8, 0x00, 0x00, 0x7A , 0x84, 0xE9, 0x00, 0x33, 0x33, 0x01 , 0x00, 0x01, 0x90, //9b is correct crc
-    0x00 , 0xFE , 0x58 , 0x0F , 0x80 , 0x81 , 0x8D , 0xAC , 0x00 , 0x00 , 0x7A , 0x7D, 0xE9, 0x00, 0x33, 0x33, 0x01 , 0x00, 0x01, 0x67
+    0x00 , 0xFE , 0x58 , 0x0F , 0x80 , 0x81 , 0x8D , 0xAC , 0x00 , 0x00 , 0x7A , 0x7D, 0xE9, 0x00, 0x33, 0x33, 0x01 , 0x00, 0x01, 0x67,
+    0x40, 0x00, 0x11, 0x03, 0x08, 0x42, 0x05, 0x1D,                                  //auto  05 -> 0000 0101
+    0x00, 0x40, 0x18, 0x02, 0x80, 0xA1, 0x7B,
+    0x00, 0xFE, 0x10, 0x02, 0x80, 0x8A, 0xE6,
+    0x00, 0x40, 0x18, 0x02, 0x80, 0xA1, 0x7B,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0xFE, 0x1C, 0x0D, 0x80, 0x81, 0x8D, 0xAC, 0x00, 0x00, 0x76, 0x00, 0x33, 0x33, 0x01, 0x00, 0x01, 0xB9,
+    0x00, 0xFE, 0x1C, 0x0D, 0x80, 0x81, 0xCD, 0x8C, 0x00, 0x00, 0x76, 0x00, 0x33, 0x33, 0x01, 0x00, 0x01, 0xD9,
+    0x00 , 0xFE , 0x58 , 0x0F , 0x80 , 0x81 , 0x8C, 0xA8, 0x00, 0x00, 0x7A , 0x84, 0xE9, 0x00, 0x33, 0x33, 0x01 , 0x00, 0x01, 0x90, //9b is correct crc
+    0x00 , 0xFE , 0x58 , 0x0F , 0x80 , 0x81 , 0x8D , 0xAC , 0x00 , 0x00 , 0x7A , 0x7D, 0xE9, 0x00, 0x33, 0x33, 0x01 , 0x00, 0x01, 0x67,
+    0x40, 0x00, 0x11, 0x03, 0x08, 0x42, 0x05, 0x1D,                                  //auto  05 -> 0000 0101
+    0x00, 0x40, 0x18, 0x02, 0x80, 0xA1, 0x7B,
+    0x00, 0xFE, 0x10, 0x02, 0x80, 0x8A, 0xE6,
+    0x00, 0x40, 0x18, 0x02, 0x80, 0xA1, 0x7B,
+    0x00, 0x40, 0x18, 0x02, 0x80, 0xA1, 0x7B,
+    0x00, 0xFE, 0x10, 0x02, 0x80, 0x8A, 0xE6,
+    0x00, 0x40, 0x18, 0x02, 0x80, 0xA1, 0x7B,
+    0x00, 0x40, 0x18, 0x02, 0x80, 0xA1, 0x7B
   };
 
   ss->enableIntTx(true);

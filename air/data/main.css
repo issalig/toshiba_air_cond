@@ -7,7 +7,7 @@ center {
 }
 
 header {
-    background-color: #00878F;
+    background-color: #8338EC;
     color: white;
     padding: 6px;
     font-family: 'Roboto', sans-serif;
@@ -43,7 +43,7 @@ tr {
     text-decoration: none;
     border: none;
     color: white;
-    background-color: #00878F;
+    background-color: #002F7A;
     padding: 6px 24px;
     font-size: 16px;
     cursor: pointer;
@@ -78,7 +78,7 @@ input.disabled[type=range]::-webkit-slider-thumb {
 }
 
 input.enabled[type=range]::-webkit-slider-thumb {
-    background: #00878F;
+    background: #002F7A;
     cursor: pointer;
     box-shadow: 1px 1px 2px #777, 0px 0px 1px #777;
 }
