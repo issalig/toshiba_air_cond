@@ -87,7 +87,7 @@ void setup() {
 
 void startDHT() {
   timerDHT.setUnit(1000);
-  timerDHT.setInterval(2);//DHTinterval);
+  timerDHT.setInterval(60);//DHTinterval);
   timerDHT.repeat();
   timerDHT.start();
   dht.begin();

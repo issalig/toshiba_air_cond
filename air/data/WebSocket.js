@@ -1,6 +1,7 @@
 //https://coolors.co/ffbe0b-fb5607-ff006e-8338ec-3a86ff
 //https://circuits4you.com/2019/01/25/esp8266-dht11-humidity-temperature-data-logging/
-
+//https://circuits4you.com/2019/01/11/esp8266-data-logging-with-real-time-graphs/
+//https://nagix.github.io/chartjs-plugin-datasource/samples/json-dataset.html
 
 var power = false;
 var save = false;
@@ -8,9 +9,9 @@ var debug_cmd = false;
 var chart;
 var ac_sensor_values=[];
 var ac_target_values=[];
-var dht_t_values=[];
-var dht_h_values=[];
-var timeStamp = [];
+var dht_t_values=[25,27,30,25];
+var dht_h_values=[60,70,80,90];
+var timeStamp = [0,1,2,3];
 var chart_obj;
 
 function updateStatus(data)
@@ -24,7 +25,7 @@ connection.onopen = function () {
     connection.send('Connect ' + new Date());
     document.getElementById('connection').textContent = "open";
     
-   (function scheduleRequest() {
+   (function scheduleRequestStatus() {
       //send json            
 	  var today = new Date();
       var curr_time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
@@ -35,13 +36,15 @@ connection.onopen = function () {
 		let json = JSON.stringify(data);
 		connection.send(json);
       //end send json
-		
-		getTimeseries();
-      //end send json
 
-
-      setTimeout(scheduleRequest, 1000); //ask for status every 500 ms
+      setTimeout(scheduleRequestStatus, 750); //ask for status every 500 ms
    })();
+
+   (function schduleRequesttimeSeries() {	  
+		getTimeseries();
+      setTimeout(scheduleRequestTimeSeries, 60*1000); //ask for status every minute
+   })();
+
 };
 
 connection.onerror = function (error) {
@@ -461,46 +464,49 @@ function getTimeseries() {
 
 //}
 
-
+//https://coolors.co/9c12f3-47a8bd-f5e663-ffad69-9c3848
+//255, 173, 105
+//156, 56, 72
+//245, 230, 99
+//71, 168, 189 
 
 function showGraph()
 {
-    var ctx = document.getElementById("Chart").getContext('2d');
+    var ctx = document.getElementById("temp_chart").getContext('2d');
 var config={
         type: 'line',
         data: {
             labels: timeStamp,  //Bottom Labeling
 			//if not labels set xaxis to linear https://github.com/chartjs/Chart.js/issues/5494
             datasets: [{
-                label: "AC Sensor",
-                fill: false,  //Try with true
-//https://coolors.co/9c12f3-47a8bd-f5e663-ffad69-9c3848
-//255, 173, 105
-//156, 56, 72
-//245, 230, 99
-//71, 168, 189 
+                label: 'AC Sensor',
+                yAxisID: 'temperature',
+				fill: false,  //Try with true
                 backgroundColor: 'rgba(156, 56, 72, 1)', //Dot marker color
                 borderColor: 'rgba(156, 56, 72, 1)', //Graph Line Color
-                data: dht_t_values, //ac_sensor_values,
-            }/*,{
-                label: "AC Target",
-                fill: false,  //Try with true
+                data: dht_t_values,// [30,20,30,50,20,10] //dht_t_values, //ac_sensor_values,
+            },{
+                label: 'AC Target',
+                yAxisID: 'temperature',
+				fill: false,  //Try with true
                 backgroundColor: 'rgba( 71, 168, 189 , 1)', //Dot marker color
                 borderColor: 'rgba( 71, 168, 189, 1)', //Graph Line Color
                 data: ac_target_values,
             },{
-                label: "Temperature",
+                label: 'Room Temperature',
+				yAxisID: 'temperature',
                 fill: false,  //Try with true
                 backgroundColor: 'rgba( 243, 156, 18 , 1)', //Dot marker color
                 borderColor: 'rgba( 243, 156, 18 , 1)', //Graph Line Color
                 data: dht_t_values,
             },{
-                label: "Humidity",
-                fill: false,  //Try with true
+                label: 'Room Humidity',
+                yAxisID: 'humidity',
+				fill: false,  //Try with true
                 backgroundColor: 'rgba(156, 18, 243 , 1)', //Dot marker color
                 borderColor: 'rgba(156, 18, 243 , 1)', //Graph Line Color
                 data: dht_h_values,
-            }*/],
+            }],
         },
         options: {
             title: {
@@ -515,10 +521,41 @@ var config={
             },
             scales: {
                     yAxes: [{
+						id: 'temperature',
+						gridLines: {
+							drawOnChartArea: false
+						},
                         ticks: {
-                            beginAtZero:true
-                        }
-                    }]
+                            //beginAtZero:true,    
+							suggestedMin: 10,
+							suggestedMax: 40
+                        },
+						scaleLabel: {
+							display: true,
+							labelString: 'Temperature ºC'
+						},
+                    },{
+						id: 'humidity',
+						gridLines: {
+							drawOnChartArea: false
+						},
+                        ticks: {
+                            beginAtZero:true,    
+							suggestedMin: 20,
+							suggestedMax: 100
+                        },
+						position: 'right',
+						scaleLabel: {
+							display: true,
+							labelString: 'Humidity %'
+						},
+					}],
+                    xAxes: [{
+						scaleLabel: {
+							display: true,
+							labelString: 'Time'
+						}
+					}],
 					
            },
             animation: {
@@ -543,20 +580,20 @@ function parseTimeSeries(json){
     console.log(datalen);
 	
     timeStamp=[]; 
-dht_t_values=[];
 
-    for(i=0;i<144;i++){
-		timeStamp.push(i);
-		dht_t_values.push(json.dht_t[i]);
-    } timeStamp=[]; 
- 
-    //ac_sensor_values = dht_t_values;//json.ac_sensor_t;
-    //ac_target_values = dht_t_values;//json.ac_target_t;
-    dht_t_values = json.dht_t;
+    for(i=0;i<datalen;i++){
+		timeStamp.push(i);		
+    } 
 
-    //dht_h_values = dht_t_values;//json.dht_h;
-	//chart_obj.data.datasets.dataset[0].data=json.dht_t;	
-    chart_obj.update();
+	chart_obj.data.labels=timeStamp;
+	chart_obj.data.datasets[0].data=json.ac_sensor_t;
+    chart_obj.data.datasets[1].data=json.ac_target_t;
+	chart_obj.data.datasets[2].data=json.dht_t;
+    chart_obj.data.datasets[3].data=json.dht_h;
+    //chart_obj.data.datasets[3].backgroundColor= 'rgba('+Math.floor()*255+','+Math.floor()*255+','+Math.floor()*255+', 1)';
+	//chart_obj.data.datasets[3].borderColor= chart_obj.data.datasets[3].backgroundColor;
+
+    window.chart_obj.update();
 
      /*
 	//Update Data Table
@@ -575,7 +612,7 @@ dht_t_values=[];
 }
 //On Page load show graphs
 window.onload = function() {
-
+getTimeseries();
 	showGraph();
 };
 
