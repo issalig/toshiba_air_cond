@@ -1,5 +1,5 @@
 # toshiba_air_cond
-Decode Toshiba A-B protocol (aka TCC Link)
+Decode Toshiba A-B protocol (aka TCC Link) for air conditioners.
 
 Status
 
@@ -75,6 +75,26 @@ https://learnabout-electronics.org/Downloads/PC817%20optocoupler.pdf
 
 ```
 
+Plan B. (In fact it was plan A but then I managed to decode AB protocol, yeah!)
+
+To solder wires to button pads on the remote controller and close circuit to simulate pressing them (with and optocoupler).
+
+``` 
+                       _________
+    uc OUT --- 200R----| PC817 |------- PAD+
+                 GND---|_______|---4k7--PAD-
+                                  
+```
+
+ESP8266 high level is 3v3 and the maximum current per pin is 12mA (but we will go safer with 10mA). Thus, the resistor for the IR diode of the optocoupler is 3.3-1.2/10=210 -> 200 ohm. 4k7 is a safe value since we just want continuity.
+
+Following traces from button pads end in 2k resistors that we will use to solder wires. As R46 is common, we can think is button GND
+ON button is connected to R25 and R46
+Temp down button is connected to R23 adn R46
+Temp up button is connected to R24 and R46
+
+
+
 DS0138 oscilloscope can be used to monitor the signal (voltage differs around 0.7V but it is usable) and guess voltages and bps. Later, an 8-channel USB logic analyzer (4-5 USD) can be used to capture data into the computer (REMEMBER to convert voltages to 0-3.3v before connecting it to logic analyzer or you will fry it).
 
 To capture data you can use pulseview with uart decoder 2400 bps, 8bits, start, stop, EVEN parity
@@ -124,7 +144,7 @@ From remote
 4C temp
 54 save
 0C 81 status
-0C 82 timer
+0C 82 timer ???
 0C 00 (answer to 0C)
 
 CRC is computed as Checksum8 XOR of all the bytes (Compute it at https://www.scadacore.com/tools/programming-calculators/online-checksum-calculator/)
@@ -210,7 +230,7 @@ bit7..bit0 /2 - 35 =Temp
                      --                                       
 ```
 
-When POWERED OFF
+Communication while POWERED OFF
 ```
 00 FE 10 02 80 8A E6 # 
 00 FE 10 02 80 8A E6 # every 5s
@@ -226,7 +246,7 @@ When POWERED ON
 ```
 00 FE 10 02 80 8A E6 # typical answer, maybe confirmation
 40 00 15 07 08 0C 81 00 00 48 00 9F
-00 40 18 08 80 0C 00 03 00 00 48 00 97 #inmediately answer
+00 40 18 08 80 0C 00 03 00 00 48 00 97 #inmediate answer 
 40 00 55 05 08 81 00 7E 00 E7 
 00 FE 58 0F 80 81 8D AC 00 00 7A 84 E9 00 33 33 01 00 01 9E
 00 FE 10 02 80 8A E6 # typical answer, maybe confirmation
@@ -235,7 +255,7 @@ When POWERED ON
 00 FE 10 02 80 8A E6 # typical answer, maybe confirmation (every 5s we see  the mesg)
 00 FE 10 02 80 8A E6 # typical answer, maybe confirmation (every 5s we see  the mesg)
 40 00 15 07 08 0C 81 00 00 48 00 9F
-00 40 18 08 80 0C 00 03 00 00 48 00 97 #inmediately answer
+00 40 18 08 80 0C 00 03 00 00 48 00 97 #inmediate answer
 40 00 55 05 08 81 00 7E 00 E7
 00 FE 58 0F 80 81 8D AC 00 00 7A 84 E9 00 33 33 01 00 01 9E  #inmediate answer
 ```
@@ -358,9 +378,6 @@ OFF
                       -            - -
 ```
 
-from pg70 http://cyme.com.mx/equipos/sistema_vrf/carrier/Aplication%20Controls%20Manual-A04-007.pdf 
-0x00=unfix,0x 01= heat,0x 02= cool,0x 03= dry 0x 04= fan,0x05 auto 
-
 Modes
 ```
 From remote (Mode is bit3-bit0 from last data byte) cool:010 fan:011 auto 101 heat:001 dry: 100
@@ -472,26 +489,12 @@ From master status  7th byte bit7-bit5
 
 ```
 
-Timer off
+Timer off  (it needs more working)
 ```
 40 00 11 09 08 0C 82 00 00 30 05 01 01 EB 
 ```
 
-Format seems this
-Source Dest XX Bytes Data CRC
-CRC is computed as Checksum8 XOR
-Data starts with 08 if Source is 40 and 80 if source is 00
-```
-uint8_t XORChecksum8(const byte *data, size_t dataLength)
-{
-  uint8_t value = 0;
-  for (size_t i = 0; i < dataLength; i++)
-  {
-    value ^= (uint8_t)data[i];
-  }
-  return ~value;
-}
-```
+Other info
 
 Info about commercial gateways but no info about protocol :(
 
@@ -502,25 +505,5 @@ Some info o features  pg52 http://www.toshiba-aircon.co.uk/assets/uploads/pdf/sa
 Error codes from Toshiba (pg 38) https://cdn.shopify.com/s/files/1/1144/2302/files/BP-STD_Toshiba_v1_08.pdf
 TCS-Net https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf
 https://www.intesisbox.com/intesis/product/media/intesisbox_to-ac-knx-16-64_user_manual_en.pdf?v=2.2
-
-Plan B (in fact it was plan A but then I managed to decode AB protocol)
-
-To solder wires to button pads on the remote controller and close circuit to simulate pressing them (with and optocoupler).
-
-``` 
-                       _________
-    uc OUT --- 200R----| PC817 |------- PAD+
-                 GND---|_______|---4k7--PAD-
-                                  
-```
-
-ESP8266 high level is 3v3 and the maximum current per pin is 12mA (but we will go safer with 10mA). Thus, the resistor for the IR diode of the optocoupler is 3.3-1.2/10=210 -> 200 ohm. 4k7 is a safe value since we just want continuity.
-
-Following traces from button pads end in 2k resistors that we will use to solder wires. As R46 is common, we can think is button GND
-ON button is connected to R25 and R46
-Temp down button is connected to R23 adn R46
-Temp up button is connected to R24 and R46
-
-
 
 
