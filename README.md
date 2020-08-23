@@ -1,12 +1,12 @@
 # toshiba_air_cond
 Decode Toshiba A-B protocol (aka TCC Link) for air conditioners.
 
-Status
+# Status
 
 -Operational.
 
 
-TO-DOS
+# TO-DOS
 
 -Fix parsing to support round buffer and not to loose partial frames (not necessary)
 
@@ -24,9 +24,18 @@ TO-DOS
 https://daeconsulting.co.za/2018/12/17/theres-someone-at-the-door/
 
 
-Hardware
+# Data acquisition
 
--Disclaimer: I am not responsible for any damage if you follow this instructions.
+DS0138 oscilloscope can be used to monitor the signal (voltage differs around 0.7V but it is usable) and guess voltages and bps. Later, an 8-channel USB logic analyzer (4-5 USD) can be used to capture data into the computer (REMEMBER to convert voltages to 0-3.3v before connecting it to logic analyzer or you will fry it).
+
+To capture data you can use pulseview with uart decoder 2400 bps, 8bits, start, stop, EVEN parity
+
+When the data has be validated visually you can use the following command line that reads RX data annotations and print one message per line according to 4th byte (message size).
+```
+sigrok-cli -P uart:rx=D0:baudrate=2400:parity_type=even -A uart=rx_data -i  YOURFILE  | awk '{pad =" "; b[len%4]=$2; if(len==3) {bytes="0x"b[len];  printf("%s%s%s%s%s%s%s%s",b[0],pad,b[1],pad,b[2],pad,b[3],pad)} if(len>3) {printf("%s%s",$2,pad);} len=len+1; if(len==4+bytes+1) {print "";len=0;bytes=0}}'
+```
+
+# Custom hardware
 
 ```
 Signal is around 15.6 volts when 1 and 14 when 0. Zener diode provides 13V reference, so signal is 1 .. 2.6 and after diode (0.7 drop) is 0.3 .. 1.9, enough to activate photodiode (1.2V) when 1 and to not activate it when 0.
@@ -75,7 +84,7 @@ https://learnabout-electronics.org/Downloads/PC817%20optocoupler.pdf
 
 ```
 
-Plan B. (In fact it was plan A but then I managed to decode AB protocol, yeah!)
+## Plan B. (In fact it was plan A but then I managed to decode AB protocol, yeah!)
 
 To solder wires to button pads on the remote controller and close circuit to simulate pressing them (with and optocoupler).
 
@@ -94,17 +103,7 @@ Temp down button is connected to R23 adn R46
 Temp up button is connected to R24 and R46
 
 
-
-DS0138 oscilloscope can be used to monitor the signal (voltage differs around 0.7V but it is usable) and guess voltages and bps. Later, an 8-channel USB logic analyzer (4-5 USD) can be used to capture data into the computer (REMEMBER to convert voltages to 0-3.3v before connecting it to logic analyzer or you will fry it).
-
-To capture data you can use pulseview with uart decoder 2400 bps, 8bits, start, stop, EVEN parity
-
-When the data has be validated visually you can use the following command line that reads RX data annotations and print one message per line according to 4th byte (message size).
-```
-sigrok-cli -P uart:rx=D0:baudrate=2400:parity_type=even -A uart=rx_data -i  YOURFILE  | awk '{pad =" "; b[len%4]=$2; if(len==3) {bytes="0x"b[len];  printf("%s%s%s%s%s%s%s%s",b[0],pad,b[1],pad,b[2],pad,b[3],pad)} if(len>3) {printf("%s%s",$2,pad);} len=len+1; if(len==4+bytes+1) {print "";len=0;bytes=0}}'
-```
-
-Data format seems to be
+# Data format
 
 |Source | Dest | UNK  | Data Length | Data | CRC |
 
@@ -148,6 +147,34 @@ From remote
 0C 00 (answer to 0C)
 
 CRC is computed as Checksum8 XOR of all the bytes (Compute it at https://www.scadacore.com/tools/programming-calculators/online-checksum-calculator/)
+
+# Parameter coding
+
+
+Status
+00 FE 1C 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9
+|  |     ||       |  |         |    |      |- save mode bit0
+|  |     ||       |  |         |    |  |- bit2 HEAT:1 COLD:0 
+|  |-Dst |        |  |         |    |- bit2 HEAT:1 COLD:0
+|-Src    |        |  |         |- bit7..bit1  - 35 =Temp
+         |        |  |-bit7..bit5 fan level (auto:010 med:011 high:110 low:101 )
+         |        |  |-bit2 ON:1 OFF:0
+         |        |-bit7.bit5 (mode cool:010 fan:011 auto 101 heat:001 dry: 100)
+         |        |-bit0 ON:1 OFF:0
+         |-Byte count
+         
+remote, last byte bit0
+master, status in two bits  byte bit0  byte bit2
+
+Extended status
+00 FE 58 0F 80 81 8D A8 00 00 7A 84 E9 00 33 33 01 00 01 9B
+                                    |-always E9
+                                 |-  1000 0100  1000010 66-35=31 (real temp??)  
+                              |-temp 0111 1010 111101 61-35 = 26
+
+
+
+# Logs and their guesses
 
 ```
 Op code from remote
@@ -494,7 +521,7 @@ Timer off  (it needs more working)
 40 00 11 09 08 0C 82 00 00 30 05 01 01 EB 
 ```
 
-Other info
+# Other info
 
 Info about commercial gateways but no info about protocol :(
 
