@@ -3,13 +3,13 @@
 #define BCAST   0xFE
 
 //position of bytes in packet
-#define BFROM  0
-#define BTO    1
-#define BCOUNT 3
+#define FROM  0
+#define TO    1
+#define COUNT 3
 
 
-#define MAX_RX_BUFFER 256
-#define MAX_CMD_BUFFER 32
+#define MAX_RX_BUFFER 256 //maximum rx buffer size
+#define MAX_CMD_BUFFER 32 //maximum message size
 
 #define FAN_AUTO   2
 #define FAN_HIGH   3
