@@ -14,10 +14,6 @@ var dht_h_values=[60,70,80,90];
 var timeStamp = [0,1,2,3];
 var chart_obj;
 
-function updateStatus(data)
-{
-   document.getElementById('serial').innerHTML = data;//data.toString(); 
-}
 
 var connection = new WebSocket('ws://'+location.hostname+':81/', ['arduino']);
 
@@ -40,9 +36,9 @@ connection.onopen = function () {
       setTimeout(scheduleRequestStatus, 750); //ask for status every 500 ms
    })();
 
-   (function schduleRequesttimeSeries() {	  
+   (function scheduleRequestTimeSeries() {	  
 		getTimeseries();
-      setTimeout(scheduleRequestTimeSeries, 60*1000); //ask for status every minute
+      setTimeout(scheduleRequestTimeSeries, 60*1000); //ask for time series every minute
    })();
 
 };
@@ -54,7 +50,6 @@ connection.onerror = function (error) {
 
 connection.onmessage = function (e) {  //data from server
     console.log('Server: ', e.data);
-    //updateStatus(e.data);
     processData(e.data);
 };
 
@@ -380,6 +375,169 @@ function getTimeseries() {
 }
 
 
+//https://coolors.co/9c12f3-47a8bd-f5e663-ffad69-9c3848
+//255, 173, 105
+//156, 56, 72
+//245, 230, 99
+//71, 168, 189 
+
+function showGraph()
+{
+    var ctx = document.getElementById("temp_chart").getContext('2d');
+var config={
+        type: 'line',
+        data: {
+            labels: [0],  //Bottom Labeling
+			//if not labels set xaxis to linear https://github.com/chartjs/Chart.js/issues/5494
+            datasets: [{
+                label: 'AC Sensor',
+                yAxisID: 'temperature',
+				fill: false,  //Try with true
+                backgroundColor: 'rgba(156, 56, 72, 1)', //Dot marker color
+                borderColor: 'rgba(156, 56, 72, 1)', //Graph Line Color
+                data: [0],
+            },{
+                label: 'AC Target',
+                yAxisID: 'temperature',
+				fill: false,  //Try with true
+                backgroundColor: 'rgba( 71, 168, 189 , 1)', //Dot marker color
+                borderColor: 'rgba( 71, 168, 189, 1)', //Graph Line Color
+                data: [0],
+            },{
+                label: 'Room Temperature',
+				yAxisID: 'temperature',
+                fill: false,  //Try with true
+                backgroundColor: 'rgba( 243, 156, 18 , 1)', //Dot marker color
+                borderColor: 'rgba( 243, 156, 18 , 1)', //Graph Line Color
+                data: [0],
+            },{
+                label: 'Room Humidity',
+                yAxisID: 'humidity',
+				fill: false,  //Try with true
+                backgroundColor: 'rgba(156, 18, 243 , 1)', //Dot marker color
+                borderColor: 'rgba(156, 18, 243 , 1)', //Graph Line Color
+                data: [0],
+            }],
+        },
+        options: {
+            title: {
+                    display: true,
+                    text: "Air conditioning data"
+                },
+            maintainAspectRatio: false,
+            elements: {
+            line: {
+                    tension: 0.5 //Smoothening (Curved) of data lines
+                }
+            },
+            scales: {
+                    yAxes: [{
+						id: 'temperature',
+						gridLines: {
+							drawOnChartArea: false
+						},
+                        ticks: {
+                            //beginAtZero:true,    
+							//suggestedMin: 10,
+							//suggestedMax: 40
+							type: 'logarithmic',
+							min: 20,
+							max: 34
+                        },
+						scaleLabel: {
+							display: true,
+							labelString: 'Temperature ºC'
+						},
+                    },{
+						id: 'humidity',
+						gridLines: {
+							drawOnChartArea: false
+						},
+                        ticks: {
+                            //beginAtZero:true,
+							type: 'logarithmic',    
+							min: 60,
+							max: 75
+                        },
+						position: 'right',
+						scaleLabel: {
+							display: true,
+							labelString: 'Humidity %'
+						},
+					}],
+                    xAxes: [{
+						scaleLabel: {
+							display: true,
+							labelString: 'Time'
+						}
+					}],
+					
+           },
+            animation: {
+                duration: 0,
+			}
+         }
+         }
+
+    chart_obj = new Chart(ctx, config);           
+}
+ 
+/*
+setInterval(function() {
+  // Call a function repetatively with 5 Second interval
+  getData();
+}, 5000); //5000mSeconds update rate
+*/ 
+
+
+function parseTimeSeries(json){
+	datalen=json.dht_t.length;
+    console.log(datalen);
+	
+	if (!chart_obj) showGraph();
+
+    timeStamp=[]; 
+
+    for(i=0;i<datalen;i++){
+		timeStamp.push(i);		
+    } 
+
+    //https://stackoverflow.com/questions/49360165/chart-js-update-function-chart-labels-data-will-not-update-the-chart
+    //update chart
+	chart_obj.data.labels=timeStamp;
+	chart_obj.data.datasets[0].data=json.ac_sensor_t;
+    chart_obj.data.datasets[1].data=json.ac_target_t;
+	chart_obj.data.datasets[2].data=json.dht_t;
+    chart_obj.data.datasets[3].data=json.dht_h;
+    //chart_obj.data.datasets[3].backgroundColor= 'rgba('+Math.floor()*255+','+Math.floor()*255+','+Math.floor()*255+', 1)';
+	//chart_obj.data.datasets[3].borderColor= chart_obj.data.datasets[3].backgroundColor;
+
+    //window.
+    chart_obj.update();
+
+     /*
+	//Update Data Table
+    var table = document.getElementById("dataTable");
+    var row = table.insertRow(1); //Add after headings
+    var cell1 = row.insertCell(0);
+    var cell2 = row.insertCell(1);
+    var cell3 = row.insertCell(2);
+    var cell4 = row.insertCell(3);
+    cell1.innerHTML = time;
+    cell2.innerHTML = ac_sensor_values[i];
+    cell3.innerHTML = ac_target_values[i];
+    cell4.innerHTML = dht_t_values[i];
+	cell5.innerHTML = dht_h_values[i];
+*/
+}
+//On Page load show graphs
+window.onload = function() {
+    getTimeseries();
+	showGraph();
+};
+
+
+
 
 //chart
 //window.onload = function () {
@@ -463,156 +621,3 @@ function getTimeseries() {
 //}
 
 //}
-
-//https://coolors.co/9c12f3-47a8bd-f5e663-ffad69-9c3848
-//255, 173, 105
-//156, 56, 72
-//245, 230, 99
-//71, 168, 189 
-
-function showGraph()
-{
-    var ctx = document.getElementById("temp_chart").getContext('2d');
-var config={
-        type: 'line',
-        data: {
-            labels: timeStamp,  //Bottom Labeling
-			//if not labels set xaxis to linear https://github.com/chartjs/Chart.js/issues/5494
-            datasets: [{
-                label: 'AC Sensor',
-                yAxisID: 'temperature',
-				fill: false,  //Try with true
-                backgroundColor: 'rgba(156, 56, 72, 1)', //Dot marker color
-                borderColor: 'rgba(156, 56, 72, 1)', //Graph Line Color
-                data: dht_t_values,// [30,20,30,50,20,10] //dht_t_values, //ac_sensor_values,
-            },{
-                label: 'AC Target',
-                yAxisID: 'temperature',
-				fill: false,  //Try with true
-                backgroundColor: 'rgba( 71, 168, 189 , 1)', //Dot marker color
-                borderColor: 'rgba( 71, 168, 189, 1)', //Graph Line Color
-                data: ac_target_values,
-            },{
-                label: 'Room Temperature',
-				yAxisID: 'temperature',
-                fill: false,  //Try with true
-                backgroundColor: 'rgba( 243, 156, 18 , 1)', //Dot marker color
-                borderColor: 'rgba( 243, 156, 18 , 1)', //Graph Line Color
-                data: dht_t_values,
-            },{
-                label: 'Room Humidity',
-                yAxisID: 'humidity',
-				fill: false,  //Try with true
-                backgroundColor: 'rgba(156, 18, 243 , 1)', //Dot marker color
-                borderColor: 'rgba(156, 18, 243 , 1)', //Graph Line Color
-                data: dht_h_values,
-            }],
-        },
-        options: {
-            title: {
-                    display: true,
-                    text: "Air conditioning data"
-                },
-            maintainAspectRatio: false,
-            elements: {
-            line: {
-                    tension: 0.5 //Smoothening (Curved) of data lines
-                }
-            },
-            scales: {
-                    yAxes: [{
-						id: 'temperature',
-						gridLines: {
-							drawOnChartArea: false
-						},
-                        ticks: {
-                            //beginAtZero:true,    
-							suggestedMin: 10,
-							suggestedMax: 40
-                        },
-						scaleLabel: {
-							display: true,
-							labelString: 'Temperature ºC'
-						},
-                    },{
-						id: 'humidity',
-						gridLines: {
-							drawOnChartArea: false
-						},
-                        ticks: {
-                            beginAtZero:true,    
-							suggestedMin: 20,
-							suggestedMax: 100
-                        },
-						position: 'right',
-						scaleLabel: {
-							display: true,
-							labelString: 'Humidity %'
-						},
-					}],
-                    xAxes: [{
-						scaleLabel: {
-							display: true,
-							labelString: 'Time'
-						}
-					}],
-					
-           },
-            animation: {
-                duration: 0,
-			}
-         }
-         }
-
-    chart_obj = new Chart(ctx, config);           
-}
- 
-/*
-setInterval(function() {
-  // Call a function repetatively with 5 Second interval
-  getData();
-}, 5000); //5000mSeconds update rate
-*/ 
-
-
-function parseTimeSeries(json){
-	datalen=json.dht_t.length;
-    console.log(datalen);
-	
-    timeStamp=[]; 
-
-    for(i=0;i<datalen;i++){
-		timeStamp.push(i);		
-    } 
-
-	chart_obj.data.labels=timeStamp;
-	chart_obj.data.datasets[0].data=json.ac_sensor_t;
-    chart_obj.data.datasets[1].data=json.ac_target_t;
-	chart_obj.data.datasets[2].data=json.dht_t;
-    chart_obj.data.datasets[3].data=json.dht_h;
-    //chart_obj.data.datasets[3].backgroundColor= 'rgba('+Math.floor()*255+','+Math.floor()*255+','+Math.floor()*255+', 1)';
-	//chart_obj.data.datasets[3].borderColor= chart_obj.data.datasets[3].backgroundColor;
-
-    window.chart_obj.update();
-
-     /*
-	//Update Data Table
-    var table = document.getElementById("dataTable");
-    var row = table.insertRow(1); //Add after headings
-    var cell1 = row.insertCell(0);
-    var cell2 = row.insertCell(1);
-    var cell3 = row.insertCell(2);
-    var cell4 = row.insertCell(3);
-    cell1.innerHTML = time;
-    cell2.innerHTML = ac_sensor_values[i];
-    cell3.innerHTML = ac_target_values[i];
-    cell4.innerHTML = dht_t_values[i];
-	cell5.innerHTML = dht_h_values[i];
-*/
-}
-//On Page load show graphs
-window.onload = function() {
-getTimeseries();
-	showGraph();
-};
-
