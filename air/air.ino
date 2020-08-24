@@ -13,8 +13,8 @@
 #include "toshiba_serial.hpp"
 #include "MySimpleTimer.hpp"
 
-const char *w_ssid = "semesa";
-const char *w_passwd = "mestiamorosita";
+const char *w_ssid = "x";
+const char *w_passwd = "x";
 
 IPAddress ip(192, 168, 2, 200 );
 IPAddress gateway(192, 168, 2, 1);
@@ -36,7 +36,7 @@ const char *password = "aire";   // The password required to connect to it, leav
 const char *OTAName = "ESP8266";           // A name and a password for the OTA service
 const char *OTAPassword = "esp8266";
 
-const char* mdnsName = "aire"; // Domain name for the mDNS responder
+const char* mdnsName = "air"; // Domain name for the mDNS responder
 
 #include "DHT.h"
 const int DHTPin = D2;
@@ -363,8 +363,8 @@ String air_to_json(air_status_t *air)
   jsonDoc["timer_enabled"] = timerAC.isEnabled();
   jsonDoc["timer_pending"] = timerAC.pendingTime();
   jsonDoc["timer_time"] = timerAC.getInterval();
-  jsonDoc["dht_temp"] = dht_t[0]; // dht_t[(dht_idx-1)>0?dht_idx-1:dht_idx];
-  jsonDoc["dht_hum"] = dht_h[0]; //dht_h[(dht_idx-1)>0?dht_idx-1:dht_idx];
+  jsonDoc["dht_temp"] = dht_t[(dht_idx-1)%MAX_DHT_DATA];
+  jsonDoc["dht_hum"] = dht_h[(dht_idx-1)%MAX_DHT_DATA];
   jsonDoc["decode_errors"] = air->decode_errors;
 
   int i;
