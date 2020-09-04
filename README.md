@@ -1,6 +1,8 @@
 # toshiba_air_cond
 Decode Toshiba A-B protocol (aka TCC Link) for air conditioners.
 
+Tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
+
 # Status
 
 -Operational.
