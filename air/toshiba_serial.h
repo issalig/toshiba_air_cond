@@ -8,7 +8,7 @@
 #define COUNT 3
 
 
-#define MAX_RX_BUFFER 256 //maximum rx buffer size
+#define MAX_RX_BUFFER 128//256 //maximum rx buffer size
 #define MAX_CMD_BUFFER 32 //maximum message size
 
 #define FAN_AUTO   2
@@ -38,6 +38,7 @@ typedef struct {
   uint8_t power;
   byte last_cmd[MAX_CMD_BUFFER];
   byte rx_data[MAX_RX_BUFFER];  //serial rx data
+  //byte tx_data[MAX_CMD_BUFFER]; //serial tx data
   int curr_w_idx = 0;
   int curr_r_idx = 0;
   uint8_t timer_mode_req;

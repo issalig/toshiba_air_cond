@@ -1,5 +1,26 @@
-//dependencies
-//https://github.com/plerup/espsoftwareserial
+/*
+  Name:       air.ino
+  Created:    01/06/2020 initial version
+              15/07/2020 Websockets
+              27/08/2020 temperature graph
+              05/09/2020 fix temp, fix heat mode
+  Author:     issalig
+  Description: Control toshiba air cond via web
+
+              HW
+              Connect circuit(see readme.md) for reading/writing to ESP8266
+              
+              SW
+              Upload data directory with ESP8266SketchDataUpload and flash it with USB for the first time. Then, when installed you can use OTA updates.                           
+              
+
+  References: https://github.com/tttapa/ESP8266/
+              https://github.com/luisllamasbinaburo/ESP8266-Examples
+              https://diyprojects.io/esp8266-web-server-part-5-add-google-charts-gauges-and-charts/#.X0gBsIbtY5k
+
+
+  Dependencies: https://github.com/plerup/espsoftwareserial              
+*/
 
 
 #include <ESP8266WiFi.h>
@@ -10,15 +31,33 @@
 #include <FS.h>
 #include <WebSocketsServer.h> //Links2004 ///arduino websockets gil maimon
 #include <ArduinoJson.h>  //by Benoit Blanchon
+#include <NTPClient.h> //install from arduino or get it from https://github.com/arduino-libraries/NTPClient
+#include <WiFiUdp.h>
 #include "toshiba_serial.hpp"
 #include "MySimpleTimer.hpp"
 
 const char *w_ssid = "x";
 const char *w_passwd = "x";
 
+const char *ssid = "x"; // The name of the Wi-Fi network that will be created
+const char *password = "x";   // The password required to connect to it, leave blank for an open network
+
+const char *OTAName = "air";           // A name and a password for the OTA service
+const char *OTAPassword = "esp8266";
+
+const char* mdnsName = "air"; // Domain name for the mDNS responder
+
+const char *http_user = "x";
+const char *http_passwd = "x";
+// allows you to set the realm of authentication Default:"Login Required"
+const char* www_realm = "Custom Auth Realm";
+// the Content of the HTML response in case of Unautherized Access Default:empty
+String authFailResponse = "Authentication Failed";
+
 IPAddress ip(192, 168, 2, 200 );
 IPAddress gateway(192, 168, 2, 1);
 IPAddress subnet(255, 255, 255, 0);
+IPAddress dns(8,8,8,8);
 
 air_status_t air_status;
 MySimpleTimer timerAC;
@@ -30,27 +69,26 @@ WebSocketsServer webSocket(81);    // create a websocket server on port 81
 
 File fsUploadFile;                                    // a File variable to temporarily store the received file
 
-const char *ssid = "aire"; // The name of the Wi-Fi network that will be created
-const char *password = "aire";   // The password required to connect to it, leave blank for an open network
-
-const char *OTAName = "ESP8266";           // A name and a password for the OTA service
-const char *OTAPassword = "esp8266";
-
-const char* mdnsName = "air"; // Domain name for the mDNS responder
-
 #include "DHT.h"
 const int DHTPin = D2;
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 DHT dht(DHTPin, DHTTYPE);
-MySimpleTimer timerDHT;
-int DHTinterval = 30;//120;  //every 5 minutes
+MySimpleTimer timerTemperature;
+int DHTinterval = 120;//in secs
 #define MAX_DHT_DATA 144//288 // for one day
 float dht_h[MAX_DHT_DATA];
 float dht_t[MAX_DHT_DATA];
 float ac_sensor[MAX_DHT_DATA];
 float ac_target[MAX_DHT_DATA];
+unsigned long timestamp[MAX_DHT_DATA];
+int temp_idx = 0;
 
-int dht_idx = 0;
+
+// Define NTP Client to get time
+WiFiUDP ntpUDP;
+const long utcOffsetInSeconds = 3600; //1 hour for Europe/Brussels
+int timeOffset = 0;
+NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 0); //do not apply utc here
 
 MySimpleTimer timerStatus;
 MySimpleTimer timerReadSerial;
@@ -76,25 +114,28 @@ void setup() {
 
   startServer();               // Start a HTTP server with a file read handler and an upload handler
 
-  init_air_serial(&air_status); // Start air conditioning structure and software serial
+  init_air_serial(&air_status);// Start air conditioning structure and software serial
 
-  startReadSerial();
-  startStatus();
-  startDHT();
+  startReadSerial();           // Start timer for serial readings (1s)
 
+  startStatus();               // Start timer for status print (10s)
 
+  startTemperature();          // Start timer for temperature readings (120s)
+
+  timeClient.begin(); //get NTP time
 }
 
-void startDHT() {
-  timerDHT.setUnit(1000);
-  timerDHT.setInterval(60);//DHTinterval);
-  timerDHT.repeat();
-  timerDHT.start();
+void startTemperature() {
+  timerTemperature.setUnit(1000);
+  timerTemperature.setInterval(DHTinterval);
+  timerTemperature.repeat();
+  timerTemperature.start();
   dht.begin();
   dht_h[0] = dht.readHumidity();
   dht_t[0] = dht.readTemperature();
   ac_sensor[0] = air_status.sensor_temp;
-  ac_target[0] = air_status.target_temp;
+  ac_target[0] = air_status.target_temp*air_status.power;
+  timestamp[0]= 0;//timeClient.getEpochTime();
 }
 
 void startStatus() {
@@ -126,17 +167,21 @@ void handleTimer() {
 
 }
 
-void handleDHT() {
-  if (timerDHT.isTime()) {
-    Serial.println("Reading DHT");
+void handleTemperature() {
+  if (timerTemperature.isTime()) {
+    Serial.println("Reading temperature");
     // Reading temperature or humidity takes about 250 milliseconds!
-    dht_h[dht_idx] = dht.readHumidity();
-    dht_t[dht_idx] = dht.readTemperature();
+    dht_h[temp_idx] = dht.readHumidity();
+    dht_t[temp_idx] = dht.readTemperature();
 
-    ac_target[dht_idx] = air_status.target_temp;
-    ac_sensor[dht_idx] = air_status.sensor_temp;
-    dht_idx = (dht_idx + 1) % MAX_DHT_DATA;
+    ac_target[temp_idx] = air_status.target_temp*air_status.power;
+    ac_sensor[temp_idx] = air_status.sensor_temp;
+
+    timeClient.update();
+    timestamp[temp_idx] = timeClient.getEpochTime();
     
+    temp_idx = (temp_idx + 1) % MAX_DHT_DATA;
+
   }
 }
 
@@ -157,7 +202,7 @@ void handleReadSerial() {
 void loop() {
 
   handleTimer();
-  handleDHT();
+  handleTemperature();
   handleStatus();
   handleReadSerial();
 
@@ -170,7 +215,7 @@ void loop() {
 
 void startWiFi() { //fixed IP
   WiFi.mode(WIFI_STA);
-  WiFi.config(ip, gateway, subnet);
+  WiFi.config(ip, gateway, subnet,dns);
   WiFi.begin(w_ssid, w_passwd);
   Serial.print("Connected to:\t");
   Serial.println(w_ssid);
@@ -269,6 +314,23 @@ void startMDNS() { // Start the mDNS responder
   Serial.println(".local");
 }
 
+bool isInternalIP(ESP8266WebServer *myserver) {
+  IPAddress clientIP = myserver->client().remoteIP();
+  IPAddress serverIP = WiFi.localIP();
+
+  Serial.println(myserver->client().remoteIP());
+  Serial.println(WiFi.localIP());
+
+  Serial.println(myserver->client().remoteIP()[0]);
+  Serial.println(WiFi.localIP()[0]);
+
+  Serial.println(myserver->client().remoteIP()[1]);
+  Serial.println(WiFi.localIP()[1]);
+  Serial.println(clientIP[0] == serverIP[0] && clientIP[1] == serverIP[1]);
+
+  return (clientIP[0] == serverIP[0] && clientIP[1] == serverIP[1]);
+}
+
 void startServer() { // Start a HTTP server with a file read handler and an upload handler
   server.on("/edit.html",  HTTP_POST, []() {  // If a POST request is sent to the /edit.html address,
     server.send(200, "text/plain", "");
@@ -276,6 +338,27 @@ void startServer() { // Start a HTTP server with a file read handler and an uplo
 
   server.onNotFound(handleNotFound);          // if someone requests any other file or page, go to function 'handleNotFound'
   // and check if the file exists
+
+  /*
+    server.on("/", []() {
+    if (!isInternalIP(&server)){ //ask for autheitcation if not inside local net
+    if (!server.authenticate(http_user, http_passwd))
+      //Basic Auth Method with Custom realm and Failure Response
+      //return server.requestAuthentication(BASIC_AUTH, www_realm, authFailResponse);
+      //Digest Auth Method with realm="Login Required" and empty Failure Response
+      //return server.requestAuthentication(DIGEST_AUTH);
+      //Digest Auth Method with Custom realm and empty Failure Response
+      //return server.requestAuthentication(DIGEST_AUTH, www_realm);
+      //Digest Auth Method with Custom realm and Failure Response
+    {
+      return server.requestAuthentication(DIGEST_AUTH, www_realm, authFailResponse);
+    }}
+    //server.sendHeader("Location", "/index.html");     // Redirect the client to main page
+    //server.send(303);
+
+    //server.send(200, "text/html", inde);
+    });
+  */
 
   server.begin();                             // start the HTTP server
   Serial.println("HTTP server started.");
@@ -363,8 +446,8 @@ String air_to_json(air_status_t *air)
   jsonDoc["timer_enabled"] = timerAC.isEnabled();
   jsonDoc["timer_pending"] = timerAC.pendingTime();
   jsonDoc["timer_time"] = timerAC.getInterval();
-  jsonDoc["dht_temp"] = dht_t[(dht_idx-1)%MAX_DHT_DATA];
-  jsonDoc["dht_hum"] = dht_h[(dht_idx-1)%MAX_DHT_DATA];
+  jsonDoc["dht_temp"] = dht_t[(temp_idx - 1) % MAX_DHT_DATA];
+  jsonDoc["dht_hum"] = dht_h[(temp_idx - 1) % MAX_DHT_DATA];
   jsonDoc["decode_errors"] = air->decode_errors;
 
   int i;
@@ -380,6 +463,8 @@ String air_to_json(air_status_t *air)
     str += ((air->rx_data[i] < 0x10) ? "0" : "")  + String(air->rx_data[i], HEX) + " ";
   jsonDoc["rx_data"] = str;
 
+  //jsonDoc["tx_data"] = air->tx_data;
+  
   serializeJson(jsonDoc, response);
 
   return response;
@@ -449,6 +534,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
           air_set_mode(&air_status, MODE_DRY);
         } else if (jsonDoc["value"] == "fan") {
           air_set_mode(&air_status, MODE_FAN);
+        } else if (jsonDoc["value"] == "heat") {
+          air_set_mode(&air_status, MODE_HEAT);
         }
       }
       else if (jsonDoc["id"] == "fan") {
@@ -494,56 +581,45 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
         DynamicJsonDocument docTimeSeries(10000);  //3000 hold around 150 vals
 
         docTimeSeries["id"] = "timeseries";
-        //docTimeSeries["name"] = "dht_t";
         docTimeSeries["n"] = MAX_DHT_DATA;
 
-        JsonArray arr = docTimeSeries.createNestedArray("dht_t");
-        //arr.add(5);
         int i;
-        arr.add(dht_t[dht_idx]);
-        for (i = (dht_idx + 1) % MAX_DHT_DATA; i != dht_idx; i = (i + 1) % MAX_DHT_DATA) {
+
+       JsonArray arrt = docTimeSeries.createNestedArray("timestamp");
+        arrt.add(timestamp[temp_idx]);
+        for (i = (temp_idx + 1) % MAX_DHT_DATA; i != temp_idx; i = (i + 1) % MAX_DHT_DATA) {
+          arrt.add(timestamp[i]);
+        }
+
+        JsonArray arr = docTimeSeries.createNestedArray("dht_t");
+        arr.add(dht_t[temp_idx]);
+        for (i = (temp_idx + 1) % MAX_DHT_DATA; i != temp_idx; i = (i + 1) % MAX_DHT_DATA) {
           //for(i=0;i<6;i++){
           //Serial.print("J");Serial.print(i);Serial.print(" ");
           arr.add(dht_t[i]);
         }
 
-        //serializeJson(docTimeSeries, message);
-        //webSocket.broadcastTXT(message);
-
-        //delay(50);
-          
-        //docTimeSeries.clear();
-        //docTimeSeries["id"] = "timeseries";
-        //docTimeSeries["name"] = "dht_h";
-        //docTimeSeries["n"] = MAX_DHT_DATA;
-       
         JsonArray arr2 = docTimeSeries.createNestedArray("dht_h");
-    
-        arr2.add(dht_h[dht_idx]);
-        for (i = (dht_idx + 1) % MAX_DHT_DATA; i != dht_idx; i = (i + 1) % MAX_DHT_DATA) {
-          //for(i=0;i<6;i++){
-          //Serial.print("J");Serial.print(i);Serial.print(" ");
+
+        arr2.add(dht_h[temp_idx]);
+        for (i = (temp_idx + 1) % MAX_DHT_DATA; i != temp_idx; i = (i + 1) % MAX_DHT_DATA) {
           arr2.add(dht_h[i]);
         }
 
         JsonArray arr3 = docTimeSeries.createNestedArray("ac_target_t");
-    
-        arr3.add(ac_target[dht_idx]);
-        for (i = (dht_idx + 1) % MAX_DHT_DATA; i != dht_idx; i = (i + 1) % MAX_DHT_DATA) {
-          //for(i=0;i<6;i++){
-          //Serial.print("J");Serial.print(i);Serial.print(" ");
+
+        arr3.add(ac_target[temp_idx]);
+        for (i = (temp_idx + 1) % MAX_DHT_DATA; i != temp_idx; i = (i + 1) % MAX_DHT_DATA) {
           arr3.add(ac_target[i]);
         }
 
         JsonArray arr4 = docTimeSeries.createNestedArray("ac_sensor_t");
-    
-        arr4.add(ac_sensor[dht_idx]);
-        for (i = (dht_idx + 1) % MAX_DHT_DATA; i != dht_idx; i = (i + 1) % MAX_DHT_DATA) {
-          //for(i=0;i<6;i++){
-          //Serial.print("J");Serial.print(i);Serial.print(" ");
+
+        arr4.add(ac_sensor[temp_idx]);
+        for (i = (temp_idx + 1) % MAX_DHT_DATA; i != temp_idx; i = (i + 1) % MAX_DHT_DATA) {
           arr4.add(ac_sensor[i]);
         }
-        
+
         serializeJson(docTimeSeries, message);
         webSocket.broadcastTXT(message);
       }

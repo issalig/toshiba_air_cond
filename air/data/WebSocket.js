@@ -456,7 +456,7 @@ var config={
                         ticks: {
                             //beginAtZero:true,
 							type: 'logarithmic',    
-							min: 60,
+							min: 35,
 							max: 75
                         },
 						position: 'right',
@@ -471,7 +471,27 @@ var config={
 							labelString: 'Time'
 						}
 					}],
-					
+					/*xAxes: [{
+						scaleLabel: {
+							display: true,
+							labelString: 'Time'
+						},
+						distribution: 'linear',
+						type: 'time',
+						time: {
+							parser: 'MM/DD/YYYY HH:mm',
+							// round: 'day'
+							tooltipFormat: 'll HH:mm'
+						},
+						time: {
+							parser: 'MM/DD/YYYY HH:mm',
+							tooltipFormat: 'll HH:mm',
+							unit: 'day',
+							unitStepSize: 1,
+							displayFormats: {
+								'day': 'MM/DD/YYYY'}
+						}
+					}], */
            },
             animation: {
                 duration: 0,
@@ -482,6 +502,9 @@ var config={
     chart_obj = new Chart(ctx, config);           
 }
  
+//check for time labeling
+//https://www.chartjs.org/samples/latest/scales/time/line.html
+
 /*
 setInterval(function() {
   // Call a function repetatively with 5 Second interval
@@ -499,12 +522,12 @@ function parseTimeSeries(json){
     timeStamp=[]; 
 
     for(i=0;i<datalen;i++){
-		timeStamp.push(i);		
+		timeStamp.push(moment(json.timestamp[i]*1000).format('HH:mm'));//(i);		
     } 
 
     //https://stackoverflow.com/questions/49360165/chart-js-update-function-chart-labels-data-will-not-update-the-chart
     //update chart
-	chart_obj.data.labels=timeStamp;
+	chart_obj.data.labels=timeStamp;//json.timestamp;//
 	chart_obj.data.datasets[0].data=json.ac_sensor_t;
     chart_obj.data.datasets[1].data=json.ac_target_t;
 	chart_obj.data.datasets[2].data=json.dht_t;
@@ -515,20 +538,7 @@ function parseTimeSeries(json){
     //window.
     chart_obj.update();
 
-     /*
-	//Update Data Table
-    var table = document.getElementById("dataTable");
-    var row = table.insertRow(1); //Add after headings
-    var cell1 = row.insertCell(0);
-    var cell2 = row.insertCell(1);
-    var cell3 = row.insertCell(2);
-    var cell4 = row.insertCell(3);
-    cell1.innerHTML = time;
-    cell2.innerHTML = ac_sensor_values[i];
-    cell3.innerHTML = ac_target_values[i];
-    cell4.innerHTML = dht_t_values[i];
-	cell5.innerHTML = dht_h_values[i];
-*/
+
 }
 //On Page load show graphs
 window.onload = function() {
@@ -537,87 +547,3 @@ window.onload = function() {
 };
 
 
-
-
-//chart
-//window.onload = function () {
-
-//var chart = new CanvasJS.Chart("chartContainer", {
-	//animationEnabled: true,
-	//title:{
-		//text: "Temperature / Humidity"
-	//},
-	//axisX: {
-		//valueFormatString: "DD MMM,YY"
-	//},
-	//axisY: {
-		//title: "Temperature (in °C)",
-		//suffix: " °C"
-	//},
-	//legend:{
-		//cursor: "pointer",
-		//fontSize: 16,
-		//itemclick: toggleDataSeries
-	//},
-	//toolTip:{
-		//shared: true
-	//},
-	//data: [{
-		//name: "Myrtle Beach",
-		//type: "spline",
-		//yValueFormatString: "#0.## °C",
-		//showInLegend: true,
-		//dataPoints: [
-			//{ x: new Date(2017,6,24), y: 31 },
-			//{ x: new Date(2017,6,25), y: 31 },
-			//{ x: new Date(2017,6,26), y: 29 },
-			//{ x: new Date(2017,6,27), y: 29 },
-			//{ x: new Date(2017,6,28), y: 31 },
-			//{ x: new Date(2017,6,29), y: 30 },
-			//{ x: new Date(2017,6,30), y: 29 }
-		//]
-	//},
-	//{
-		//name: "Martha Vineyard",
-		//type: "spline",
-		//yValueFormatString: "#0.## °C",
-		//showInLegend: true,
-		//dataPoints: [
-			//{ x: new Date(2017,6,24), y: 20.5 },
-			//{ x: new Date(2017,6,25), y: 20.5 },
-			//{ x: new Date(2017,6,26), y: 25 },
-			//{ x: new Date(2017,6,27), y: 25 },
-			//{ x: new Date(2017,6,28), y: 25 },
-			//{ x: new Date(2017,6,29), y: 25 },
-			//{ x: new Date(2017,6,30), y: 25 }
-		//]
-	//},
-	//{
-		//name: "Nantucket",
-		//type: "spline",
-		//yValueFormatString: "#0.## °C",
-		//showInLegend: true,
-		//dataPoints: [
-			//{ x: new Date(2017,6,24), y: 22 },
-			//{ x: new Date(2017,6,25), y: 19 },
-			//{ x: new Date(2017,6,26), y: 23 },
-			//{ x: new Date(2017,6,27), y: 24 },
-			//{ x: new Date(2017,6,28), y: 24 },
-			//{ x: new Date(2017,6,29), y: 23 },
-			//{ x: new Date(2017,6,30), y: 23 }
-		//]
-	//}]
-//});
-//chart.render();
-
-//function toggleDataSeries(e){
-	//if (typeof(e.dataSeries.visible) === "undefined" || e.dataSeries.visible) {
-		//e.dataSeries.visible = false;
-	//}
-	//else{
-		//e.dataSeries.visible = true;
-	//}
-	//chart.render();
-//}
-
-//}

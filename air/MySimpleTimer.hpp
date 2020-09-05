@@ -57,7 +57,7 @@ void MySimpleTimer::disable() {
 
 
 bool MySimpleTimer::isEnabled() {
-  return(_enabled);
+  return (_enabled);
 }
 
 

@@ -11,12 +11,10 @@ void setup() {
 }
 
 void loop() {
-  air_send_test_data(&air_status);
+  air_send_test_data_partial(&air_status);
+  air_parse_serial(&air_status);
+  air_send_test_data_partial2(&air_status);
   air_parse_serial(&air_status);
   //air_status.serial.flush();
-  delay(500);
-  air_set_temp(&air_status, 25);
-  delay(500);
-  air_parse_serial(&air_status);
   delay(500);
 }
