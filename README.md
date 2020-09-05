@@ -152,8 +152,8 @@ CRC is computed as Checksum8 XOR of all the bytes (Compute it at https://www.sca
 
 # Parameter coding
 
-
 Status
+```
 00 FE 1C 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9
 |  |     ||       |  |         |    |      |- save mode bit0
 |  |     ||       |  |         |    |  |- bit2 HEAT:1 COLD:0 
@@ -167,13 +167,14 @@ Status
          
 remote, last byte bit0
 master, status in two bits  byte bit0  byte bit2
-
+```
 Extended status
+```
 00 FE 58 0F 80 81 8D A8 00 00 7A 84 E9 00 33 33 01 00 01 9B
                                     |-always E9
                                  |-  1000 0100  1000010 66-35=31 (real temp??)  
                               |-temp 0111 1010 111101 61-35 = 26
-
+``` 
 
 
 # Logs and their guesses
