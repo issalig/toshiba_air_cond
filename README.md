@@ -211,7 +211,9 @@ UNK is
 11 ??                     40 00 11 03 08 41 03 18
                           00 52 11 04 80 86 84 05 C0
 15 (from remote)          40 00 15 07 08 0C 81 00 00 48 00 9F
-55 (from remote)          40 00 55 05 08 81 00 7E 00 E7 
+55 (from remote)          40 00 55 05 08 81 00 7E 00 E7                
+                          40 00 55 05 08 81 00 7C 00 E5 (heat mode 24)
+
 first part is 1,5
 second part is 0,1,8,C
 
@@ -524,6 +526,18 @@ Timer off  (it needs more working)
 40 00 11 09 08 0C 82 00 00 30 05 01 01 EB 
 ```
 
+TEST, ON, HEAT, COOL, OFF, TEST
+```
+40 00 15 07 08 0C 81 00 00 48 00 9F
+40 00 55 05 08 81 00 7C 00 E5
+40 00 11 03 08 41 C0 DB  test on?    1100
+40 00 11 03 08 41 03 18  power on
+40 00 15 07 08 0C 81 00 00 48 00 9F
+40 00 11 03 08 42 02 1A
+40 00 55 05 08 81 00 7C 00 E5
+40 00 11 03 08 41 02 19  power off
+40 00 11 03 08 41 80 9B  test off?   1000
+```
 # Other info
 
 Info about commercial gateways but no info about protocol :(
