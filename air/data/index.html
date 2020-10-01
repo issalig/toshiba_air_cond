@@ -34,8 +34,10 @@
 			<span id="sensor_temp"  foostyle="font-size:3vw">-</span>
             </div>
             <div id="temp_external_div" background-color: #E5E4E2;>
-            External temp/hum:
+            Ext temp/hum:
             <span id="dht_temp"  foostyle="font-size:3vw">-</span>/<span id="dht_hum" foostyle="font-size:3vw">-</span>%
+            temp/press:
+            <span id="bmp_temp"  foostyle="font-size:3vw">-</span>/<span id="bmp_press" foostyle="font-size:3vw">-</span>
             </div>
 			
 			 
@@ -110,6 +112,10 @@
                     <td><div id="power">---</div></td>
                 </tr>
 -->
+
+                <tr>					
+                    <td > Sampling<input id="sampling_text" type="value" size="5"/><input id="sampling_button" type="button" onclick="set_sampling();"/> </td>
+                </tr>
 
                 <tr>					
                     <td > Dbg CMD<input id="check_cmd" type="checkbox"/> err(<span id="decode_errors">-</span>)</td>                    

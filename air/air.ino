@@ -4,22 +4,24 @@
               15/07/2020 Websockets
               27/08/2020 temperature graph
               05/09/2020 fix temp, fix heat mode
+              01/10/2020 bmp180 support adds pressure
+              
   Author:     issalig
   Description: Control toshiba air cond via web
 
               HW
               Connect circuit(see readme.md) for reading/writing to ESP8266
-              
+
               SW
-              Upload data directory with ESP8266SketchDataUpload and flash it with USB for the first time. Then, when installed you can use OTA updates.                           
-              
+              Upload data directory with ESP8266SketchDataUpload and flash it with USB for the first time. Then, when installed you can use OTA updates.
+
 
   References: https://github.com/tttapa/ESP8266/
               https://github.com/luisllamasbinaburo/ESP8266-Examples
               https://diyprojects.io/esp8266-web-server-part-5-add-google-charts-gauges-and-charts/#.X0gBsIbtY5k
 
 
-  Dependencies: https://github.com/plerup/espsoftwareserial              
+  Dependencies: https://github.com/plerup/espsoftwareserial
 */
 
 
@@ -36,19 +38,19 @@
 #include "toshiba_serial.hpp"
 #include "MySimpleTimer.hpp"
 
-const char *w_ssid = "x";
-const char *w_passwd = "x";
+const char *w_ssid = "xxx";
+const char *w_passwd = "xxx";
 
-const char *ssid = "x"; // The name of the Wi-Fi network that will be created
-const char *password = "x";   // The password required to connect to it, leave blank for an open network
+const char *ssid = "aire"; // The name of the Wi-Fi network that will be created
+const char *password = "aire";   // The password required to connect to it, leave blank for an open network
 
 const char *OTAName = "air";           // A name and a password for the OTA service
-const char *OTAPassword = "esp8266";
+const char *OTAPassword = "xxx";
 
 const char* mdnsName = "air"; // Domain name for the mDNS responder
 
-const char *http_user = "x";
-const char *http_passwd = "x";
+const char *http_user = "aeras";
+const char *http_passwd = "aeras";
 // allows you to set the realm of authentication Default:"Login Required"
 const char* www_realm = "Custom Auth Realm";
 // the Content of the HTML response in case of Unautherized Access Default:empty
@@ -57,7 +59,7 @@ String authFailResponse = "Authentication Failed";
 IPAddress ip(192, 168, 2, 200 );
 IPAddress gateway(192, 168, 2, 1);
 IPAddress subnet(255, 255, 255, 0);
-IPAddress dns(8,8,8,8);
+IPAddress dns(8, 8, 8, 8);
 
 air_status_t air_status;
 MySimpleTimer timerAC;
@@ -69,18 +71,27 @@ WebSocketsServer webSocket(81);    // create a websocket server on port 81
 
 File fsUploadFile;                                    // a File variable to temporarily store the received file
 
+MySimpleTimer timerTemperature;
+int temp_interval = 5;//120;//in secs
+
 #include "DHT.h"
-const int DHTPin = D2;
+const int DHTPin = D3;
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 DHT dht(DHTPin, DHTTYPE);
-MySimpleTimer timerTemperature;
-int DHTinterval = 120;//in secs
-#define MAX_DHT_DATA 144//288 // for one day
-float dht_h[MAX_DHT_DATA];
-float dht_t[MAX_DHT_DATA];
-float ac_sensor[MAX_DHT_DATA];
-float ac_target[MAX_DHT_DATA];
-unsigned long timestamp[MAX_DHT_DATA];
+
+
+#include <Wire.h>
+#include <Adafruit_BMP085.h>
+Adafruit_BMP085 bmp;
+
+#define MAX_LOG_DATA 144//288 // for one day
+float dht_h[MAX_LOG_DATA];
+float dht_t[MAX_LOG_DATA];
+float ac_sensor[MAX_LOG_DATA];
+float ac_target[MAX_LOG_DATA];
+float bmp_t[MAX_LOG_DATA];
+float bmp_p[MAX_LOG_DATA];
+unsigned long timestamp[MAX_LOG_DATA];
 int temp_idx = 0;
 
 
@@ -127,15 +138,22 @@ void setup() {
 
 void startTemperature() {
   timerTemperature.setUnit(1000);
-  timerTemperature.setInterval(DHTinterval);
+  timerTemperature.setInterval(temp_interval);
   timerTemperature.repeat();
   timerTemperature.start();
+
   dht.begin();
   dht_h[0] = dht.readHumidity();
   dht_t[0] = dht.readTemperature();
+
+  bmp.begin();
+  bmp_t[0] = bmp.readTemperature();
+  bmp_p[0] = bmp.readPressure();
+
   ac_sensor[0] = air_status.sensor_temp;
-  ac_target[0] = air_status.target_temp*air_status.power;
-  timestamp[0]= 0;//timeClient.getEpochTime();
+  ac_target[0] = air_status.target_temp * air_status.power;
+
+  timestamp[0] = 0; //timeClient.getEpochTime();
 }
 
 void startStatus() {
@@ -164,24 +182,26 @@ void handleTimer() {
       air_set_power_on(&air_status);
     }
   }
-
 }
 
 void handleTemperature() {
   if (timerTemperature.isTime()) {
-    Serial.println("Reading temperature");
     // Reading temperature or humidity takes about 250 milliseconds!
     dht_h[temp_idx] = dht.readHumidity();
     dht_t[temp_idx] = dht.readTemperature();
+    Serial.printf("DHT temp %.1f hum %.1f\n", dht_t[temp_idx], dht_h[temp_idx]);
 
-    ac_target[temp_idx] = air_status.target_temp*air_status.power;
+    bmp_t[temp_idx] = bmp.readTemperature();
+    bmp_p[temp_idx] = bmp.readPressure()/100; //in mb
+    Serial.printf("BMP temp %.1f press %.1f\n", bmp_t[temp_idx], bmp_p[temp_idx]);
+
+    ac_target[temp_idx] = air_status.target_temp * air_status.power; //0 if powered off
     ac_sensor[temp_idx] = air_status.sensor_temp;
 
     timeClient.update();
     timestamp[temp_idx] = timeClient.getEpochTime();
-    
-    temp_idx = (temp_idx + 1) % MAX_DHT_DATA;
 
+    temp_idx = (temp_idx + 1) % MAX_LOG_DATA;
   }
 }
 
@@ -215,7 +235,7 @@ void loop() {
 
 void startWiFi() { //fixed IP
   WiFi.mode(WIFI_STA);
-  WiFi.config(ip, gateway, subnet,dns);
+  WiFi.config(ip, gateway, subnet, dns);
   WiFi.begin(w_ssid, w_passwd);
   Serial.print("Connected to:\t");
   Serial.println(w_ssid);
@@ -446,8 +466,11 @@ String air_to_json(air_status_t *air)
   jsonDoc["timer_enabled"] = timerAC.isEnabled();
   jsonDoc["timer_pending"] = timerAC.pendingTime();
   jsonDoc["timer_time"] = timerAC.getInterval();
-  jsonDoc["dht_temp"] = dht_t[(temp_idx - 1) % MAX_DHT_DATA];
-  jsonDoc["dht_hum"] = dht_h[(temp_idx - 1) % MAX_DHT_DATA];
+  jsonDoc["sampling"] = temp_interval;
+  jsonDoc["dht_temp"] = dht_t[(temp_idx - 1) % MAX_LOG_DATA];
+  jsonDoc["dht_hum"] = dht_h[(temp_idx - 1) % MAX_LOG_DATA];
+  jsonDoc["bmp_temp"] = bmp_t[(temp_idx - 1) % MAX_LOG_DATA];
+  jsonDoc["bmp_press"] = bmp_p[(temp_idx - 1) % MAX_LOG_DATA];
   jsonDoc["decode_errors"] = air->decode_errors;
 
   int i;
@@ -464,7 +487,7 @@ String air_to_json(air_status_t *air)
   jsonDoc["rx_data"] = str;
 
   //jsonDoc["tx_data"] = air->tx_data;
-  
+
   serializeJson(jsonDoc, response);
 
   return response;
@@ -570,6 +593,15 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
         message = air_to_json(&air_status);
         webSocket.broadcastTXT(message);
       }
+      else if (jsonDoc["id"] == "sampling") {
+        Serial.println("Sampling time");
+        temp_interval = jsonDoc["value"];
+        timerTemperature.setUnit(1000);
+        timerTemperature.setInterval(temp_interval);
+        timerTemperature.repeat();
+        timerTemperature.start();
+
+      }
       else if (jsonDoc["id"] == "timeseries") {
         Serial.println("TimeSeries");
         String message;
@@ -578,22 +610,22 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
         //message = timeseries_to_json(&air_status);
 
         //StaticJsonDocument<400> docTimeSeries;
-        DynamicJsonDocument docTimeSeries(10000);  //3000 hold around 150 vals
+        DynamicJsonDocument docTimeSeries(16000);  //3000 hold around 150 vals
 
         docTimeSeries["id"] = "timeseries";
-        docTimeSeries["n"] = MAX_DHT_DATA;
+        docTimeSeries["n"] = MAX_LOG_DATA;
 
         int i;
 
-       JsonArray arrt = docTimeSeries.createNestedArray("timestamp");
+        JsonArray arrt = docTimeSeries.createNestedArray("timestamp");
         arrt.add(timestamp[temp_idx]);
-        for (i = (temp_idx + 1) % MAX_DHT_DATA; i != temp_idx; i = (i + 1) % MAX_DHT_DATA) {
+        for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
           arrt.add(timestamp[i]);
         }
 
         JsonArray arr = docTimeSeries.createNestedArray("dht_t");
         arr.add(dht_t[temp_idx]);
-        for (i = (temp_idx + 1) % MAX_DHT_DATA; i != temp_idx; i = (i + 1) % MAX_DHT_DATA) {
+        for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
           //for(i=0;i<6;i++){
           //Serial.print("J");Serial.print(i);Serial.print(" ");
           arr.add(dht_t[i]);
@@ -602,22 +634,36 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
         JsonArray arr2 = docTimeSeries.createNestedArray("dht_h");
 
         arr2.add(dht_h[temp_idx]);
-        for (i = (temp_idx + 1) % MAX_DHT_DATA; i != temp_idx; i = (i + 1) % MAX_DHT_DATA) {
+        for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
           arr2.add(dht_h[i]);
         }
 
         JsonArray arr3 = docTimeSeries.createNestedArray("ac_target_t");
 
         arr3.add(ac_target[temp_idx]);
-        for (i = (temp_idx + 1) % MAX_DHT_DATA; i != temp_idx; i = (i + 1) % MAX_DHT_DATA) {
+        for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
           arr3.add(ac_target[i]);
         }
 
         JsonArray arr4 = docTimeSeries.createNestedArray("ac_sensor_t");
 
         arr4.add(ac_sensor[temp_idx]);
-        for (i = (temp_idx + 1) % MAX_DHT_DATA; i != temp_idx; i = (i + 1) % MAX_DHT_DATA) {
+        for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
           arr4.add(ac_sensor[i]);
+        }
+
+        JsonArray arr5 = docTimeSeries.createNestedArray("bmp_t");
+
+        arr5.add(bmp_t[temp_idx]);
+        for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
+          arr5.add(bmp_t[i]);
+        }
+
+        JsonArray arr6 = docTimeSeries.createNestedArray("bmp_p");
+
+        arr6.add(bmp_p[temp_idx]);
+        for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
+          arr6.add(bmp_p[i]);
         }
 
         serializeJson(docTimeSeries, message);

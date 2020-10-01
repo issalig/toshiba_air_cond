@@ -116,6 +116,11 @@ function parseStatus(json)
   document.getElementById('sensor_temp').textContent = json.sensor_temp;
   document.getElementById('dht_temp').textContent = json.dht_temp;
   document.getElementById('dht_hum').textContent = json.dht_hum;
+  document.getElementById('bmp_temp').textContent = json.bmp_temp;
+  document.getElementById('bmp_press').textContent = json.bmp_press;
+
+  //document.getElementById('sampling_text').value = json.sampling;
+
   //document.getElementById('fan').textContent = json.fan;  
   //document.getElementById('mode').textContent = json.mode;
   //document.getElementById('power').textContent = json.power;
@@ -374,6 +379,16 @@ function getTimeseries() {
     console.log('Send: ' + json);
 }
 
+function set_sampling() {
+    let data = {
+       id : "sampling",
+       value : parseInt(document.getElementById('sampling_text').value)
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+}
 
 //https://coolors.co/9c12f3-47a8bd-f5e663-ffad69-9c3848
 //255, 173, 105
@@ -402,7 +417,7 @@ var config={
 				fill: false,  //Try with true
                 backgroundColor: 'rgba( 71, 168, 189 , 1)', //Dot marker color
                 borderColor: 'rgba( 71, 168, 189, 1)', //Graph Line Color
-                data: [0],
+                data: [0],			
             },{
                 label: 'Room Temperature',
 				yAxisID: 'temperature',
@@ -416,6 +431,20 @@ var config={
 				fill: false,  //Try with true
                 backgroundColor: 'rgba(156, 18, 243 , 1)', //Dot marker color
                 borderColor: 'rgba(156, 18, 243 , 1)', //Graph Line Color
+                data: [0],
+			},{
+                label: 'BMP Temperature',
+				yAxisID: 'temperature',
+                fill: false,  //Try with true
+                backgroundColor: 'rgba( 156, 243, 18 , 1)', //Dot marker color
+                borderColor: 'rgba( 156, 243, 18 , 1)', //Graph Line Color
+                data: [0],            
+            },{
+                label: 'BMP Pressure',
+				yAxisID: 'pressure',
+                fill: false,  //Try with true
+                backgroundColor: 'rgba( 243, 18, 243 , 1)', //Dot marker color
+                borderColor: 'rgba( 243, 18, 243 , 1)', //Graph Line Color
                 data: [0],
             }],
         },
@@ -463,6 +492,22 @@ var config={
 						scaleLabel: {
 							display: true,
 							labelString: 'Humidity %'
+						},
+					},{
+						id: 'pressure',
+						gridLines: {
+							drawOnChartArea: false
+						},
+                        ticks: {
+                            //beginAtZero:true,
+							type: 'logarithmic',    
+							min: 800, //mb
+							max: 1200
+                        },
+						position: 'right',
+						scaleLabel: {
+							display: true,
+							labelString: 'Pressure (mb)'
 						},
 					}],
                     xAxes: [{
@@ -532,6 +577,8 @@ function parseTimeSeries(json){
     chart_obj.data.datasets[1].data=json.ac_target_t;
 	chart_obj.data.datasets[2].data=json.dht_t;
     chart_obj.data.datasets[3].data=json.dht_h;
+    chart_obj.data.datasets[4].data=json.bmp_t;
+    chart_obj.data.datasets[5].data=json.bmp_p;
     //chart_obj.data.datasets[3].backgroundColor= 'rgba('+Math.floor()*255+','+Math.floor()*255+','+Math.floor()*255+', 1)';
 	//chart_obj.data.datasets[3].borderColor= chart_obj.data.datasets[3].backgroundColor;
 

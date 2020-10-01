@@ -404,7 +404,7 @@ void air_parse_serial(air_status_t *air) {
 
   //STEP 2 consumer parses data and fill air_status structure
   Serial.println("");
-  Serial.print("Parsing data ");
+  Serial.println("Parsing data ");
   //try all combinations
   //for (j_init = i_start; j_init != i; j_init = (j_init + 1) % MAX_RX_BUFFER) { //round buffer friendly
   //for (j_init = i_start; j_init < i; j_init = (j_init + 1) % MAX_RX_BUFFER) { //not round buffer
