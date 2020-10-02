@@ -38,19 +38,8 @@
 #include "toshiba_serial.hpp"
 #include "MySimpleTimer.hpp"
 
-const char *w_ssid = "xxx";
-const char *w_passwd = "xxx";
+#include "credentials.h" // set your wifi pass there
 
-const char *ssid = "aire"; // The name of the Wi-Fi network that will be created
-const char *password = "aire";   // The password required to connect to it, leave blank for an open network
-
-const char *OTAName = "air";           // A name and a password for the OTA service
-const char *OTAPassword = "xxx";
-
-const char* mdnsName = "air"; // Domain name for the mDNS responder
-
-const char *http_user = "aeras";
-const char *http_passwd = "aeras";
 // allows you to set the realm of authentication Default:"Login Required"
 const char* www_realm = "Custom Auth Realm";
 // the Content of the HTML response in case of Unautherized Access Default:empty
@@ -72,7 +61,7 @@ WebSocketsServer webSocket(81);    // create a websocket server on port 81
 File fsUploadFile;                                    // a File variable to temporarily store the received file
 
 MySimpleTimer timerTemperature;
-int temp_interval = 5;//120;//in secs
+int temp_interval = 300;//in secs
 
 #include "DHT.h"
 const int DHTPin = D3;
@@ -606,14 +595,13 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
         Serial.println("TimeSeries");
         String message;
 
-
-        //message = timeseries_to_json(&air_status);
-
-        //StaticJsonDocument<400> docTimeSeries;
-        DynamicJsonDocument docTimeSeries(16000);  //3000 hold around 150 vals
+        //use assistant to estimate size https://arduinojson.org/v6/assistant/
+        //https://arduinojson.org/v6/how-to/determine-the-capacity-of-the-jsondocument/
+        //3000 holds around 150 vals
+        DynamicJsonDocument docTimeSeries(16100);
 
         docTimeSeries["id"] = "timeseries";
-        docTimeSeries["n"] = MAX_LOG_DATA;
+        docTimeSeries["n"] = MAX_LOG_DATA;        
 
         int i;
 
