@@ -10,6 +10,8 @@ Tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http
 
 # TO-DOS
 
+-Fix PCB: mirror transistor footprint, route EN line and necessary stuff for ESP12X
+
 -Fix parsing to support round buffer and not to loose partial frames (not necessary)
 
 -Redesign HTML page (WIP, fixed divs)
