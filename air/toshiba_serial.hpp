@@ -174,7 +174,7 @@ int air_set_mode(air_status_t *air, uint8_t value)  {
   //From remote (Mode is bit3-bit0 from last data b yte) cool:010 fan:011 auto 101 heat:001 dry: 100
   //               00    01    02    03    04    05    06   CRC
   byte data[] = {0x40, 0x00, 0x11, 0x03, 0x08, 0x42, 0x04, 0x1C}; // dry
-                 //40 00 11 03 08 42 01 19 //heat
+  //40 00 11 03 08 42 01 19 //heat
   //set mode
   data[6] = value;
 
@@ -412,7 +412,7 @@ void air_parse_serial(air_status_t *air) {
   for (j_init = i_start; ((j_init < i) && !rbuffer) || ((j_init != i) && rbuffer); j_init = (j_init + 1) % MAX_RX_BUFFER) { //mixed
 
     segment_len = air->rx_data[(j_init + 3) % MAX_RX_BUFFER] + 5; //packet is byte size plus 5
-//    if ((segment_len <  MAX_CMD_BUFFER ) && ( ((j_init + segment_len) < MAX_RX_BUFFER)  ||  (((j_init + segment_len) % MAX_RX_BUFFER) < i))) { //max size of cmd packets are 32 bytes and not exceed last written byte
+    //    if ((segment_len <  MAX_CMD_BUFFER ) && ( ((j_init + segment_len) < MAX_RX_BUFFER)  ||  (((j_init + segment_len) % MAX_RX_BUFFER) < i))) { //max size of cmd packets are 32 bytes and not exceed last written byte
     if ((segment_len <  MAX_CMD_BUFFER )) { //max size of cmd packets are 32 bytes and not exceed last written byte
 
 #ifdef DEBUG
@@ -424,8 +424,8 @@ void air_parse_serial(air_status_t *air) {
       for (k = 0; (k < segment_len && k < MAX_CMD_BUFFER); k++) {
         cmd[k] = air->rx_data[(j_init + k) % MAX_RX_BUFFER];
 #ifdef DEBUG
-//Serial.printf("[%d] ",(j_init + k) % MAX_RX_BUFFER);
-if (((j_init + k) % MAX_RX_BUFFER) >= i) Serial.printf("** idx %d cur_w %d\n", (j_init + k) % MAX_RX_BUFFER , i);
+        //Serial.printf("[%d] ",(j_init + k) % MAX_RX_BUFFER);
+        if (((j_init + k) % MAX_RX_BUFFER) >= i) Serial.printf("** idx %d cur_w %d\n", (j_init + k) % MAX_RX_BUFFER , i);
         Serial.print(cmd[k] < 0x10 ? " 0" : " ");
         Serial.print(cmd[k], HEX);
 #endif
@@ -509,7 +509,7 @@ void air_parse_serial_rb(air_status_t *air) {
     air->rx_data[i] = ch;
     i = (i + 1) % MAX_RX_BUFFER;
   }
- 
+
   //STEP 2 consumer parses data and fill air_status structure
   Serial.println("");
   Serial.print("Parsing data ");
@@ -520,7 +520,7 @@ void air_parse_serial_rb(air_status_t *air) {
   for (j_init = i_start; ((j_init < i) && !rbuffer) || ((j_init != i) && rbuffer); j_init = (j_init + 1) % MAX_RX_BUFFER) { //mixed
 
     segment_len = air->rx_data[(j_init + 3) % MAX_RX_BUFFER] + 5; //packet is byte size plus 5
-//    if ((segment_len <  MAX_CMD_BUFFER ) && ( ((j_init + segment_len) < MAX_RX_BUFFER)  ||  (((j_init + segment_len) % MAX_RX_BUFFER) < i))) { //max size of cmd packets are 32 bytes and not exceed last written byte
+    //    if ((segment_len <  MAX_CMD_BUFFER ) && ( ((j_init + segment_len) < MAX_RX_BUFFER)  ||  (((j_init + segment_len) % MAX_RX_BUFFER) < i))) { //max size of cmd packets are 32 bytes and not exceed last written byte
     if ((segment_len <  MAX_CMD_BUFFER )) { //max size of cmd packets are 32 bytes and not exceed last written byte
 
 #ifdef DEBUG
@@ -532,8 +532,8 @@ void air_parse_serial_rb(air_status_t *air) {
       for (k = 0; (k < segment_len && k < MAX_CMD_BUFFER); k++) {
         cmd[k] = air->rx_data[(j_init + k) % MAX_RX_BUFFER];
 #ifdef DEBUG
-//Serial.printf("[%d] ",(j_init + k) % MAX_RX_BUFFER);
-if (((j_init + k) % MAX_RX_BUFFER) >= i) Serial.printf("** idx %d cur_w %d\n", (j_init + k) % MAX_RX_BUFFER , i);
+        //Serial.printf("[%d] ",(j_init + k) % MAX_RX_BUFFER);
+        if (((j_init + k) % MAX_RX_BUFFER) >= i) Serial.printf("** idx %d cur_w %d\n", (j_init + k) % MAX_RX_BUFFER , i);
         Serial.print(cmd[k] < 0x10 ? " 0" : " ");
         Serial.print(cmd[k], HEX);
 #endif
@@ -582,6 +582,118 @@ if (((j_init + k) % MAX_RX_BUFFER) >= i) Serial.printf("** idx %d cur_w %d\n", (
   //circular buffer avoids loosing parts of messages but it is not working
   air->curr_w_idx = i;
   air->curr_r_idx = i_start;
+}
+
+
+void rb_init(rb_t *rb) {
+  rb->idx_r = 0;
+  rb->idx_w = 0;
+}
+
+void rb_write(rb_t *rb, byte val) {
+  rb->data[rb->idx_w] = val;
+  rb->idx_w = (rb->idx_w + 1) % MAX_RX_BUFFER;
+}
+
+int rb_readn(rb_t *rb, byte *r, int m, int n) {
+  int i, curr;
+
+  for (i = 0; i < n; i++) {
+    curr = (rb->idx_r + i + m) % MAX_RX_BUFFER;
+    if (curr >= rb->idx_w) break;
+    r[i] = rb->data[curr];
+  }
+  return i;
+}
+
+int rb_isdata(rb_t *rb) {
+  int val;
+
+  if (rb->idx_w >= rb->idx_r)
+    val = (rb->idx_w - rb->idx_r);
+  else
+    val = (rb->idx_w + MAX_RX_BUFFER - rb->idx_r);
+  return val;
+}
+
+void print_rb_data(rb_t *rb, int i, int j) {
+  int k;
+  Serial.print("Cmd: ");
+  for (k = i; k < j; k++) {
+    Serial.print(rb->data[k] < 0x10 ? " 0" : " ");
+    Serial.print(rb->data[k], HEX);
+  }
+  Serial.println();
+}
+
+void print_data(byte *data, int i, int j) {
+  int k;
+  Serial.print("Cmd:_");
+  for (k = i; k < j; k++) {
+    Serial.print(data[k] < 0x10 ? " 0" : " ");
+    Serial.print(data[k], HEX);
+  }
+  Serial.println();
+}
+//reads serial and gets a valid command in air.rx_data
+//calls decode command to fill air structure
+void air_parse_serial_ng(air_status_t *air) {
+  int i, j, n;
+  uint8_t len = 0;
+  byte ch;
+  byte cmd[MAX_RX_BUFFER];
+
+  rb_t *rb;
+  rb=&(air->rb);
+
+  SoftwareSerial *ss;
+  ss = &(air->serial);
+
+  //STEP 1 producer reads from serial
+  Serial.print("Receiving data ");
+  while (ss->available()) {
+    ch = (byte)ss->read();
+    Serial.print(ch < 0x10 ? " 0" : " ");
+    Serial.print(ch, HEX);
+    air->rx_data[i] = ch;
+    rb_write(rb, ch);
+    //insert on ciruclar buffer
+  }
+
+  //STEP 2 consumer parses data and fill air_status structure
+  Serial.println("");
+  Serial.println("Parsing data ");
+
+  byte r[MAX_RX_BUFFER];
+  byte* p;
+
+  Serial.println(rb_isdata(rb));
+  int num=rb_isdata(rb);
+  for (i = rb->idx_r; i < rb->idx_r+num; i++) {
+    if (rb_isdata(rb)<1) break;
+    //Serial.println(i);
+//    for (j =  6; j < 32; j++) {
+      p = (byte*)&r;
+      n = rb_readn(rb, p, i, 64);
+      len = r[3] + 5; //len should be value in position 3 plus bytes      
+        Serial.printf("*%d %d, %d, %d %d\n", n, len,i,j, rb->idx_r);
+
+      if ((n) < len) { //if estimated len in greater than values in buffer
+        //Serial.printf("_%d %d, %d, %d %d\n", n, len,i,j, rb.idx_r);
+        
+        continue; //if less bytes than possible len skip that one
+      }
+      //print_rb_data(&rb,i,j);
+      //print_data(p,i,j);
+      if (!(p[0]==0x00 || p[0]==0x40 || p[0]==0xFE || p[0]==0x52)) continue;
+      if (check_crc(p, len)) {
+        Serial.printf("+%d %d, %d, %d %d\n", n, len,i,j, rb->idx_r);
+        Serial.printf("idx %d\n", r[i]);
+        print_data(p,0,len);
+        rb->idx_r = (rb->idx_r + i + len) % MAX_RX_BUFFER; //update read index
+      }
+    }
+//  }
 }
 
 void air_send_data(air_status_t *air, byte *data, int len) {
@@ -708,11 +820,12 @@ void air_send_test_data_partial(air_status_t *air) {
   ss = &(air->serial);
 
   const unsigned char testdata[] = {
-    0x7A, 0x7D, 0xE9, 0x00, 0x33, 0x33, 0x01, 0x00, 0x01, 0x67, 0x00, 0xFE, 0x58, 0x0F, 0x80, 0x81, 0x8D, 0xAC, 0x00, 0x00,
-   0x7A, 0x7D, 0xE9, 0x00, 0x33, 0x33, 0x01, 0x00, 0x01, 0x67
+    0x7A, 0x7D, 0xE9, 0x00, 0x33, 0x33, 0x01, 0x00, 0x01, 0x67,
+    0x00, 0xFE, 0x58, 0x0F, 0x80, 0x81, 0x8D, 0xAC, 0x00, 0x00,
+    0x7A, 0x7D, 0xE9, 0x00, 0x33, 0x33, 0x01, 0x00, 0x01, 0x67
 
 
-     };
+  };
 
   ss->enableIntTx(true);
 
@@ -731,17 +844,15 @@ void air_send_test_data_partial(air_status_t *air) {
   ss->enableIntTx(false);
 
 }
-    
+
 void air_send_test_data_partial2(air_status_t *air) {
   int i;
 
   SoftwareSerial *ss;
   ss = &(air->serial);
 
-  const unsigned char testdata[] = {    
-    0x00, 0xFE, 0x58, 0x0F, 0x80, 0x81, 0x8D, 0xAC, 0x00, 0x00,
-
-  };
+  const unsigned char testdata[] = {
+    0x00, 0x01, 0xB9, 0x00, 0xFE, 0x1C, 0x0D, 0x80, 0x81, 0x8D, 0xAC, 0x00, 0x00, 0x76, 0x00, 0x33, 0x33, 0x01};
 
   ss->enableIntTx(true);
 

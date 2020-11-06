@@ -5,7 +5,7 @@
               27/08/2020 temperature graph
               05/09/2020 fix temp, fix heat mode
               01/10/2020 bmp180 support adds pressure
-              
+
   Author:     issalig
   Description: Control toshiba air cond via web
 
@@ -61,17 +61,17 @@ WebSocketsServer webSocket(81);    // create a websocket server on port 81
 File fsUploadFile;                                    // a File variable to temporarily store the received file
 
 MySimpleTimer timerTemperature;
-int temp_interval = 300;//in secs
+int temp_interval = 1200;//in secs
 
 #include "DHT.h"
 const int DHTPin = D3;
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 DHT dht(DHTPin, DHTTYPE);
 
-
 #include <Wire.h>
 #include <Adafruit_BMP085.h>
 Adafruit_BMP085 bmp;
+uint8_t bmp_status = 0;
 
 #define MAX_LOG_DATA 144//288 // for one day
 float dht_h[MAX_LOG_DATA];
@@ -82,7 +82,7 @@ float bmp_t[MAX_LOG_DATA];
 float bmp_p[MAX_LOG_DATA];
 unsigned long timestamp[MAX_LOG_DATA];
 int temp_idx = 0;
-
+float dht_h_current, dht_t_current, bmp_t_current, bmp_p_current = 0;
 
 // Define NTP Client to get time
 WiFiUDP ntpUDP;
@@ -120,9 +120,9 @@ void setup() {
 
   startStatus();               // Start timer for status print (10s)
 
-  startTemperature();          // Start timer for temperature readings (120s)
+  timeClient.begin();          //get NTP time
 
-  timeClient.begin(); //get NTP time
+  startTemperature();          // Start timer for temperature readings (120s)
 }
 
 void startTemperature() {
@@ -135,9 +135,14 @@ void startTemperature() {
   dht_h[0] = dht.readHumidity();
   dht_t[0] = dht.readTemperature();
 
-  bmp.begin();
-  bmp_t[0] = bmp.readTemperature();
-  bmp_p[0] = bmp.readPressure();
+  if (!bmp.begin()) {
+    Serial.println("Could not find a valid BMP085 sensor, check wiring!");
+    bmp_status = 0;
+  } else {
+    bmp_t[0] = bmp.readTemperature();
+    bmp_p[0] = bmp.readPressure();
+    bmp_status = 1;
+  }
 
   ac_sensor[0] = air_status.sensor_temp;
   ac_target[0] = air_status.target_temp * air_status.power;
@@ -180,9 +185,18 @@ void handleTemperature() {
     dht_t[temp_idx] = dht.readTemperature();
     Serial.printf("DHT temp %.1f hum %.1f\n", dht_t[temp_idx], dht_h[temp_idx]);
 
-    bmp_t[temp_idx] = bmp.readTemperature();
-    bmp_p[temp_idx] = bmp.readPressure()/100; //in mb
-    Serial.printf("BMP temp %.1f press %.1f\n", bmp_t[temp_idx], bmp_p[temp_idx]);
+    if (!bmp_status) //try again
+      bmp_status = bmp.begin();
+
+    if (bmp_status) {
+      bmp_t[temp_idx] = bmp.readTemperature();
+      bmp_p[temp_idx] = bmp.readPressure() / 100; //in mb
+      Serial.printf("BMP temp %.1f press %.1f\n", bmp_t[temp_idx], bmp_p[temp_idx]);
+    } else {
+      bmp_t[temp_idx] = bmp_t[temp_idx] - 1;
+      bmp_p[temp_idx] = bmp_p[temp_idx] - 1;
+      Serial.printf("BMP temp %.1f press %.1f\n", bmp_t[temp_idx], bmp_p[temp_idx]);
+    }
 
     ac_target[temp_idx] = air_status.target_temp * air_status.power; //0 if powered off
     ac_sensor[temp_idx] = air_status.sensor_temp;
@@ -194,8 +208,26 @@ void handleTemperature() {
   }
 }
 
+void getTemperatureCurrent() {
+  // Reading temperature or humidity takes about 250 milliseconds!
+  dht_h_current = dht.readHumidity();
+  dht_t_current = dht.readTemperature();
+  Serial.printf("DHT temp %.1f hum %.1f\n", dht_t_current, dht_h_current);
+  
+  if (!bmp_status) //try again
+    bmp_status = bmp.begin();
+
+  if (bmp_status) {
+    bmp_t_current = bmp.readTemperature();
+    bmp_p_current = bmp.readPressure() / 100; //in mb   
+  } 
+
+  Serial.printf("BMP temp %.1f press %.1f\n", bmp_t_current, bmp_p_current);
+}
+
 void handleStatus() {
   if (timerStatus.isTime()) {
+    getTemperatureCurrent();
     air_print_status(&air_status);
   }
 }
@@ -456,10 +488,10 @@ String air_to_json(air_status_t *air)
   jsonDoc["timer_pending"] = timerAC.pendingTime();
   jsonDoc["timer_time"] = timerAC.getInterval();
   jsonDoc["sampling"] = temp_interval;
-  jsonDoc["dht_temp"] = dht_t[(temp_idx - 1) % MAX_LOG_DATA];
-  jsonDoc["dht_hum"] = dht_h[(temp_idx - 1) % MAX_LOG_DATA];
-  jsonDoc["bmp_temp"] = bmp_t[(temp_idx - 1) % MAX_LOG_DATA];
-  jsonDoc["bmp_press"] = bmp_p[(temp_idx - 1) % MAX_LOG_DATA];
+  jsonDoc["dht_temp"] = dht_t_current;//[(temp_idx - 1) % MAX_LOG_DATA];
+  jsonDoc["dht_hum"] = dht_h_current;//[(temp_idx - 1) % MAX_LOG_DATA];
+  jsonDoc["bmp_temp"] = bmp_t_current;//[(temp_idx - 1) % MAX_LOG_DATA];
+  jsonDoc["bmp_press"] = bmp_p_current;//[(temp_idx - 1) % MAX_LOG_DATA];
   jsonDoc["decode_errors"] = air->decode_errors;
 
   int i;
@@ -601,64 +633,69 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
         DynamicJsonDocument docTimeSeries(16100);
 
         docTimeSeries["id"] = "timeseries";
-        docTimeSeries["n"] = MAX_LOG_DATA;        
-
-        int i;
+        docTimeSeries["n"] = MAX_LOG_DATA;
 
         JsonArray arrt = docTimeSeries.createNestedArray("timestamp");
-        arrt.add(timestamp[temp_idx]);
-        for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
+        int i;
+        /*arrt.add(timestamp[temp_idx]);
+          for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
           arrt.add(timestamp[i]);
-        }
+          }*/
+        serialize_array_int(timestamp, arrt, temp_idx);
 
         JsonArray arr = docTimeSeries.createNestedArray("dht_t");
-        arr.add(dht_t[temp_idx]);
-        for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
-          //for(i=0;i<6;i++){
-          //Serial.print("J");Serial.print(i);Serial.print(" ");
-          arr.add(dht_t[i]);
-        }
+        serialize_array_float(dht_t, arr, temp_idx);
 
         JsonArray arr2 = docTimeSeries.createNestedArray("dht_h");
-
-        arr2.add(dht_h[temp_idx]);
-        for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
-          arr2.add(dht_h[i]);
-        }
-
-        JsonArray arr3 = docTimeSeries.createNestedArray("ac_target_t");
-
-        arr3.add(ac_target[temp_idx]);
-        for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
-          arr3.add(ac_target[i]);
-        }
+        serialize_array_float(dht_h, arr2, temp_idx);
 
         JsonArray arr4 = docTimeSeries.createNestedArray("ac_sensor_t");
-
-        arr4.add(ac_sensor[temp_idx]);
-        for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
-          arr4.add(ac_sensor[i]);
-        }
-
-        JsonArray arr5 = docTimeSeries.createNestedArray("bmp_t");
-
-        arr5.add(bmp_t[temp_idx]);
-        for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
-          arr5.add(bmp_t[i]);
-        }
+        serialize_array_float(ac_sensor, arr4, temp_idx);
 
         JsonArray arr6 = docTimeSeries.createNestedArray("bmp_p");
-
-        arr6.add(bmp_p[temp_idx]);
-        for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
-          arr6.add(bmp_p[i]);
-        }
+        serialize_array_float(bmp_p, arr6, temp_idx);
 
         serializeJson(docTimeSeries, message);
         webSocket.broadcastTXT(message);
-      }
+
+      } //end if timeseries
       break;
   }
+}
+
+
+void serialize_array_float(float *ptr, JsonArray &arr, int idx) {
+  int i;
+  arr.add(ptr[idx]);
+  for (i = (idx + 1) % MAX_LOG_DATA; i != idx; i = (i + 1) % MAX_LOG_DATA) {
+    arr.add(ptr[i]);
+  }
+}
+
+void serialize_array_int(unsigned long int *ptr, JsonArray &arr, int idx) {
+  int i;
+  arr.add(ptr[idx]);
+  for (i = (idx + 1) % MAX_LOG_DATA; i != idx; i = (i + 1) % MAX_LOG_DATA) {
+    arr.add(ptr[i]);
+  }
+}
+
+
+int save_string(String text) {
+
+  File file = SPIFFS.open("/temp.dat", "w");
+
+  if (!file) {
+    Serial.println("Error opening file for writing");
+    return (0);
+  }
+
+
+  int bytes = file.print(text);
+
+  file.close();
+
+  return (bytes);
 }
 
 /*__________________________________________________________HELPER_FUNCTIONS__________________________________________________________*/

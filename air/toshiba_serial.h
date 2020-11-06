@@ -25,6 +25,15 @@
 #define TIMER_POWER_OFF 0
 #define TIMER_POWER_ON  1
 
+
+typedef struct {
+  byte data[1];//MAX_RX_BUFFER];
+  int idx_r=0;
+  int idx_w=0;
+  //idx_r is always BEFORE idx_w
+  //idx_w
+} rb_t;
+
 typedef struct {
   uint8_t save;
   uint8_t heat;
@@ -45,6 +54,7 @@ typedef struct {
   uint8_t timer_time_req;
   bool timer_enabled;
   int decode_errors=0;
+  rb_t rb;
   
   SoftwareSerial serial;
 } air_status_t;

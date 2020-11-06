@@ -33,12 +33,12 @@ connection.onopen = function () {
 		connection.send(json);
       //end send json
 
-      setTimeout(scheduleRequestStatus, 750); //ask for status every 500 ms
+      setTimeout(scheduleRequestStatus, 750); //ask for status 
    })();
 
    (function scheduleRequestTimeSeries() {	  
 		getTimeseries();
-      setTimeout(scheduleRequestTimeSeries, 60*1000); //ask for time series every minute
+      setTimeout(scheduleRequestTimeSeries, 60*1000); //ask for time series
    })();
 
 };
@@ -411,14 +411,14 @@ var config={
                 backgroundColor: 'rgba(156, 56, 72, 1)', //Dot marker color
                 borderColor: 'rgba(156, 56, 72, 1)', //Graph Line Color
                 data: [0],
-            },{
+            },/*{
                 label: 'AC Target',
                 yAxisID: 'temperature',
 				fill: false,  //Try with true
                 backgroundColor: 'rgba( 71, 168, 189 , 1)', //Dot marker color
                 borderColor: 'rgba( 71, 168, 189, 1)', //Graph Line Color
                 data: [0],			
-            },{
+            },*/{
                 label: 'Room Temperature',
 				yAxisID: 'temperature',
                 fill: false,  //Try with true
@@ -432,14 +432,14 @@ var config={
                 backgroundColor: 'rgba(156, 18, 243 , 1)', //Dot marker color
                 borderColor: 'rgba(156, 18, 243 , 1)', //Graph Line Color
                 data: [0],
-			},{
+	     },/*{
                 label: 'BMP Temperature',
 				yAxisID: 'temperature',
                 fill: false,  //Try with true
                 backgroundColor: 'rgba( 156, 243, 18 , 1)', //Dot marker color
                 borderColor: 'rgba( 156, 243, 18 , 1)', //Graph Line Color
                 data: [0],            
-            },{
+            },*/{
                 label: 'BMP Pressure',
 				yAxisID: 'pressure',
                 fill: false,  //Try with true
@@ -501,8 +501,8 @@ var config={
                         ticks: {
                             //beginAtZero:true,
 							type: 'logarithmic',    
-							min: 800, //mb
-							max: 1200
+							min: 950, //mb
+							max: 1050
                         },
 						position: 'right',
 						scaleLabel: {
@@ -574,11 +574,11 @@ function parseTimeSeries(json){
     //update chart
 	chart_obj.data.labels=timeStamp;//json.timestamp;//
 	chart_obj.data.datasets[0].data=json.ac_sensor_t;
-    chart_obj.data.datasets[1].data=json.ac_target_t;
-	chart_obj.data.datasets[2].data=json.dht_t;
-    chart_obj.data.datasets[3].data=json.dht_h;
-    chart_obj.data.datasets[4].data=json.bmp_t;
-    chart_obj.data.datasets[5].data=json.bmp_p;
+//    chart_obj.data.datasets[1].data=json.ac_target_t;
+	chart_obj.data.datasets[1].data=json.dht_t;
+    chart_obj.data.datasets[2].data=json.dht_h;
+    //chart_obj.data.datasets[4].data=json.bmp_t;
+    chart_obj.data.datasets[3].data=json.bmp_p;
     //chart_obj.data.datasets[3].backgroundColor= 'rgba('+Math.floor()*255+','+Math.floor()*255+','+Math.floor()*255+', 1)';
 	//chart_obj.data.datasets[3].borderColor= chart_obj.data.datasets[3].backgroundColor;
 
