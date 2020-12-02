@@ -470,7 +470,7 @@ var config={
 							//suggestedMin: 10,
 							//suggestedMax: 40
 							type: 'logarithmic',
-							min: 20,
+							min: 18,
 							max: 34
                         },
 						scaleLabel: {
@@ -486,7 +486,7 @@ var config={
                             //beginAtZero:true,
 							type: 'logarithmic',    
 							min: 35,
-							max: 75
+							max: 80
                         },
 						position: 'right',
 						scaleLabel: {
@@ -584,8 +584,14 @@ function parseTimeSeries(json){
 
     //window.
     chart_obj.update();
-
-
+    
+    //compute min/max
+    document.getElementById('dht_temp_min').textContent = Math.min(...json.dht_t);
+    document.getElementById('dht_temp_max').textContent = Math.max(...json.dht_t);
+    document.getElementById('dht_hum_min').textContent = Math.min(...json.dht_h);
+    document.getElementById('dht_hum_max').textContent = Math.max(...json.dht_h);
+    document.getElementById('bmp_pres_min').textContent = Math.min(...json.bmp_p);
+    document.getElementById('bmp_pres_max').textContent = Math.max(...json.bmp_p);
 }
 //On Page load show graphs
 window.onload = function() {
