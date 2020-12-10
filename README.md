@@ -47,7 +47,9 @@ Air conditioning side:
 Signal is around 15.6 volts when 1 and 14 when 0. Zener diode provides 13V reference, so signal is 1 .. 2.6 and after diode (0.7 drop) is 0.3 .. 1.9, enough to activate photodiode (1.2V) when 1 and to not activate it when 0.
 
 Led drops 1.2v, and from signal we have a difference of 15.6-13=2.6, thus 2.6-1.2=1.4/100= 14mA which has a maximum CTR=140%
- 
+Ic=3.3, If=14
+CTR=Ic/If
+
 Type     VZnom  IZT  for  rzjT    rzjk  at  IZK    IR  at  VR
 1N4743A  13     19        <10     <100      0.25   <5      9.9
 
