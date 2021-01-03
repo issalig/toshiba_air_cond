@@ -3,6 +3,8 @@ Decode Toshiba A-B protocol (aka TCC Link) for air conditioners.
 
 Tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
 
+https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf
+
 # Status
 
 -Operational.
@@ -184,6 +186,11 @@ Extended status
                                     |-always E9
                                  |-  1000 0100  1000010 66-35=31 (real temp??)  
                               |-temp 0111 1010 111101 61-35 = 26
+                              
+00 fe 58 0f 80 81 35 ac 02 00 6e 6e e9 00 55 55 01 00 01 da
+00 fe 58 0f 80 81 35 ac 00 00 6e 6e e9 00 55 55 01 00 01 d8
+                         |-??? 2 pre-heat
+                              
 ``` 
 
 
