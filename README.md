@@ -3,6 +3,8 @@ Decode Toshiba A-B protocol (aka TCC Link) for air conditioners.
 
 Tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
 
+https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf
+
 # Status
 
 -Operational.
@@ -30,7 +32,7 @@ https://daeconsulting.co.za/2018/12/17/theres-someone-at-the-door/
 
 # Data acquisition
 
-DS0138 oscilloscope can be used to monitor the signal (voltage differs around 0.7V but it is usable) and guess voltages and bps. Later, an 8-channel USB logic analyzer (4-5 USD) can be used to capture data into the computer (REMEMBER to convert voltages to 0-3.3v before connecting it to logic analyzer or you will fry it).
+DS0138 oscilloscope can be used to monitor the signal (voltage differs around 0.7V but it is usable) and guess voltages and bps. Later, an 8-channel USB logic analyzer (4-5 USD) can be used to capture data into the computer. REMEMBER to convert voltages to 0-3.3v before connecting it to logic analyzer or you will fry it. You can use the read circuit below.
 
 To capture data you can use pulseview with uart decoder 2400 bps, 8bits, start, stop, EVEN parity
 
@@ -40,15 +42,23 @@ sigrok-cli -P uart:rx=D0:baudrate=2400:parity_type=even -A uart=rx_data -i  YOUR
 ```
 
 # Custom hardware
+https://learnabout-electronics.org/Semiconductors/opto_52.php
 
 ```
+Air conditioning side:
 Signal is around 15.6 volts when 1 and 14 when 0. Zener diode provides 13V reference, so signal is 1 .. 2.6 and after diode (0.7 drop) is 0.3 .. 1.9, enough to activate photodiode (1.2V) when 1 and to not activate it when 0.
+
+Led drops 1.2v, and from signal we have a difference of 15.6-13=2.6, thus 2.6-1.2=1.4/100= 14mA which has a maximum CTR=140%
+Ic=3.3, If=14
+CTR=Ic/If
 
 Type     VZnom  IZT  for  rzjT    rzjk  at  IZK    IR  at  VR
 1N4743A  13     19        <10     <100      0.25   <5      9.9
 
 Izt=19 mA -> 2.6/19=130ohm  P=VI 2.6*19 =52mW
 
+
+Microcontroller side: 1k resistor limits the intensity. ESP8266 max current is 12mA > 3.3/1k = 3.3 mA
 
 Read schematic
                              1N4001  _______
@@ -152,7 +162,7 @@ From remote
 
 CRC is computed as Checksum8 XOR of all the bytes (Compute it at https://www.scadacore.com/tools/programming-calculators/online-checksum-calculator/)
 
-# Parameter coding
+# Parameter decoding
 
 Status
 ```
@@ -176,6 +186,13 @@ Extended status
                                     |-always E9
                                  |-  1000 0100  1000010 66-35=31 (real temp??)  
                               |-temp 0111 1010 111101 61-35 = 26
+                              
+00 fe 58 0f 80 81 35 ac 02 00 6e 6e e9 00 55 55 01 00 01 da
+00 fe 58 0f 80 81 35 ac 00 00 6e 6e e9 00 55 55 01 00 01 d8
+                         |- 2 pre-heat
+                      
+00 fe 58 0f 80 81 34 a8 00 00 6e 6f e9 00 55 55 01 00 01 dc
+                              
 ``` 
 
 
