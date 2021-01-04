@@ -32,7 +32,7 @@ https://daeconsulting.co.za/2018/12/17/theres-someone-at-the-door/
 
 # Data acquisition
 
-DS0138 oscilloscope can be used to monitor the signal (voltage differs around 0.7V but it is usable) and guess voltages and bps. Later, an 8-channel USB logic analyzer (4-5 USD) can be used to capture data into the computer (REMEMBER to convert voltages to 0-3.3v before connecting it to logic analyzer or you will fry it).
+DS0138 oscilloscope can be used to monitor the signal (voltage differs around 0.7V but it is usable) and guess voltages and bps. Later, an 8-channel USB logic analyzer (4-5 USD) can be used to capture data into the computer. REMEMBER to convert voltages to 0-3.3v before connecting it to logic analyzer or you will fry it. You can use the read circuit below.
 
 To capture data you can use pulseview with uart decoder 2400 bps, 8bits, start, stop, EVEN parity
 
