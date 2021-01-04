@@ -270,6 +270,7 @@ void air_decode_command(byte * data, air_status_t *s) {
       s->save = data[14] & 0b1;
       s->heat = (data[13] & 0b00000100) >> 2;
       s->cold = !s->heat;
+      s->preheat = (data[8] & 0b00000010) >> 1;
       s->fan  = (data[7] & 0b11100000) >> 5;
       switch (s->fan) {
         case FAN_AUTO:   strcpy(s->fan_str, "AUTO"); break;
@@ -296,9 +297,9 @@ void air_decode_command(byte * data, air_status_t *s) {
       /*
         0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19
         00 FE 58 0F 80 81 8D A8 00 00 7A 84 E9 00 33 33 01 00 01 9B
-                                          |-always E9
-                                       |-  1000 0100  1000010 66-35=31 (real temp??)
-                                    |-temp 0111 1010 111101 61-35 = 26
+                                            |-always E9
+                                         |-  1000 0100  1000010 66-35=31 (real temp??)
+                                      |-temp 0111 1010 111101 61-35 = 26
       */
       s->save = data[14 + 2] & 0b1;
       s->heat = (data[13 + 2] & 0b100) >> 2;
@@ -324,6 +325,8 @@ void air_decode_command(byte * data, air_status_t *s) {
 
       s->target_temp = ((data[10] & 0b11111110) >> 1) - 35;
       s->power = data[6] & 0b1;
+
+      s->preheat = (data[8] & 0b00000010) >> 1;
 
       //s->sensor_temp = - (data[11] / 2.0 - 35); //TO CHECK
 

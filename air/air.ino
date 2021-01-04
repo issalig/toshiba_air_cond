@@ -5,6 +5,9 @@
               27/08/2020 temperature graph
               05/09/2020 fix temp, fix heat mode
               01/10/2020 bmp180 support adds pressure
+              01/11/2020 fix bmp180 not connected
+              02/12/2020 add min/max
+              04/01/2021 pre-heat detection
 
   Author:     issalig
   Description: Control toshiba air cond via web
@@ -92,6 +95,7 @@ NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 0); //do not apply utc here
 
 MySimpleTimer timerStatus;
 MySimpleTimer timerReadSerial;
+MySimpleTimer timerSaveFile;
 
 /*__________________________________________________________SETUP__________________________________________________________*/
 
@@ -120,7 +124,7 @@ void setup() {
 
   startStatus();               // Start timer for status print (10s)
 
-  timeClient.begin();          //get NTP time
+  timeClient.begin();          // Get NTP time
 
   startTemperature();          // Start timer for temperature readings (120s)
 }
@@ -163,6 +167,15 @@ void startReadSerial() {
   timerReadSerial.repeat();
   timerReadSerial.start();
 }
+
+//save status every hour
+void startSaveFile() {
+  timerSaveFile.setUnit(1000);
+  timerSaveFile.setInterval(60);
+  timerSaveFile.repeat();
+  timerSaveFile.start();
+}
+
 
 void handleTimer() {
   if (timerAC.isTime()) {
@@ -208,19 +221,28 @@ void handleTemperature() {
   }
 }
 
+void handleSaveFile() {
+  if (timerSaveFile.isTime()) {
+    String txt = air_to_json(&air_status);
+    save_file("/status.json", txt);
+    Serial.print("Saving status.json");
+  }
+}
+
+
 void getTemperatureCurrent() {
   // Reading temperature or humidity takes about 250 milliseconds!
   dht_h_current = dht.readHumidity();
   dht_t_current = dht.readTemperature();
   Serial.printf("DHT temp %.1f hum %.1f\n", dht_t_current, dht_h_current);
-  
+
   if (!bmp_status) //try again
     bmp_status = bmp.begin();
 
   if (bmp_status) {
     bmp_t_current = bmp.readTemperature();
-    bmp_p_current = bmp.readPressure() / 100; //in mb   
-  } 
+    bmp_p_current = bmp.readPressure() / 100; //in mb
+  }
 
   Serial.printf("BMP temp %.1f press %.1f\n", bmp_t_current, bmp_p_current);
 }
@@ -477,6 +499,7 @@ String air_to_json(air_status_t *air)
   jsonDoc["id"] = "status";
   jsonDoc["save"] = air->save;
   jsonDoc["heat"] = air->heat;
+  jsonDoc["preheat"] = air->preheat;
   jsonDoc["cold"] = air->cold;
   jsonDoc["temp"] = air->target_temp;
   jsonDoc["sensor_temp"] = air->sensor_temp;
@@ -681,9 +704,8 @@ void serialize_array_int(unsigned long int *ptr, JsonArray &arr, int idx) {
 }
 
 
-int save_string(String text) {
-
-  File file = SPIFFS.open("/temp.dat", "w");
+int save_file(String name, String text) {
+  File file = SPIFFS.open(name, "w");
 
   if (!file) {
     Serial.println("Error opening file for writing");
@@ -697,6 +719,25 @@ int save_string(String text) {
 
   return (bytes);
 }
+
+/*
+int read_file(String name){
+  File file = SPIFFS.open(name.c_str()));
+    if(!file){
+        Serial.printf("Failed to open file %s for reading\n", name);
+        return;
+    }
+ 
+    Serial.println("File Content:");
+ 
+    while(file.available()){
+ 
+        Serial.write(file.read());
+    }
+ 
+    file2.close();
+}
+*/
 
 /*__________________________________________________________HELPER_FUNCTIONS__________________________________________________________*/
 

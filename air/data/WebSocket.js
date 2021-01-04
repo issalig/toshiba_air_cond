@@ -175,6 +175,8 @@ if (json.rx_data){ //if not null or empty
   document.getElementById('mode_cool').style.backgroundColor = button_released_color;
   document.getElementById('mode_heat').style.backgroundColor = button_released_color;
   
+  document.getElementById('preheat').style.backgroundColor = button_released_color;
+  
   document.getElementById('power_on').style.backgroundColor = button_released_color;
   document.getElementById('power_off').style.backgroundColor = button_released_color;
 
@@ -200,6 +202,10 @@ if (json.rx_data){ //if not null or empty
   if (json.save == '1') { document.getElementById('save_button').style.backgroundColor = button_pressed_color;}
   
   if (json.timer_enabled =='1')   { document.getElementById('timer_button').style.backgroundColor = button_pressed_color;}
+  
+  if (json.preheat == '1') { document.getElementById('preheat').style.backgroundColor = button_pressed_color;} 
+  else { document.getElementById('preheat').style.backgroundColor = button_released_color;} 
+  
   
 }
 
@@ -470,7 +476,7 @@ var config={
 							//suggestedMin: 10,
 							//suggestedMax: 40
 							type: 'logarithmic',
-							min: 18,
+							min: 16,
 							max: 34
                         },
 						scaleLabel: {

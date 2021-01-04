@@ -44,6 +44,7 @@ typedef struct {
   char fan_str[5];
   uint8_t mode;
   char mode_str[5];
+  uint8_t preheat;
   uint8_t power;
   byte last_cmd[MAX_CMD_BUFFER];
   byte rx_data[MAX_RX_BUFFER];  //serial rx data
