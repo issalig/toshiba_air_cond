@@ -162,7 +162,7 @@ From remote
 
 CRC is computed as Checksum8 XOR of all the bytes (Compute it at https://www.scadacore.com/tools/programming-calculators/online-checksum-calculator/)
 
-# Parameter coding
+# Parameter decoding
 
 Status
 ```
