@@ -563,6 +563,17 @@ setInterval(function() {
 }, 5000); //5000mSeconds update rate
 */ 
 
+function getMinNoZero(data){
+	min=9999999
+	datalen=data.length;
+	for(i=0;i<datalen;i++){
+		if ((data[i] < min) && (data[i] !=0 )){
+			min=data[i];
+		}
+	}
+	
+	return min;
+}
 
 function parseTimeSeries(json){
 	datalen=json.dht_t.length;
@@ -592,11 +603,11 @@ function parseTimeSeries(json){
     chart_obj.update();
     
     //compute min/max
-    document.getElementById('dht_temp_min').textContent = Math.min(...json.dht_t);
+    document.getElementById('dht_temp_min').textContent = getMinNoZero(json.dht_t);//Math.min(...json.dht_t);
     document.getElementById('dht_temp_max').textContent = Math.max(...json.dht_t);
-    document.getElementById('dht_hum_min').textContent = Math.min(...json.dht_h);
-    document.getElementById('dht_hum_max').textContent = Math.max(...json.dht_h);
-    document.getElementById('bmp_pres_min').textContent = Math.min(...json.bmp_p);
+    document.getElementById('dht_hum_min').textContent  = getMinNoZero(json.dht_h);//Math.min(...json.dht_h);
+    document.getElementById('dht_hum_max').textContent  = Math.max(...json.dht_h);
+    document.getElementById('bmp_pres_min').textContent = getMinNoZero(json.bmp_p);//Math.min(...json.bmp_p);
     document.getElementById('bmp_pres_max').textContent = Math.max(...json.bmp_p);
 }
 //On Page load show graphs
