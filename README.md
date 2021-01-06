@@ -134,28 +134,33 @@ Source (1 byte)
 Dest (1 byte)
 - Same as source
 
-UNK
+UNK (1 byte) 
+- Unknown
+- From master (00)
+  - 10
+  - 11
+- From remote (40)
+  - 15
 
 Data length (1 byte)
 - Length of data field
 
-Data
-| R/W mode | Operation Code | Params |
+Data (composed of the following parts)
+- | R/W mode | Operation Code | Params |
 
 R/W mode (1 byte)
-- 08 seems to be for Write (from remote) mode and 80 for Read mode (from master)
+- 08 for Write mode (from remote)
+- 80 for Read mode (from master)
 
 Operation code
 
-  - From master
-
+  - From master (00)
     - 81 status
     - 8A ack (Dest FE)
     - A1 ack (Dest 40)
     - 86 ??? (Dest 52)
 
-  - From remote
-
+  - From remote (40)
     - 41 power
     - 42 mode
     - 4C temp
@@ -163,12 +168,16 @@ Operation code
     - 0C 81 status
     - 0C 82 timer ???
     - 0C 00 (answer to 0C)
+    
 
 CRC is computed as Checksum8 XOR of all the bytes (Compute it at https://www.scadacore.com/tools/programming-calculators/online-checksum-calculator/)
 
-# Parameter decoding
+# Message types
 
-Status
+There are two different status messages: normal and extended. Opcode is 81
+Extended has two extra bytes, one could be some temperature? and other is always E9 in my experiments.
+
+Normal status
 ```
 00 FE 1C 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9
 |  |     ||       |  |         |    |      |- save mode bit0
@@ -184,8 +193,9 @@ Status
 remote, last byte bit0
 master, status in two bits  byte bit0  byte bit2
 ```
-Extended status
+Extended status 
 ```
+                                 -- -- extra values in extended
 00 FE 58 0F 80 81 8D A8 00 00 7A 84 E9 00 33 33 01 00 01 9B
                                     |-always E9
                                  |-  1000 0100  1000010 66-35=31 (real temp??)  
@@ -199,6 +209,30 @@ Extended status
                               
 ``` 
 
+Ping message sent every 5 seconds
+```
+00 fe 10 02 80 8a e6 
+|  |  |  |  |  |  |- CRC
+|  | UNK |  |  |- message type
+|  ALL   |  |-from master, info message??
+Master   |- Length
+
+From master (00) to all (fe), 10 is UNK, 
+
+```
+
+Temp from remote to master
+```
+40 00 55 05 08 81 00 68 00 f1 
+         |        |  |- 0110 1000 -> 104/2 -> 52 - 35 = 17   (temp)
+         |        |-bit0 ON:1 OFF:0                 
+```
+
+from master
+```
+00 52 11 04 80 86 24 00 65 
+                  |- 0010 0100 ->
+```
 
 # Logs and their guesses
 
