@@ -119,46 +119,50 @@ Temp up button is connected to R24 and R46
 
 # Data format
 
+Data packages have the following format:
+
+``` 
 |Source | Dest | UNK  | Data Length | Data | CRC |
+```
 
 Source (1 byte)
-00 is master
-40 is remote controller
-FE is broadcast
-53 is ??
+- 00 is master
+- 40 is remote controller
+- FE is broadcast
+- 53 is ??
 
 Dest (1 byte)
-Same as source
+- Same as source
 
 UNK
 
 Data length (1 byte)
-Length of data field
+- Length of data field
 
 Data
 | R/W mode | Operation Code | Params |
 
-R/W mode
-08 seems to be for Write (from remote) mode and 80 for Read mode (from master)
+R/W mode (1 byte)
+- 08 seems to be for Write (from remote) mode and 80 for Read mode (from master)
 
 Operation code
 
-From master
+  - From master
 
-81 status
-8A ack (dest FE)
-A1 ack (dest 40)
-86 ??? (dest 52)
+    - 81 status
+    - 8A ack (Dest FE)
+    - A1 ack (Dest 40)
+    - 86 ??? (Dest 52)
 
-From remote
+  - From remote
 
-41 power
-42 mode
-4C temp
-54 save
-0C 81 status
-0C 82 timer ???
-0C 00 (answer to 0C)
+    - 41 power
+    - 42 mode
+    - 4C temp
+    - 54 save
+    - 0C 81 status
+    - 0C 82 timer ???
+    - 0C 00 (answer to 0C)
 
 CRC is computed as Checksum8 XOR of all the bytes (Compute it at https://www.scadacore.com/tools/programming-calculators/online-checksum-calculator/)
 
