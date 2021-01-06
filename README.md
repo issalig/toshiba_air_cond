@@ -228,10 +228,18 @@ Temp from remote to master
          |        |-bit0 ON:1 OFF:0                 
 ```
 
-from master
+from master mode status
 ```
-00 52 11 04 80 86 24 00 65 
-                  |- 0010 0100 ->
+00 52 11 04 80 86 24 00 65  heat
+                  |- 0010 0100 -> first part is mode, 2nd is ??
+                  
+00 52 11 04 80 86 64 00 25   fan
+                  |- 0110 0100
+                     ---
+00 52 11 04 80 86 84 00 c5 dry
+                  |- 1000 0100
+                     ---
+                  
 ```
 
 # Logs and their guesses
