@@ -5,6 +5,12 @@ Tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http
 
 https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf
 
+
+Interesting project with similar protocol for heat equipment https://github.com/H4jen/webasto_sniffer
+
+https://echonet.jp/wp/wp-content/uploads/pdf/General/Standard/Release/Release_F_en/SpecAppendixF_e.pdf
+
+
 # Status
 
 -Operational.
@@ -129,7 +135,7 @@ Source (1 byte)
 - 00 is master
 - 40 is remote controller
 - FE is broadcast
-- 53 is ??
+- 52 is ??
 
 Dest (1 byte)
 - Same as source
