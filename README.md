@@ -122,7 +122,7 @@ Temp up button is connected to R24 and R46
 Data packages have the following format:
 
 ``` 
-|Source | Dest | UNK  | Data Length | Data | CRC |
+|Source | Dest | Opcode1  | Data Length | Data | CRC |
 ```
 
 Source (1 byte)
@@ -134,11 +134,12 @@ Source (1 byte)
 Dest (1 byte)
 - Same as source
 
-UNK (1 byte) 
-- Unknown
+Operation code 1 (1 byte) 
 - From master (00)
   - 10
-  - 11
+  - 11 set parameters
+  - 1C status
+  - 58 extended status
 - From remote (40)
   - 15
 
@@ -146,24 +147,24 @@ Data length (1 byte)
 - Length of data field
 
 Data (composed of the following parts)
-- | R/W mode | Operation Code | Params |
+- | R/W mode | Operation Code 2 | Params |
 
 R/W mode (1 byte)
 - 08 for Write mode (from remote)
 - 80 for Read mode (from master)
 
-Operation code
+Opcode2
 
   - From master (00)
-    - 81 status
+    - 81 status (opcode1 55
     - 8A ack (Dest FE)
-    - A1 ack (Dest 40)
-    - 86 ??? (Dest 52)
+    - A1 ping (Dest 40)
+    - 86 mode (Dest 52)    
 
   - From remote (40)
     - 41 power
     - 42 mode
-    - 4C temp
+    - 4C temp, fan
     - 54 save
     - 0C 81 status
     - 0C 82 timer ???
@@ -246,7 +247,7 @@ from master mode status
 
 ```
 Op code from remote
-4C 0C 1D  temp         40 00 11 08 08 4C 0C 1D 78 00 33 33 74
+4C 0C 1D  set temp     40 00 11 08 08 4C 0C 1D 78 00 33 33 74
 0C 81     status      
 41        power        40 00 11 03 08 41 03 18
 42        mode         40 00 11 03 08 42 02 1A //cool  02 -> 0000 0010
