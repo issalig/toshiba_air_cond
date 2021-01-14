@@ -687,8 +687,8 @@ Cmd:  00 40 1A 05 80 EF 80 00 A2 12
 | 6d | TL Liquid Temp (°C) | 22 |
 | 70 | Compressor Frequency (rps)| 0 |
 | 72 | Fan Speed (Lower) (rpm) | 0 |
-| 73 | Fan Speed (Upper) (rpm) |   |
-| 74 | ? | 43 |
+| 73 | Fan Speed (Upper) (rpm) | defined in manual, not working  |
+| 74 | ? | 43, is it 73? |
 | 75 | ? | 0 |
 | 76 | ? | 0 |
 | 77 | ? | 0 |
