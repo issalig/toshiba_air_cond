@@ -672,29 +672,32 @@ Cmd:  00 40 1A 05 80 EF 80 00 A2 12
 
 | No.  | Desc  | Example value  |
 |---|---|---|
-| 02 |  | 23 |
-| 03 |  | 19 |
-| 04 |  | 19 |
-| 07 |  |  0 |
-| 60 |  | 18 |
-| 61 |  | 19 |
-| 62 |  | 33 |
-| 63 |  | 26 |
-| 65 |  | 55 |
-| 6a |  | 0 |
-| 6d |  | 22 |
-| 70 |  | 0 |
-| 72 |  | 0 |
-| 74 |  | 43 |
-| 75 |  | 0 |
-| 76 |  | 0 |
-| 77 |  | 0 |
-| 78 |  | 0 |
-| 79 |  | 0 |
-| f0 |  | 204 |
-| f1 |  | 7 |
-| f2 |  | 8 |
-| f3 |  | 37 |
+| 00 | Room Temp (Control Temp) (°C) | defined in manual, not working |
+| 01 | Room temperature (remote controller) | defined in manual, not working |
+| 02 | Indoor unit intake air temperature (TA) | 23 |
+| 03 | Indoor unit heat exchanger (coil) temperature (TCJ) Liquid | 19 |
+| 04 | Indoor unit heat exchanger (coil) temperature (TC) Vapor | 19 |
+| 07 | Indoor Fan Speed|  0 |
+| 60 | Outdoor unit heat exchanger (coil) temperature (TE) | 18 |
+| 61 | Outside air temperature (TO)| 19 |
+| 62 | Compressor discharge temperature (TD) | 33 |
+| 63 | Compressor suction temperature (TS) | 26 |
+| 65 | Heatsink temperature (THS) | 55 |
+| 6a | Operating current (x1/10) | 0 |
+| 6d | TL Liquid Temp (°C) | 22 |
+| 70 | Compressor Frequency (rps)| 0 |
+| 72 | Fan Speed (Lower) (rpm) | 0 |
+| 73 | Fan Speed (Upper) (rpm) |   |
+| 74 | ? | 43 |
+| 75 | ? | 0 |
+| 76 | ? | 0 |
+| 77 | ? | 0 |
+| 78 | ? | 0 |
+| 79 | ? | 0 |
+| f0 | ? | 204 |
+| f1 | Compressor cumulative operating hours (x100 h) | 7 |
+| f2 | Fan Run Time (x 100h) | 8 |
+| f3 | Filter sign time x 1h | 37 |
 
 
 # Other info
