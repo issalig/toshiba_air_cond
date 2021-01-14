@@ -3,6 +3,15 @@ Decode Toshiba A-B protocol (aka TCC Link) for air conditioners.
 
 Tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
 
+RAV-SM406BTP-E 
+|     | |    |- CE marking
+|     | ||-Duct
+|     | |-gen
+|     |-duty 4.0 kW 
+|   |-Digital inverter
+|- Light comercial
+
+
 https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf
 
 Error codes and sensor addresses
@@ -23,22 +32,28 @@ https://echonet.jp/wp/wp-content/uploads/pdf/General/Standard/Release/Release_F_
 
 # TO-DOS
 
--Fix PCB: mirror transistor footprint, route EN line and necessary stuff for ESP12X
+- Fix PCB: mirror transistor footprint, route EN line and necessary stuff for ESP12X
+- Fix PCB: jumper for Hardware or Software Serial
 
--Fix parsing to support round buffer and not to loose partial frames (not necessary)
+- Fix parsing to support round buffer and not to loose partial frames (not necessary)
 
--Redesign HTML page (WIP, fixed divs)
+- Redesign HTML page (WIP, fixed divs)
 
--Simple decode example
+- Simple decode example
 
--Protocol documentation
+- Clearer Protocol documentation
 
--Use DC buck/boost from A-B line to power ESP8266 (tried, but not working)
+- Use DC buck/boost from A-B line to power ESP8266 (tried, but not working)
 
--Guess timer opcodes if any (not sure if remote takes care of it internally)
+- Guess timer opcodes if any (not sure if remote takes care of it internally)
 
--Check other circuits as https://easyeda.com/marcegli/door-opener https://frog32.ch/smart-intercom.html https://electronics.stackexchange.com/questions/458996/logic-level-converter-for-nodemcu-esp8266-input-24v-16v-hi-lo-500-baud https://sudonull.com/post/18480-We-pump-the-intercom-with-the-MQTT-protocol-to-control-from-the-phone https://hackaday.com/2019/01/07/building-an-esp8266-doorbell-on-hard-mode/
-https://daeconsulting.co.za/2018/12/17/theres-someone-at-the-door/
+- Check other circuits as:
+  - https://easyeda.com/marcegli/door-opener
+  - https://frog32.ch/smart-intercom.html 
+  - https://electronics.stackexchange.com/questions/458996/logic-level-converter-for-nodemcu-esp8266-input-24v-16v-hi-lo-500-baud 
+  - https://sudonull.com/post/18480-We-pump-the-intercom-with-the-MQTT-protocol-to-control-from-the-phone
+  - https://hackaday.com/2019/01/07/building-an-esp8266-doorbell-on-hard-mode/
+  - https://daeconsulting.co.za/2018/12/17/theres-someone-at-the-door/
 
 
 # Data acquisition
