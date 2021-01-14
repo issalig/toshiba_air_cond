@@ -5,6 +5,11 @@ Tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http
 
 https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf
 
+Error codes and sensor addresses
+http://www.toshiba-aircon.co.uk/assets/uploads/pdf/sales_tools/Technical_Handbook_ver._13.1.pdf
+https://www.cdlweb.info/wp-content/uploads/2020/10/1-CDL-Toshiba-R32-Technical-Handbook-V10-2020.pdf
+https://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_CassetteUTP_DI-SDI-111416-E_GB.pdf
+
 
 Interesting project with similar protocol for heat equipment https://github.com/H4jen/webasto_sniffer
 
@@ -142,12 +147,15 @@ Dest (1 byte)
 
 Operation code 1 (1 byte) 
 - From master (00)
-  - 10
+  - 10 ping    00 FE 10 02 80 8A E6
   - 11 set parameters
   - 1C status
   - 58 extended status
+  - 18     00 40 18 08 80 0C 00 03 00 00 48 00 97
 - From remote (40)
-  - 15
+  - 15     40 00 15 07 08 0C 81 00 00 48 00 9F  test
+  - 55     40 00 55 05 08 81 00 69 00 F0
+  - 17     40 00 17 08 08 80 EF 00 2C 08 00 02 1E
 
 Data length (1 byte)
 - Length of data field
@@ -610,6 +618,41 @@ TEST, ON, HEAT, COOL, OFF, TEST
 40 00 11 03 08 41 02 19  power off
 40 00 11 03 08 41 80 9B  test off?   1000
 ```
+
+TEST + CL sensor inquiry
+```
+40 00 15 07 08 0C 81 00 00 48 00 9F   test sensor mode?
+
+Cmd:  40 00 17 08 08 80 EF 00 2C 08 00 02 1E
+                                       |----- sensor 2
+Cmd:  00 40 1A 07 80 EF 80 00 2C 00 15 8B  
+                                    |--------- 0x15 -> 21
+
+Cmd:  40 00 17 08 08 80 EF 00 2C 08 00 02 1E
+Cmd:  00 40 1A 07 80 EF 80 00 2C 00 14 8A
+Cmd:  40 00 17 08 08 80 EF 00 2C 08 00 03 1F
+Cmd:  00 40 1A 07 80 EF 80 00 2C 00 1A 84
+Cmd:  40 00 17 08 08 80 EF 00 2C 08 00 04 18
+Cmd:  40 00 17 08 08 80 EF 00 2C 08 00 05 19
+Cmd:  00 40 1A 05 80 EF 80 00 A2 12  answer for unknown ??
+
+Cmd:  40 00 17 08 08 80 EF 00 2C 08 00 F3 EF   F3 Filter sign time
+Cmd:  00 40 1A 07 80 EF 80 00 2C 03 1E 83     0x031E->  798
+
+
+Cmd:  80 00 A2 12 40 00 17 08 08 80 EF 00 2C 08 00 05 19 00 40 1A 05 80 EF
+Cmd:  00 40 1A 07 80 EF 80 00 2C 00 14 8A
+Cmd:  40 00 15 07 08 0C 81 00 00 48 00 9F
+Cmd:  00 40 18 08 80 0C 00 03 00 00 48 00 97
+Cmd:  40 00 17 08 08 80 EF 00 2C 08 00 FF E3
+Cmd:  00 40 1A 05 80 EF 80 00 A2 12  
+Cmd:  40 00 55 05 08 81 00 6A 00 F3
+Cmd:  00 FE 58 0F 80 81 35 4C 00 00 6A 6B E9 00 55 55 01 00 01 39
+Cmd:  40 00 17 08 08 80 EF 00 2C 08 00 FC E0
+Cmd:  00 40 1A 05 80 EF 80 00 A2 12
+
+```
+
 # Other info
 
 Info about commercial gateways but no info about protocol :(
