@@ -62,10 +62,18 @@ DS0138 oscilloscope can be used to monitor the signal (voltage differs around 0.
 
 To capture data you can use pulseview with uart decoder 2400 bps, 8bits, start, stop, EVEN parity
 
-When the data has be validated visually you can use the following command line that reads RX data annotations and print one message per line according to 4th byte (message size).
+When the data has been validated visually you can use the following command line that reads RX data annotations and print one message per line according to 4th byte (message size).
+
+In case you need it
+```
+sudo apt install sigrok-cli
+```
+
 ```
 sigrok-cli -P uart:rx=D0:baudrate=2400:parity_type=even -A uart=rx_data -i  YOURFILE  | awk '{pad =" "; b[len%4]=$2; if(len==3) {bytes="0x"b[len];  printf("%s%s%s%s%s%s%s%s",b[0],pad,b[1],pad,b[2],pad,b[3],pad)} if(len>3) {printf("%s%s",$2,pad);} len=len+1; if(len==4+bytes+1) {print "";len=0;bytes=0}}'
 ```
+
+sigrok-cli -d fx2lafw -c samplerate=250000 -t D0=r -P uart:rx=D0:baudrate=2400:parity_type=even  -A uart=rx_data --continuous
 
 # Custom hardware
 https://learnabout-electronics.org/Semiconductors/opto_52.php
