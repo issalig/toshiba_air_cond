@@ -410,7 +410,7 @@ Temp down
 00 FE 10 02 80 8A E6 # typical answer, maybe confirmation
 ```
 
-
+```
 only messages from remote
 method 1
 40 00 11 08 08 4C 0C 1D 7C 00 33 33 70 //27     7C -> 0111 1100  111110  14     30    62
@@ -604,7 +604,10 @@ TEST + CL sensor inquiry
 Timer
 ```
 40 00 11 09 08 0c 82 00 00 30 05 01 01 eb
-00 40 18 02 80 a1 7b 
+40 00 11 09 08 0c 82 00 00 30 05 02 02 eb
+40 00 11 09 08 0c 82 00 00 30 00 04 01 eb 
+
+00 40 18 02 80 a1 7b  ACK
 ```
 
 Power on
