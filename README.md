@@ -67,6 +67,7 @@ When the data has been validated visually you can use the following command line
 In case you need it
 ```
 sudo apt install sigrok-cli
+sudo apt install sigrok-firmware-fx2lafw
 ```
 
 ```
@@ -176,9 +177,10 @@ Operation code 1 (1 byte)
   - 58 extended status
   - 18     00 40 18 08 80 0C 00 03 00 00 48 00 97
 - From remote (40)
-  - 15     40 00 15 07 08 0C 81 00 00 48 00 9F  test
-  - 55     40 00 55 05 08 81 00 69 00 F0
-  - 17     40 00 17 08 08 80 EF 00 2C 08 00 02 1E
+  - 15     40 00 15 07 08 0C 81 00 00 48 00 9F  
+           00 40 18 08 80 0c 00 03 00 00 48 00 97 (answer)
+  - 55     40 00 55 05 08 81 00 69 00 F0        temperature
+  - 17     40 00 17 08 08 80 EF 00 2C 08 00 02 1E sensor query
 
 Data length (1 byte)
 - Length of data field
@@ -644,38 +646,56 @@ TEST, ON, HEAT, COOL, OFF, TEST
 
 TEST + CL sensor inquiry
 ```
-40 00 15 07 08 0C 81 00 00 48 00 9F   test sensor mode?
+40 00 17 08 08 80 EF 00 2C 08 00 02 1E
+                                 |----- sensor 2
+00 40 1A 07 80 EF 80 00 2C 00 15 8B  
+                              |--------- 0x15 -> 21
 
-Cmd:  40 00 17 08 08 80 EF 00 2C 08 00 02 1E
-                                       |----- sensor 2
-Cmd:  00 40 1A 07 80 EF 80 00 2C 00 15 8B  
-                                    |--------- 0x15 -> 21
+00 40 1A 05 80 EF 80 00 A2 12  answer for unknown sensor
 
-Cmd:  40 00 17 08 08 80 EF 00 2C 08 00 02 1E
-Cmd:  00 40 1A 07 80 EF 80 00 2C 00 14 8A
-Cmd:  40 00 17 08 08 80 EF 00 2C 08 00 03 1F
-Cmd:  00 40 1A 07 80 EF 80 00 2C 00 1A 84
-Cmd:  40 00 17 08 08 80 EF 00 2C 08 00 04 18
-Cmd:  40 00 17 08 08 80 EF 00 2C 08 00 05 19
-Cmd:  00 40 1A 05 80 EF 80 00 A2 12  answer for unknown ??
-
-Cmd:  40 00 17 08 08 80 EF 00 2C 08 00 F3 EF   F3 Filter sign time
-Cmd:  00 40 1A 07 80 EF 80 00 2C 03 1E 83     0x031E->  798
-
-
-Cmd:  80 00 A2 12 40 00 17 08 08 80 EF 00 2C 08 00 05 19 00 40 1A 05 80 EF
-Cmd:  00 40 1A 07 80 EF 80 00 2C 00 14 8A
-Cmd:  40 00 15 07 08 0C 81 00 00 48 00 9F
-Cmd:  00 40 18 08 80 0C 00 03 00 00 48 00 97
-Cmd:  40 00 17 08 08 80 EF 00 2C 08 00 FF E3
-Cmd:  00 40 1A 05 80 EF 80 00 A2 12  
-Cmd:  40 00 55 05 08 81 00 6A 00 F3
-Cmd:  00 FE 58 0F 80 81 35 4C 00 00 6A 6B E9 00 55 55 01 00 01 39
-Cmd:  40 00 17 08 08 80 EF 00 2C 08 00 FC E0
-Cmd:  00 40 1A 05 80 EF 80 00 A2 12
-
+40 00 17 08 08 80 EF 00 2C 08 00 F3 EF   F3 Filter sign time
+00 40 1A 07 80 EF 80 00 2C 03 1E 83     0x031E->  798  2bytes
 ```
 
+Power on
+
+```
+40 00 11 03 08 41 03 18                                      Power on 
+00 fe 1c 0d 80 81 35 ac 00 00 6c 00 55 55 01 00 01 1b        Normal status
+00 52 11 04 80 86 24 01 64                                   Mode
+00 fe 10 02 80 8a e6                                         Periodic ping
+40 00 15 07 08 0c 81 00 00 48 00 9f
+00 40 18 08 80 0c 00 03 00 00 48 00 97
+40 00 55 05 08 81 00 65 00 fc                                Sensor temp
+00 fe 58 0f 80 81 35 ac 00 00 6c 6f e9 00 55 55 01 00 01 db  Extended status
+00 52 11 04 80 86 24 01 64
+
+```
+Power off
+
+```
+40 00 11 03 08 41 02 19                                      Power off
+00 40 18 02 80 a1 7b
+00 fe 1c 0d 80 81 34 a8 00 00 6c 00 55 55 01 00 01 1e        Normal status
+00 52 11 04 80 86 24 00 65                                   Mode
+00 fe 10 02 80 8a e6                                         Periodic ping
+40 00 15 07 08 0c 81 00 00 48 00 9f                          ??
+00 40 18 08 80 0c 00 03 00 00 48 00 97                       Answer to ??
+40 00 55 05 08 81 00 6a 00 f3                                Sensor temp
+00 fe 58 0f 80 81 34 a8 00 00 6c 6c e9 00 55 55 01 00 01 dd  Extended status
+
+```
+TEST+SET for Error history
+```
+40 00 15 03 08 27 01 78           Error 1
+00 40 18 05 80 27 08 00 48 ba     Type 0x4 Num error 0x8   E-08
+
+40 00 15 03 08 27 02 7b           Error 2
+00 40 18 05 80 27 08 00 43 b1     Type 0x4 Num error 0x3   E-03
+
+40 00 15 03 08 27 03 7a           Error 3
+00 40 18 05 80 27 00 00 00 fa     0x0 0x0   No error
+```
 # Sensor addresses
 
 | No.  | Desc  | Example value  |
