@@ -239,7 +239,10 @@ Extended status
 00 FE 58 0F 80 81 8D A8 00 00 7A 84 E9 00 33 33 01 00 01 9B
                                     |-always E9
                                  |-  1000 0100  1000010 66-35=31 (real temp??)  
-                              |-temp 0111 1010 111101 61-35 = 26
+                              |-temp 0111 1010 111101 61-35 = 26    
+                              
+temperature reading also confirmed  in pg14 https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf
+
                               
 00 fe 58 0f 80 81 35 ac 02 00 6e 6e e9 00 55 55 01 00 01 da
 00 fe 58 0f 80 81 35 ac 00 00 6e 6e e9 00 55 55 01 00 01 d8
@@ -606,8 +609,13 @@ Timer
 40 00 11 09 08 0c 82 00 00 30 05 01 01 eb
 40 00 11 09 08 0c 82 00 00 30 05 02 02 eb
 40 00 11 09 08 0c 82 00 00 30 00 04 01 eb 
+40 00 11 09 08 0c 82 00 00 30 06 01 01 e8 
+40 00 11 09 08 0c 82 00 00 30 00 04 01 eb    clear ??
+40 00 11 09 08 0c 82 00 00 30 07 02 02 e9    1h for poweron
+                                    |-----
+                                 |-----
+                              |------
 
-00 40 18 02 80 a1 7b  ACK
 ```
 
 Power on
@@ -688,9 +696,11 @@ Info about commercial gateways but no info about protocol :(
 Connections https://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_CassetteUTP_DI-SDI-111416-E_GB.pdf
 Some info o features  pg52 http://www.toshiba-aircon.co.uk/assets/uploads/pdf/sales_tools/New_Technical_Handbook_version_14_1_3.pdf
 
+Sensor addresses (pg 73) https://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_CassetteUTP_DI-SDI-111416-E_GB.pdf
 
 Error codes from Toshiba (pg 38) https://cdn.shopify.com/s/files/1/1144/2302/files/BP-STD_Toshiba_v1_08.pdf
-TCS-Net https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf
+Temperature formula TCS-Net https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf
+https://www.toshibaheatpumps.com/customer-support/owner-manuals
 https://www.intesisbox.com/intesis/product/media/intesisbox_to-ac-knx-16-64_user_manual_en.pdf?v=2.2
 
 
