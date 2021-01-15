@@ -366,6 +366,10 @@ bit7..bit0 /2 - 35 =Temp
 40 00 55 05 08 81 00 7E 00 E7  //7E  0111 1110   126    126/2-35= 28
                      --                                       
 ```
+```
+40 00 11 08 08 4c 11 1c 6c 00 55 55 7c  //Set Fan Medium
+00 40 18 02 80 a1 7b  //kind of ack
+```
 
 Communication while POWERED OFF
 ```
@@ -405,66 +409,6 @@ Temp down
 00 52 11 04 80 86 84 01 C4
 00 FE 10 02 80 8A E6 # typical answer, maybe confirmation
 ```
-
-Temp up
-```
-40 00 11 08 08 4C 0C 1D 7A 00 33 33 76 # press temp up   (current 25, 26 after pressing)
-00 40 18 02 80 A1 7B # typical answer, maybe confirmation
-00 FE 1C 0D 80 81 8D AC 00 00 7A 00 33 33 01 00 01 B5 # looks like current status
-00 52 11 04 80 86 84 05 C0 #
-00 FE 10 02 80 8A E6 # typical answer, maybe confirmation
-```
-
-Temp down from 26 to 18
-```
-40 00 11 08 08 4C 0C 1D 78 00 33 33 74 # press temp down (current 26, 25 after pressing)
-00 40 18 02 80 A1 7B # typical answer, maybe confirmation
-00 FE 1C 0D 80 81 8D AC 00 00 78 00 33 33 01 00 01 B7 # looks like current status
-00 52 11 04 80 86 84 05 C0 #this seq was in temp up ???
-
-40 00 11 08 08 4C 0C 1D 76 00 33 33 7A # press temp down (current 25, 24 after pressing)
-00 40 18 02 80 A1 7B
-00 FE 1C 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9
-00 52 11 04 80 86 84 05 C0 
-
-40 00 11 08 08 4C 0C 1D 74 00 33 33 78 # press temp down 22 
-00 40 18 02 80 A1 7B
-00 FE 1C 0D 80 81 8D AC 00 00 74 00 33 33 01 00 01 BB
-00 52 11 04 80 86 84 05 C0
-
-40 00 11 08 08 4C 0C 1D 72 00 33 33 7E # press temp down 21
-00 40 18 02 80 A1 7B
-00 FE 1C 0D 80 81 8D AC 00 00 72 00 33 33 01 00 01 BD
-00 52 11 04 80 86 84 05 C0
-
-40 00 11 08 08 4C 0C 1D 70 00 33 33 7C # press temp down 20
-...
-40 00 11 08 08 4C 0C 1D 6E 00 33 33 62 # press temp down 19
-...
-40 00 11 08 08 4C 0C 1D 6C 00 33 33 60 # press temp down 18
-...
-40 00 15 07 08 0C 81 00 00 48 00 9F # press temp up 19  !!!! 
-00 40 18 08 80 0C 00 03 00 00 48 00 97 
-
-40 00 11 08 08 4C 0C 1D 6C 00 33 33 60 # press temp up 20
-00 40 18 02 80 A1 7B
-00 52 11 04 80 86 84 05 C0
-00 FE 1C 0D 80 81 8D AC 00 00 6A 00 33 33 01 00 01 A5
-00 FE 10 02 80 8A E6
-
-40 00 55 05 08 81 00 7C 00 E5 # press temp up 21
-00 FE 58 0F 80 81 AC 00 00 6A 7F E9 00 33 33 01 00 01 75
-00 52 11 04 80 86 84 05 C0
-
-40 00 11 08 08 4C 0C 1D 6C 00 33 33 60 # press temp up 22
-...
-40 00 11 08 08 4C 0C 1D 6E 00 33 33 62 # press temp up 23
-...
-40 00 11 08 08 4C 0C 1D 70 00 33 33 7C # press temp up 24
-...
-40 00 11 08 08 4C 0C 1D 72 00 33 33 7E # press temp up 25
-...
-40 00 11 08 08 4C 0C 1D 70 00 33 33 7C # press temp up 26
 
 
 only messages from remote
@@ -657,6 +601,12 @@ TEST + CL sensor inquiry
 00 40 1A 07 80 EF 80 00 2C 03 1E 83     0x031E->  798  2bytes
 ```
 
+Timer
+```
+40 00 11 09 08 0c 82 00 00 30 05 01 01 eb
+00 40 18 02 80 a1 7b 
+```
+
 Power on
 
 ```
@@ -664,8 +614,8 @@ Power on
 00 fe 1c 0d 80 81 35 ac 00 00 6c 00 55 55 01 00 01 1b        Normal status
 00 52 11 04 80 86 24 01 64                                   Mode
 00 fe 10 02 80 8a e6                                         Periodic ping
-40 00 15 07 08 0c 81 00 00 48 00 9f
-00 40 18 08 80 0c 00 03 00 00 48 00 97
+40 00 15 07 08 0c 81 00 00 48 00 9f                          ??
+00 40 18 08 80 0c 00 03 00 00 48 00 97                       Answer to ??
 40 00 55 05 08 81 00 65 00 fc                                Sensor temp
 00 fe 58 0f 80 81 35 ac 00 00 6c 6f e9 00 55 55 01 00 01 db  Extended status
 00 52 11 04 80 86 24 01 64
@@ -675,7 +625,7 @@ Power off
 
 ```
 40 00 11 03 08 41 02 19                                      Power off
-00 40 18 02 80 a1 7b
+00 40 18 02 80 a1 7b                                         ACK after a command
 00 fe 1c 0d 80 81 34 a8 00 00 6c 00 55 55 01 00 01 1e        Normal status
 00 52 11 04 80 86 24 00 65                                   Mode
 00 fe 10 02 80 8a e6                                         Periodic ping
