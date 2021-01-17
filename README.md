@@ -1,7 +1,9 @@
 # toshiba_air_cond
-Decode Toshiba A-B protocol (aka TCC Link) for air conditioners.
+Decode Toshiba AB protocol (TCC Link) for air conditioners with wired controllers.
 
 Tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
+
+Service manual http://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_Gainable_Std-Compact--DI_406566806110614061606_GB.pdf
 
 ```
 RAV-SM406BTP-E 
@@ -54,6 +56,7 @@ https://echonet.jp/wp/wp-content/uploads/pdf/General/Standard/Release/Release_F_
   - https://hackaday.com/2019/01/07/building-an-esp8266-doorbell-on-hard-mode/
   - https://daeconsulting.co.za/2018/12/17/theres-someone-at-the-door/
 
+- Announce project in other similar ones https://github.com/ToniA/arduino-heatpumpir/
 
 # Data acquisition
 
