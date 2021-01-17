@@ -3,6 +3,7 @@ Decode Toshiba A-B protocol (aka TCC Link) for air conditioners.
 
 Tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
 
+```
 RAV-SM406BTP-E 
 |     | |    |- CE marking
 |     | ||-Duct
@@ -10,7 +11,7 @@ RAV-SM406BTP-E
 |     |-duty 4.0 kW 
 |   |-Digital inverter
 |- Light comercial
-
+```
 
 https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf
 
@@ -44,8 +45,6 @@ https://echonet.jp/wp/wp-content/uploads/pdf/General/Standard/Release/Release_F_
 - Clearer Protocol documentation
 
 - Use DC buck/boost from A-B line to power ESP8266 (tried, but not working)
-
-- Guess timer opcodes if any (not sure if remote takes care of it internally)
 
 - Check other circuits as:
   - https://easyeda.com/marcegli/door-opener
@@ -198,23 +197,24 @@ Opcode2
     - 81 status (opcode1 55
     - 8A ack (Dest FE)
     - A1 ping (Dest 40)
-    - 86 mode (Dest 52)    
+    - 86 mode (Dest 52)  
+    - 0C 00 (answer to 0C from master)
 
   - From remote (40)
     - 41 power
     - 42 mode
     - 4C temp, fan
     - 54 save
-    - 0C 81 status
-    - 0C 82 timer ???
-    - 0C 00 (answer to 0C)
+    - 0C 81 status/ping
+    - 0C 82 timer    
+    
     
 
 CRC is computed as Checksum8 XOR of all the bytes (Compute it at https://www.scadacore.com/tools/programming-calculators/online-checksum-calculator/)
 
 # Message types
 
-There are two different status messages: normal and extended. Opcode is 81
+There are two different status messages sent fro master: normal and extended. Opcode for both is 81
 Extended has two extra bytes, one could be some temperature? and other is always E9 in my experiments.
 
 Normal status
@@ -240,16 +240,9 @@ Extended status
                                     |-always E9
                                  |-  1000 0100  1000010 66-35=31 (real temp??)  
                               |-temp 0111 1010 111101 61-35 = 26    
-                              
-temperature reading also confirmed  in pg14 https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf
-
-                              
-00 fe 58 0f 80 81 35 ac 02 00 6e 6e e9 00 55 55 01 00 01 da
-00 fe 58 0f 80 81 35 ac 00 00 6e 6e e9 00 55 55 01 00 01 d8
-                         |- 2 pre-heat
-                      
-00 fe 58 0f 80 81 34 a8 00 00 6e 6f e9 00 55 55 01 00 01 dc
-                              
+                        |- 0x2 pre-heat
+ 
+temperature reading also confirmed  in pg14 https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf                                                      
 ``` 
 
 Ping message sent every 5 seconds
@@ -285,7 +278,7 @@ from master mode status
                   
 ```
 
-# Logs and their guesses
+# Notes from logs
 
 ```
 Op code from remote
