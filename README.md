@@ -573,10 +573,6 @@ From master status  7th byte bit7-bit5
 
 ```
 
-Timer off  (it needs more working)
-```
-40 00 11 09 08 0C 82 00 00 30 05 01 01 EB 
-```
 
 TEST, ON, HEAT, COOL, OFF, TEST
 ```
@@ -601,20 +597,23 @@ TEST + CL sensor inquiry
 00 40 1A 05 80 EF 80 00 A2 12  answer for unknown sensor
 
 40 00 17 08 08 80 EF 00 2C 08 00 F3 EF   F3 Filter sign time
-00 40 1A 07 80 EF 80 00 2C 03 1E 83     0x031E->  798  2bytes
+00 40 1A 07 80 EF 80 00 2C 03 1E 83     0x03 0x1E->  798  2bytes
 ```
 
 Timer
 ```
-40 00 11 09 08 0c 82 00 00 30 05 01 01 eb
-40 00 11 09 08 0c 82 00 00 30 05 02 02 eb
-40 00 11 09 08 0c 82 00 00 30 00 04 01 eb 
-40 00 11 09 08 0c 82 00 00 30 06 01 01 e8 
-40 00 11 09 08 0c 82 00 00 30 00 04 01 eb    clear ??
+40 00 11 09 08 0c 82 00 00 30 05 01 01 eb   30m poweroff
+40 00 11 09 08 0c 82 00 00 30 05 02 02 eb    2h poweroff
+40 00 11 09 08 0c 82 00 00 30 00 04 01 eb   cancel timer                                  
+40 00 11 09 08 0c 82 00 00 30 06 03 03 e8   1.5h poweroff repeat
+40 00 11 09 08 0c 82 00 00 30 06 01 01 e8   30m  poweroff repeat
+40 00 11 09 08 0c 82 00 00 30 07 30 30 e9   24h poweron
+40 00 11 09 08 0c 82 00 00 30 07 04 04 e9    2h poweron
+
 40 00 11 09 08 0c 82 00 00 30 07 02 02 e9    1h for poweron
-                                    |-----
-                                 |-----
-                              |------
+                                    |----- number of 30 minutes
+                                 |----- repeated
+                              |------ 07 poweron   06 poweroff repeat 05 poweroff  00 cancel
 
 ```
 
@@ -694,9 +693,9 @@ TEST+SET for Error history
 Info about commercial gateways but no info about protocol :(
 
 Connections https://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_CassetteUTP_DI-SDI-111416-E_GB.pdf
-Some info o features  pg52 http://www.toshiba-aircon.co.uk/assets/uploads/pdf/sales_tools/New_Technical_Handbook_version_14_1_3.pdf
-
+Sensor addresses (pg 52) http://www.toshiba-aircon.co.uk/assets/uploads/pdf/sales_tools/New_Technical_Handbook_version_14_1_3.pdf
 Sensor addresses (pg 73) https://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_CassetteUTP_DI-SDI-111416-E_GB.pdf
+Sensor addresses (pg 42) http://www.toshiba-aircon.co.uk/assets/uploads/pdf/sales_tools/Technical_Handbook_ver._13.1.pdf
 
 Error codes from Toshiba (pg 38) https://cdn.shopify.com/s/files/1/1144/2302/files/BP-STD_Toshiba_v1_08.pdf
 Temperature formula TCS-Net https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf
