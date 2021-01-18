@@ -46,6 +46,8 @@ https://echonet.jp/wp/wp-content/uploads/pdf/General/Standard/Release/Release_F_
 
 - Clearer Protocol documentation
 
+- MQTT and HA support
+
 - Use DC buck/boost from A-B line to power ESP8266 (tried, but not working)
 
 - Check other circuits as:
@@ -658,6 +660,25 @@ TEST+SET for Error history
 40 00 15 03 08 27 03 7a           Error 3
 00 40 18 05 80 27 00 00 00 fa     0x0 0x0   No error
 ```
+
+```
+00 40 18 02 80 A1 7B
+00 40 18 08 80 0C 00 03 00 00 48 00 97
+00 40 1A 07 80 EF 80 00 2C 00 00 9E
+00 52 11 04 80 86 24 00 65
+00 55 55 01 00 01
+00 FE 10 02 80 8A E6
+00 FE 1C 0D 80 81 34 A8 00 00 6C 00 55 55 01 00 01 1E
+00 FE 58 0F 80 81 34 A8 00 00 6C 6D E9 00 55 55 01 00 01 DC
+40 00 11 03 08 41 02 19
+40 00 11 03 08 41 03 18
+40 00 11 08 08 4C 09 1D 6C 00 05 05 65
+40 00 11 09 08 0C 82 00 00 30 05 01 01 EB
+40 00 15 07 08 0C 81 00 00 48 00 9F
+40 00 17 08 08 80 EF 00 2C 08 00 02 1E
+40 00 55 05 08 81 00 66 00 FF
+```
+
 # Sensor addresses
 
 | No.  | Desc  | Example value  |
