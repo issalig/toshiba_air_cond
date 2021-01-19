@@ -170,6 +170,7 @@ Data packages have the following format:
 ``` 
 |Source | Dest | Opcode1  | Data Length | Data | CRC |
 |---|---|---|---|---|---|
+||||||
 ```
 
 Source (1 byte): 
