@@ -203,11 +203,11 @@ Data length (1 byte)
 - Length of data field
 
 Data (composed of the following parts)
-```
-|---|---|---|
+
+
 | R/W mode | Operation Code 2 | Payload |
 |---|---|---|
-```
+
 R/W mode (1 byte)
 - 08 for Write mode (from remote 40)
 - 80 for Read mode (from master 00)
@@ -215,11 +215,14 @@ R/W mode (1 byte)
 Opcode2
 
   - From master (00)
-    - 81 status (opcode1 55
-    - 8A ack (Dest FE)
-    - A1 ping (Dest 40)
-    - 86 mode (Dest 52)  
-    - 0C 00 (answer to 0C from master) 00 40 18 08 80 0c 00 03 00 00 48 00 97
+  
+| Opcode2 | Desc | Example |
+|---|---|---|
+    | 81 | status (opcode1 55 ||
+    | 8A | ack  (Dest FE) ||
+    | A1 | ping (Dest 40) ||
+    | 86 | mode (Dest 52) || 
+    | 0C | 00 (answer to 0C from master) 00 40 18 08 80 0c 00 03 00 00 48 00 97 | 
 
   - From remote (40)
     - 41 power
