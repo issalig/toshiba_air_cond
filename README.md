@@ -222,17 +222,22 @@ Opcode2
     | 8A | ack  (Dest FE) ||
     | A1 | ping (Dest 40) ||
     | 86 | mode (Dest 52) || 
-    | 0C | 00 (answer to 0C from master) 00 40 18 08 80 0c 00 03 00 00 48 00 97 | 
+    | 0C | 00 (answer to 0C from master) | 00 40 18 08 80 0c 00 03 00 00 48 00 97 | 
 
   - From remote (40)
-    - 41 power
-    - 42 mode
-    - 4C temp, fan
-    - 54 save
-    - 80 sensor query
-    - 81 
-    - 0C 81 status/ping
-    - 0C 82 timer    
+  
+  
+| Opcode2 | Desc | Example |
+|---|---|---|
+    | 41 |power|40 00 11 03 08 41 02 19|
+    | 42 |mode||
+    | 4C |temp, fan||
+    | 54 |save||
+    | 80 |sensor query||
+    | 81 |||
+    | 0C 00 ||40 00 18 08 80 0C 00 03 00 00 48 00 97|
+    | 0C 81 |status/ping |40 00 15 07 08 0C 81 00 00 48 00 9F|
+    | 0C 82 |timer |40 00 11 09 08 0C 82 00 00 30 05 01 01 EB|
     
     
 
