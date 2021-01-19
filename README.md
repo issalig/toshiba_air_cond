@@ -216,8 +216,8 @@ Opcode2
 
   - From master (00)
   
-| Opcode2 | Desc | Example |
-|---|---|---|
+    | Opcode2 | Desc | Example |
+    |---|---|---|
     | 81 | status (opc1 55 | 00 FE 1C 0D 80 81 34 A8 00 00 6C 00 55 55 01 00 01 1E
     | 81 | extended status (opc1 58) | 00 FE 58 0F 80 81 35 AC 02 00 6E 6F E9 00 55 55 01 00 01 DB|
     | 8A | ack  (Dest FE) |00 FE 10 02 80 8A E6|
@@ -228,8 +228,8 @@ Opcode2
   - From remote (40)
   
   
-| Opcode2 | Desc | Example |
-|---|---|---|
+    | Opcode2 | Desc | Example |
+    |---|---|---|
     | 41 |power|40 00 11 03 08 41 02 19|
     | 42 |mode|40 00 11 03 08 42 02 1A|
     | 4C |temp, fan|40 00 11 08 08 4C 11 1A 6E 00 55 55 78|
