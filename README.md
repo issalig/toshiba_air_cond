@@ -183,14 +183,20 @@ Operation code 1 (1 byte)
 - From master (00)
   - 10 ping    00 FE 10 02 80 8A E6
   - 11 set parameters
+  - 1A sensor value 00 40 1A 07 80 EF 80 00 2C 00 2B B5
   - 1C status
   - 58 extended status
-  - 18     00 40 18 08 80 0C 00 03 00 00 48 00 97
+  - 18 ack 00 40 18 08 80 0C 00 03 00 00 48 00 97
+           00 40 18 02 80 A1 7B
 - From remote (40)
+  - 11     40 00 11 03 08 41 03 18 
+           40 00 11 08 08 4C 09 1D 6C 00 05 05 65
   - 15     40 00 15 07 08 0C 81 00 00 48 00 9F  
            00 40 18 08 80 0c 00 03 00 00 48 00 97 (answer)
+  - 17     40 00 17 08 08 80 EF 00 2C 08 00 02 1E sensor query  
+  - 18     40 00 18 08 80 0C 00 03 00 00 48 00 97
   - 55     40 00 55 05 08 81 00 69 00 F0        temperature
-  - 17     40 00 17 08 08 80 EF 00 2C 08 00 02 1E sensor query
+  
 
 Data length (1 byte)
 - Length of data field
@@ -209,13 +215,15 @@ Opcode2
     - 8A ack (Dest FE)
     - A1 ping (Dest 40)
     - 86 mode (Dest 52)  
-    - 0C 00 (answer to 0C from master)
+    - 0C 00 (answer to 0C from master) 00 40 18 08 80 0c 00 03 00 00 48 00 97
 
   - From remote (40)
     - 41 power
     - 42 mode
     - 4C temp, fan
     - 54 save
+    - 80 sensor query
+    - 81 
     - 0C 81 status/ping
     - 0C 82 timer    
     
@@ -275,17 +283,14 @@ Temp from remote to master
          |        |-bit0 ON:1 OFF:0                 
 ```
 
-from master mode status
+from master mode status Opcode 2 0x86
 ```
 00 52 11 04 80 86 24 00 65  heat
-                  |- 0010 0100 -> first part is mode, 2nd is ??
-                  
-00 52 11 04 80 86 64 00 25   fan
-                  |- 0110 0100
+                  |  |- mode  bit7-bit5, power bit0, bit2 ???
+                  |- 0010 0100 -> mode bit7-bit5  bit4-bit0 ???
                      ---
-00 52 11 04 80 86 84 00 c5 dry
-                  |- 1000 0100
-                     ---
+
+      
                   
 ```
 
