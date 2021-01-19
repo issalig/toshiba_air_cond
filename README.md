@@ -167,11 +167,9 @@ Temp up button is connected to R24 and R46
 
 Data packages have the following format:
 
-``` 
 |Source | Dest | Opcode1  | Data Length | Data | CRC |
 |---|---|---|---|---|---|
-||||||
-```
+
 
 Source (1 byte): 
 - 00 is master
