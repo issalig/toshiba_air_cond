@@ -218,10 +218,11 @@ Opcode2
   
 | Opcode2 | Desc | Example |
 |---|---|---|
-    | 81 | status (opcode1 55 ||
-    | 8A | ack  (Dest FE) ||
-    | A1 | ping (Dest 40) ||
-    | 86 | mode (Dest 52) || 
+    | 81 | status (opc1 55 | 00 FE 1C 0D 80 81 34 A8 00 00 6C 00 55 55 01 00 01 1E
+    | 81 | extended status (opc1 58) | 00 FE 58 0F 80 81 35 AC 02 00 6E 6F E9 00 55 55 01 00 01 DB|
+    | 8A | ack  (Dest FE) |00 FE 10 02 80 8A E6|
+    | A1 | ping (Dest 40) |00 40 18 02 80 A1 7B|
+    | 86 | mode (Dest 52) |00 52 11 04 80 86 24 05 60| 
     | 0C | 00 (answer to 0C from master) | 00 40 18 08 80 0c 00 03 00 00 48 00 97 | 
 
   - From remote (40)
@@ -230,11 +231,11 @@ Opcode2
 | Opcode2 | Desc | Example |
 |---|---|---|
     | 41 |power|40 00 11 03 08 41 02 19|
-    | 42 |mode||
-    | 4C |temp, fan||
-    | 54 |save||
-    | 80 |sensor query||
-    | 81 |||
+    | 42 |mode|40 00 11 03 08 42 02 1A|
+    | 4C |temp, fan|40 00 11 08 08 4C 11 1A 6E 00 55 55 78|
+    | 54 |save (opc1 11)|40 00 11 04 08 54 01 00 08 |
+    | 80 |sensor query|40 00 17 08 08 80 EF 00 2C 08 00 02 1E|
+    | 81 ||40 00 55 05 08 81 00 6A 00 F3|
     | 0C 00 ||40 00 18 08 80 0C 00 03 00 00 48 00 97|
     | 0C 81 |status/ping |40 00 15 07 08 0C 81 00 00 48 00 9F|
     | 0C 82 |timer |40 00 11 09 08 0C 82 00 00 30 05 01 01 EB|
