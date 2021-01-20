@@ -196,10 +196,9 @@ Operation code 1 (1 byte)
   |---|---|---|
   |11|  set parameters (temp. power, mode, fan, save) |  40 00 11 03 08 41 03 18 |
   ||  set parameters      | 40 00 11 08 08 4C 09 1D 6C 00 05 05 65|
-  |15|    | 40 00 15 07 08 0C 81 00 00 48 00 9F  |
-  ||    (answer)     | 00 40 18 08 80 0c 00 03 00 00 48 00 97|
+  |15| Error history   | 40 00 15 07 08 0C 81 00 00 48 00 9F  |
   |17|   sensor query   | 40 00 17 08 08 80 EF 00 2C 08 00 02 1E |
-  |18|    | 40 00 18 08 80 0C 00 03 00 00 48 00 97 |
+  |18|  sensor query  | 40 00 18 08 80 0C 00 03 00 00 48 00 97 |
   | 55        temperature|    40 00 55 05 08 81 00 69 00 F0 |
   
 
@@ -213,8 +212,10 @@ Data (composed of the following parts)
 |---|---|---|
 
 R/W mode (1 byte)
-- 08 for Write mode (from remote 40)
-- 80 for Read mode (from master 00)
+|Mode|Desc|
+|---|---|
+|08 |for Write mode (from remote 40)|
+|80 |for Read mode (from master 00)|
 
 Opcode2
 
@@ -239,7 +240,7 @@ Opcode2
     | 4C |temp, fan|40 00 11 08 08 4C 11 1A 6E 00 55 55 78|
     | 54 |save (opc1 11)|40 00 11 04 08 54 01 00 08 |
     | 80 |sensor query|40 00 17 08 08 80 EF 00 2C 08 00 02 1E|
-    | 81 ||40 00 55 05 08 81 00 6A 00 F3|
+    | 81 |sesnor temp |40 00 55 05 08 81 00 6A 00 F3|
     | 0C 00 ||40 00 18 08 80 0C 00 03 00 00 48 00 97|
     | 0C 81 |status/ping |40 00 15 07 08 0C 81 00 00 48 00 9F|
     | 0C 82 |timer |40 00 11 09 08 0C 82 00 00 30 05 01 01 EB|
@@ -373,6 +374,14 @@ TEST + CL for sensor query
 
 ```
 
+Timer (it is not working, there should miss some other commands)
+
+```
+40 00 11 09 08 0c 82 00 00 30 07 02 02 e9    1h for poweron
+                                    |----- number of 30 minutes
+                                 |----- repeated
+                              |------ 07 poweron   06 poweroff repeat 05 poweroff  00 cancel
+```
 # Sensor addresses
 
 | No.  | Desc  | Example value  |
