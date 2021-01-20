@@ -181,15 +181,15 @@ And Data field is composed of the following parts:
 Source (1 byte): 
 |#|Desc|
 |---|---|
-|00 | master|
-|40 | remote controller|
-|FE | broadcast|
+|00 | master (central unit) |
+|40 | remote controller |
+|FE | broadcast |
 |52 |??|
 
 Dest (1 byte):
 |#|Desc|
 |---|---|
-|00 | master|
+|00 | master (central unit) |
 |40 | remote controller|
 |FE | broadcast|
 |52 |??|
@@ -203,8 +203,8 @@ Operation code 1 (1 byte)
   |1A| sensor value| 00 40 1A 07 80 EF 80 00 2C 00 2B B5|
   |1C| status |00 FE 1C 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9|
   |58| extended status | |
-  |18| ack |00 40 18 08 80 0C 00 03 00 00 48 00 97|
-  |18| ping |00 40 18 02 80 A1 7B|
+  |18| pong, answer to remote ping |00 40 18 08 80 0C 00 03 00 00 48 00 97|
+  |18| master ack after setting param  |00 40 18 02 80 A1 7B|
 - From remote (40)
   |Opc1|Desc|Example|
   |---|---|---|
@@ -234,12 +234,12 @@ Opcode2
   
     | Opcode2 | Desc | Example |
     |---|---|---|
-    | 81 | status (opc1 55 | 00 FE 1C 0D 80 81 34 A8 00 00 6C 00 55 55 01 00 01 1E
-    | 81 | extended status (opc1 58) | 00 FE 58 0F 80 81 35 AC 02 00 6E 6F E9 00 55 55 01 00 01 DB|
-    | 8A | ack  (Dest FE) |00 FE 10 02 80 8A E6|
-    | A1 | ping (Dest 40) |00 40 18 02 80 A1 7B|
-    | 86 | mode (Dest 52) |00 52 11 04 80 86 24 05 60| 
-    | 0C | 00 (answer to 0C from master) | 00 40 18 08 80 0c 00 03 00 00 48 00 97 | 
+    | 81 | status | 00 FE 1C 0D 80 81 34 A8 00 00 6C 00 55 55 01 00 01 1E |
+    | 81 | extended status | 00 FE 58 0F 80 81 35 AC 02 00 6E 6F E9 00 55 55 01 00 01 DB|
+    | 8A | alive   |00 FE 10 02 80 8A E6|
+    | A1 | ack after setting param  |00 40 18 02 80 A1 7B|
+    | 86 | mode  |00 52 11 04 80 86 24 05 60| 
+    | 0C | pong,answer to ping opc2 0C | 00 40 18 08 80 0c 00 03 00 00 48 00 97 | 
 
   - From remote (40)
   
@@ -251,9 +251,8 @@ Opcode2
     | 4C |temp, fan|40 00 11 08 08 4C 11 1A 6E 00 55 55 78|
     | 54 |save (opc1 11)|40 00 11 04 08 54 01 00 08 |
     | 80 |sensor query|40 00 17 08 08 80 EF 00 2C 08 00 02 1E|
-    | 81 |sesnor temp |40 00 55 05 08 81 00 6A 00 F3|
-    | 0C 00 ||40 00 18 08 80 0C 00 03 00 00 48 00 97|
-    | 0C 81 |status/ping |40 00 15 07 08 0C 81 00 00 48 00 9F|
+    | 81 |sensor room temp |40 00 55 05 08 81 00 6A 00 F3|
+    | 0C 81 | ping |40 00 15 07 08 0C 81 00 00 48 00 9F|
     | 0C 82 |timer |40 00 11 09 08 0C 82 00 00 30 05 01 01 EB|
     
     
@@ -293,7 +292,7 @@ Extended status
 temperature reading also confirmed  in pg14 https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf                                                      
 ``` 
 
-Ping message (sent every 5 seconds)
+ALIVE message (sent every 5 seconds from master)
 ```
 00 fe 10 02 80 8a e6 
 |  |  |  |  |  |  |- CRC
@@ -305,7 +304,21 @@ From master (00) to all (fe)
 
 ```
 
-Temp from remote to master
+ACK sent after setting parameters
+```
+00 40 18 02 80 a1 7b 
+```
+
+PING/PONG, remote pings and master pongs
+```
+40 00 15 07 08 0c 81 00 00 48 00 9f 
+               |- opcode ping
+               
+00 40 18 08 80 0c 00 03 00 00 48 00 97
+               |- opcode ping
+```
+
+Temp from remote to master.
 ```
 40 00 55 05 08 81 00 68 00 f1 
       |           |  |- 0110 1000 -> 104/2 -> 52 - 35 = 17   (temp)
@@ -385,13 +398,22 @@ TEST + CL for sensor query
 
 ```
 
-Timer (it is not working, there should miss some other commands or remote is taking care of it internally)
+Timer is decoded but remote takes care of it internally and ignores it if sent from external sources (our circuit)
 
 ```
 40 00 11 09 08 0c 82 00 00 30 07 02 02 e9    1h for poweron
                                     |----- number of 30 minutes periods,  2 -> 1h
                                  |----- number of 30 minutes periods,  2 -> 1h
                               |------ 07 poweron   06 poweroff repeat 05 poweroff  00 cancel
+                              
+
+Sequence observed for 1h poweron
+
+40 00 11 03 08 41 03 18    powers on
+00 40 18 02 80 a1 7b       ack
+40 00 11 09 08 0c 82 00 00 30 00 04 01 eb  cancels timer
+00 40 18 02 80 a1 7b       ack
+
 ```
 # Sensor addresses
 
