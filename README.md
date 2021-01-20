@@ -167,18 +167,32 @@ Temp up button is connected to R24 and R46
 
 Data packages have the following format:
 
-|Source | Dest | Opcode1  | Data Length | Data | CRC |
+|Source | Dest | Opcode 1  | Data Length | Data | CRC |
 |---|---|---|---|---|---|
+
+And Data field is composed of the following parts:
+
+| R/W mode | Opcode 2 | Payload |
+|---|---|---|
+
+
 
 
 Source (1 byte): 
-- 00 is master
-- 40 is remote controller
-- FE is broadcast
-- 52 is ??
+|#|Desc|
+|---|---|
+|00 | master|
+|40 | remote controller|
+|FE | broadcast|
+|52 |??|
 
-Dest (1 byte)
-- Same as source
+Dest (1 byte):
+|#|Desc|
+|---|---|
+|00 | master|
+|40 | remote controller|
+|FE | broadcast|
+|52 |??|
 
 Operation code 1 (1 byte) 
 - From master (00)
@@ -207,10 +221,6 @@ Data length (1 byte)
 - Length of data field
 
 Data (composed of the following parts)
-
-
-| R/W mode | Operation Code 2 | Payload |
-|---|---|---|
 
 R/W mode (1 byte)
 |Mode|Desc|
@@ -375,12 +385,12 @@ TEST + CL for sensor query
 
 ```
 
-Timer (it is not working, there should miss some other commands)
+Timer (it is not working, there should miss some other commands or remote is taking care of it internally)
 
 ```
 40 00 11 09 08 0c 82 00 00 30 07 02 02 e9    1h for poweron
-                                    |----- number of 30 minutes
-                                 |----- repeated
+                                    |----- number of 30 minutes periods,  2 -> 1h
+                                 |----- number of 30 minutes periods,  2 -> 1h
                               |------ 07 poweron   06 poweroff repeat 05 poweroff  00 cancel
 ```
 # Sensor addresses
