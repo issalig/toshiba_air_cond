@@ -190,7 +190,7 @@ Operation code 1 (1 byte)
   |1C| status |00 FE 1C 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9|
   |58| extended status | |
   |18| ack |00 40 18 08 80 0C 00 03 00 00 48 00 97|
-  |18|     |00 40 18 02 80 A1 7B|
+  |18| ping |00 40 18 02 80 A1 7B|
 - From remote (40)
   |Opc1|Desc|Example|
   |---|---|---|
@@ -198,7 +198,6 @@ Operation code 1 (1 byte)
   ||  set parameters      | 40 00 11 08 08 4C 09 1D 6C 00 05 05 65|
   |15| Error history   | 40 00 15 07 08 0C 81 00 00 48 00 9F  |
   |17|   sensor query   | 40 00 17 08 08 80 EF 00 2C 08 00 02 1E |
-  |18|  sensor query  | 40 00 18 08 80 0C 00 03 00 00 48 00 97 |
   | 55        temperature|    40 00 55 05 08 81 00 69 00 F0 |
   
 
