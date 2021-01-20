@@ -40,7 +40,11 @@ https://echonet.jp/wp/wp-content/uploads/pdf/General/Standard/Release/Release_F_
 
 - Fix parsing to support round buffer and not to loose partial frames (not necessary)
 
-- Redesign HTML page (WIP, fixed divs)
+- Redesign HTML page (WIP, fixed divs) 
+https://mdbootstrap.com/snippets/jquery/ascensus/456902#html-tab-view   calculator
+https://codepen.io/lalwanivikas/pen/eZxjqo  calculator
+https://codepen.io/giana/pen/GJMBEv   calculator
+https://codepen.io/CiTA/pen/OwowEB remote
 
 - Simple decode example
 
