@@ -194,8 +194,10 @@ Operation code 1 (1 byte)
 - From remote (40)
   |Opc1|Desc|Example|
   |---|---|---|
-  |11|  set parameters (temp. power, mode, fan, save) |  40 00 11 03 08 41 03 18 |
-  ||  set parameters      | 40 00 11 08 08 4C 09 1D 6C 00 05 05 65|
+  |11|  set power |  40 00 11 03 08 41 03 18 |
+  |11 | set mode |   40 00 11 03 08 42 01 19 (heat)|
+  |11 | set temp | 40 00 11 08 08 4C 09 1D 6C 00 05 05 65|
+  |11 | set save | |
   |15| Error history   | 40 00 15 07 08 0C 81 00 00 48 00 9F  |
   |17|   sensor query   | 40 00 17 08 08 80 EF 00 2C 08 00 02 1E |
   | 55        temperature|    40 00 55 05 08 81 00 69 00 F0 |
