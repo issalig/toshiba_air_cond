@@ -246,7 +246,7 @@ CRC is computed as Checksum8 XOR of all the bytes (Compute it at https://www.sca
 
 # Message types
 
-There are two different status messages sent fro master: normal and extended. Opcode for both is 81
+There are two different status messages sent from master: normal and extended. Opcode for both is 81
 Extended has two extra bytes, one could be some temperature? and other is always E9 in my experiments.
 
 Normal status
@@ -277,37 +277,131 @@ Extended status
 temperature reading also confirmed  in pg14 https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf                                                      
 ``` 
 
-Ping message sent every 5 seconds
+Ping message (sent every 5 seconds)
 ```
 00 fe 10 02 80 8a e6 
 |  |  |  |  |  |  |- CRC
-|  | UNK |  |  |- message type
+|  | OPC1|  |  |- OPC2 
 |  ALL   |  |-from master, info message??
 Master   |- Length
 
-From master (00) to all (fe), 10 is UNK, 
+From master (00) to all (fe)
 
 ```
 
 Temp from remote to master
 ```
 40 00 55 05 08 81 00 68 00 f1 
-         |        |  |- 0110 1000 -> 104/2 -> 52 - 35 = 17   (temp)
-         |        |-bit0 ON:1 OFF:0                 
+      |           |  |- 0110 1000 -> 104/2 -> 52 - 35 = 17   (temp)
+      |-opc1         |-bit0 ON:1 OFF:0                 
+      
 ```
 
-from master mode status Opcode 2 0x86
+From master mode status Opcode 2 0x86
 ```
 00 52 11 04 80 86 24 00 65  heat
-                  |  |- mode  bit7-bit5, power bit0, bit2 ???
+      |-opc1      |  |- mode  bit7-bit5, power bit0, bit2 ???
                   |- 0010 0100 -> mode bit7-bit5  bit4-bit0 ???
-                     ---
-
-      
-                  
+                     ---                  
 ```
 
-# Notes from logs
+Setting commands
+
+Power
+```
+40 00 11 03 08 41 03 18    ON
+40 00 11 03 08 41 02 19   OFF
+                  |- power >> 1 | 0b1
+```                  
+Set mode
+```
+40 00 11 03 08 42 01 19 //heat
+                  |-(Mode is bit3-bit0 from last data 6th byte) cool:010 fan:011 auto 101 heat:001 dry: 100            
+```
+
+Set temperature
+```
+00 01 02 03 04 05 06 07 08 09 10 11 12  byte nr
+40 00 11 08 08 4C 0C 1D 7A 00 33 33 76
+                              |  |-0x33 for cold 0x55 for heat
+                              |-0x33 for cold 0x55 for heat
+                  |  |  |- ((target_temp) + 35) << 1
+                  |  |- fan | 0b11000 
+                  |- mode | 0b1000  cool:010 fan:011 auto 101 heat:001 dry: 100
+```
+
+Set fan (requires info about target temp, fan and heat/cold mode)
+
+```
+00 01 02 03 04 05 06 07 08 09 10 11 12 byte nr
+40 00 11 08 08 4C 13 1D 7A 00 33 33 6E //LOW, FAN
+                  |  |  |     |  |-0x33 for cold 0x55 for heat
+                  |  |  |     |- 0x33 for cold 0x55 for heat
+                  |  |  |- (target_temp) + 35) << 1
+                  |  |- fan bit4=1 bit3-bit1  auto:0x010 med:011 high:110 low:101
+                  |-  0x10 + mode  cool:010 fan:011 auto 101 heat:001 dry: 100
+```
+
+Set save
+```
+40 00 11 04 08 54 01 01 09  Save ON
+40 00 11 04 08 54 01 00 08  Save OFF
+                     |- bit 0 7th byte
+```
+TEST+SET for Error history
+```
+40 00 15 03 08 27 01 78
+                  |-Error 1
+00 40 18 05 80 27 08 00 48 ba
+                        |-Type 0x4 Num error 0x8   E-08
+
+```
+
+TEST + CL for sensor query
+```
+40 00 17 08 08 80 EF 00 2C 08 00 F3 EF   
+                                 |- Filter sign time
+00 40 1A 07 80 EF 80 00 2C 03 1E 83  
+                           |  |
+                           |--|------0x03 0x1E->  798  2bytes
+
+00 40 1A 05 80 EF 80 00 A2 12  answer for unknown sensor
+
+```
+
+# Sensor addresses
+
+| No.  | Desc  | Example value  |
+|---|---|---|
+| 00 | Room Temp (Control Temp) (°C) | Obtained from master status frames 00 FE 1C ...|
+| 01 | Room temperature (remote controller) | Obtained from controller messages 40 00 55 ... |
+| 02 | Indoor unit intake air temperature (TA) | 23 |
+| 03 | Indoor unit heat exchanger (coil) temperature (TCJ) Liquid | 19 |
+| 04 | Indoor unit heat exchanger (coil) temperature (TC) Vapor | 19 |
+| 07 | Indoor Fan Speed|  0 |
+| 60 | Outdoor unit heat exchanger (coil) temperature (TE) | 18 |
+| 61 | Outside air temperature (TO)| 19 |
+| 62 | Compressor discharge temperature (TD) | 33 |
+| 63 | Compressor suction temperature (TS) | 26 |
+| 65 | Heatsink temperature (THS) | 55 |
+| 6a | Operating current (x1/10) | 0 |
+| 6d | TL Liquid Temp (°C) | 22 |
+| 70 | Compressor Frequency (rps)| 0 |
+| 72 | Fan Speed (Lower) (rpm) | 0 |
+| 73 | Fan Speed (Upper) (rpm) | defined in manual, not working  |
+| 74 | ? | 43, is this fan speed upper? |
+| 75 | ? | 0 |
+| 76 | ? | 0 |
+| 77 | ? | 0 |
+| 78 | ? | 0 |
+| 79 | ? | 0 |
+| f0 | ? | 204 |
+| f1 | Compressor cumulative operating hours (x100 h) | 7 |
+| f2 | Fan Run Time (x 100h) | 8 |
+| f3 | Filter sign time x 1h | 37 |
+
+
+# Notes from logs (used for the above info)
 
 ```
 Op code from remote
@@ -696,37 +790,6 @@ TEST+SET for Error history
 40 00 17 08 08 80 EF 00 2C 08 00 02 1E
 40 00 55 05 08 81 00 66 00 FF
 ```
-
-# Sensor addresses
-
-| No.  | Desc  | Example value  |
-|---|---|---|
-| 00 | Room Temp (Control Temp) (°C) | Obtained from master status frames 00 FE 1C ...|
-| 01 | Room temperature (remote controller) | Obtained from controller messages 40 00 55 ... |
-| 02 | Indoor unit intake air temperature (TA) | 23 |
-| 03 | Indoor unit heat exchanger (coil) temperature (TCJ) Liquid | 19 |
-| 04 | Indoor unit heat exchanger (coil) temperature (TC) Vapor | 19 |
-| 07 | Indoor Fan Speed|  0 |
-| 60 | Outdoor unit heat exchanger (coil) temperature (TE) | 18 |
-| 61 | Outside air temperature (TO)| 19 |
-| 62 | Compressor discharge temperature (TD) | 33 |
-| 63 | Compressor suction temperature (TS) | 26 |
-| 65 | Heatsink temperature (THS) | 55 |
-| 6a | Operating current (x1/10) | 0 |
-| 6d | TL Liquid Temp (°C) | 22 |
-| 70 | Compressor Frequency (rps)| 0 |
-| 72 | Fan Speed (Lower) (rpm) | 0 |
-| 73 | Fan Speed (Upper) (rpm) | defined in manual, not working  |
-| 74 | ? | 43, is this fan speed upper? |
-| 75 | ? | 0 |
-| 76 | ? | 0 |
-| 77 | ? | 0 |
-| 78 | ? | 0 |
-| 79 | ? | 0 |
-| f0 | ? | 204 |
-| f1 | Compressor cumulative operating hours (x100 h) | 7 |
-| f2 | Fan Run Time (x 100h) | 8 |
-| f3 | Filter sign time x 1h | 37 |
 
 
 # Other info
