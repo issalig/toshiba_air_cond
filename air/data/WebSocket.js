@@ -33,12 +33,12 @@ connection.onopen = function () {
 		connection.send(json);
       //end send json
 
-      setTimeout(scheduleRequestStatus, 750); //ask for status 
+      setTimeout(scheduleRequestStatus, 2000); //ask for status 
    })();
 
    (function scheduleRequestTimeSeries() {	  
 		getTimeseries();
-      setTimeout(scheduleRequestTimeSeries, 60*1000); //ask for time series
+      setTimeout(scheduleRequestTimeSeries, 60*1000); //ask for time series every minute
    })();
 
 };
@@ -97,6 +97,7 @@ function processData(data)
 
   if (json.id=="status") parseStatus(json);
   if (json.id=="timeseries") parseTimeSeries(json);
+  if (json.id=="debug") parseDebug(json);
 }
 
 
@@ -125,8 +126,9 @@ function parseStatus(json)
   //document.getElementById('mode').textContent = json.mode;
   //document.getElementById('power').textContent = json.power;
   
-document.getElementById('decode_errors').textContent = json.decode_errors;
+  document.getElementById('decode_errors').textContent = json.decode_errors;
 
+  document.getElementById('heap').textContent = json.heap;
 
   debug_cmd=document.getElementById('check_cmd').checked;
   
@@ -135,9 +137,9 @@ document.getElementById('decode_errors').textContent = json.decode_errors;
 	if (json.last_cmd){ //if not null or empty
 		textlen = document.getElementById('last_cmd').textContent.length;
 		cmdlen = json.last_cmd.length;
-		//add last cmd is not the same
-		if (document.getElementById('last_cmd').textContent[textlen-2] != json.last_cmd[cmdlen-2])
-			document.getElementById('last_cmd').innerHTML += '<br>' + json.last_cmd;
+		//add last cmd that it is not the same
+		if (document.getElementById('last_cmd').textContent[textlen-4] != json.last_cmd[cmdlen-4])  //-2
+			document.getElementById('last_cmd').innerHTML +=  json.last_cmd;
     }
   } else document.getElementById('last_cmd').innerHTML = json.last_cmd;
 
@@ -148,11 +150,12 @@ document.getElementById('decode_errors').textContent = json.decode_errors;
 
 	if (debug_rx){
 if (json.rx_data){ //if not null or empty	
-		textlen = document.getElementById('rx_data').textContent.length;
+		textlen = document.getElementById('rx_data').textContent.length; //rx_data
 		cmdlen = json.rx_data.length;
-		//add last rx_data is not the same
-		if (document.getElementById('rx_data').textContent[textlen-2] != json.rx_data[cmdlen-2])
-			document.getElementById('rx_data').innerHTML += '<br>RX ' + json.rx_data;
+		//add last rx_data that it is not the same
+		//if (document.getElementById('rx_data').textContent[textlen-4] != json.rx_data[cmdlen-4])  //-2
+		if (cmdlen > 1)
+			document.getElementById('rx_data').innerHTML += '<br>' + json.rx_data;
     }
   } else document.getElementById('rx_data').innerHTML = json.rx_data;
 
@@ -182,7 +185,7 @@ if (json.rx_data){ //if not null or empty
 
   document.getElementById('save_button').style.backgroundColor = button_released_color;
 
-  document.getElementById('timer_button').style.backgroundColor = button_released_color;
+  document.getElementById('sw_timer_button').style.backgroundColor = button_released_color;
   
 
   //set color
@@ -201,11 +204,34 @@ if (json.rx_data){ //if not null or empty
   
   if (json.save == '1') { document.getElementById('save_button').style.backgroundColor = button_pressed_color;}
   
-  if (json.timer_enabled =='1')   { document.getElementById('timer_button').style.backgroundColor = button_pressed_color;}
+  if (json.timer_enabled =='1')   { document.getElementById('sw_timer_button').style.backgroundColor = button_pressed_color;}
   
   if (json.preheat == '1') { document.getElementById('preheat').style.backgroundColor = button_pressed_color;} 
   else { document.getElementById('preheat').style.backgroundColor = button_released_color;} 
   
+  //document.getElementById('indoor_room_temp').textContent = json.indoor_room_temp;
+  document.getElementById('indoor_ta').textContent = json.indoor_ta;
+  document.getElementById('indoor_tcj').textContent = json.indoor_tcj;
+  document.getElementById('indoor_tc').textContent = json.indoor_tc;
+  //document.getElementById('indoor_filter_time').textContent = json.indoor_filter_time;
+  document.getElementById('outdoor_te').textContent = json.outdoor_te;
+  document.getElementById('outdoor_to').textContent = json.outdoor_to;
+  //document.getElementById('outdoor_td').textContent = json.outdoor_td;
+  //document.getElementById('outdoor_ts').textContent = json.outdoor_ts;
+  //document.getElementById('outdoor_ths').textContent = json.outdoor_ths;
+  document.getElementById('outdoor_current').textContent = json.outdoor_current;
+  //document.getElementById('outdoor_cumhour').textContent = json.outdoor_cumhour;
+  
+  document.getElementById('indoor_fan_speed').textContent = json.indoor_fan_speed;
+  //document.getElementById('indoor_fan_run_time').textContent = json.indoor_fan_run_time;
+  
+  //document.getElementById('outdoor_tl').textContent = json.outdoor_tl;
+  //document.getElementById('outdoor_comp_freq').textContent = json.outdoor_comp_freq;
+  //document.getElementById('outdoor_lower_fan_speed').textContent = json.outdoor_lower_fan_speed;
+  //document.getElementById('outdoor_upper_fan_speed').textContent = json.outdoor_upper_fan_speed;
+  
+  var d = new Date(parseInt(json.boot_time*1000));
+  document.getElementById('boot_time').innerHTML = "On "+ d.toLocaleTimeString() + " " + d.toLocaleDateString()
   
 }
 
@@ -218,6 +244,8 @@ function power_on() {
  
     connection.send(json);
     console.log('Send: ' + json);
+    
+    document.getElementById('power_on').style.backgroundColor = button_pressed_color;
 }
 
 function power_off() {
@@ -229,6 +257,8 @@ function power_off() {
  
     connection.send(json);
     console.log('Send: ' + json);
+    
+    document.getElementById('power_off').style.backgroundColor = button_pressed_color;
 }
 
 function save_toggle() {
@@ -253,6 +283,8 @@ function mode_fan() {
  
     connection.send(json);
     console.log('Send: ' + json);
+    
+    document.getElementById('mode_fan').style.backgroundColor = button_pressed_color;
 }
 
 function mode_dry() {
@@ -264,6 +296,8 @@ function mode_dry() {
  
     connection.send(json);
     console.log('Send: ' + json);
+    
+    document.getElementById('mode_dry').style.backgroundColor = button_pressed_color;
 }
 
 function mode_cool() {
@@ -275,6 +309,8 @@ function mode_cool() {
  
     connection.send(json);
     console.log('Send: ' + json);
+    
+    document.getElementById('mode_cool').style.backgroundColor = button_pressed_color;
 }
 
 function mode_heat() {
@@ -286,6 +322,8 @@ function mode_heat() {
  
     connection.send(json);
     console.log('Send: ' + json);
+    
+    document.getElementById('mode_heat').style.backgroundColor = button_pressed_color;
 }
 
 function fan_low() {
@@ -297,6 +335,8 @@ function fan_low() {
  
     connection.send(json);
     console.log('Send: ' + json);
+    
+    document.getElementById('fan_low').style.backgroundColor = button_pressed_color;
 }
 
 function fan_medium() {
@@ -308,6 +348,8 @@ function fan_medium() {
  
     connection.send(json);
     console.log('Send: ' + json);
+    
+    document.getElementById('fan_medium').style.backgroundColor = button_pressed_color;
 }
 
 function fan_high() {
@@ -319,6 +361,8 @@ function fan_high() {
  
     connection.send(json);
     console.log('Send: ' + json);
+    
+    document.getElementById('fan_high').style.backgroundColor = button_pressed_color;
 }
 
 function fan_auto() {
@@ -330,6 +374,8 @@ function fan_auto() {
  
     connection.send(json);
     console.log('Send: ' + json);
+    
+    document.getElementById('fan_auto').style.backgroundColor = button_pressed_color;
 }
 
 function temp_plus() {
@@ -358,7 +404,7 @@ function timer_changed() {
 	document.getElementById('timer_time').textContent  = document.getElementById('timer_range').value;
 }
 
-function setACTimer(){
+function set_sw_air_timer(){
 	
 	document.getElementById('timer_time').textContent  = document.getElementById('timer_range').value;
 	if (document.getElementById('timer_off').checked) val = 0; else val=1;
@@ -374,6 +420,71 @@ function setACTimer(){
     console.log('Send: ' + json); 
 }
 
+function timer_hw_cancel() {
+    let data = {
+       id : "timer_hw",
+       value : "cancel",
+       time: "1"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('timer_hw_repeat_off').style.backgroundColor = button_released_color;
+    document.getElementById('timer_hw_off').style.backgroundColor = button_released_color;
+    document.getElementById('timer_hw_on').style.backgroundColor = button_released_color;
+}
+
+function timer_hw_off() {
+    let data = {
+       id : "timer_hw",
+       value : "off",
+       time: "1"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('timer_hw_repeat_off').style.backgroundColor = button_released_color;
+    document.getElementById('timer_hw_off').style.backgroundColor = button_pressed_color;
+    document.getElementById('timer_hw_on').style.backgroundColor = button_released_color;
+}
+
+function timer_hw_repeat_off() {
+    let data = {
+       id : "timer_hw",
+       value : "repeat_off",
+       time: "1"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('timer_hw_repeat_off').style.backgroundColor = button_pressed_color;
+    document.getElementById('timer_hw_off').style.backgroundColor = button_released_color;
+    document.getElementById('timer_hw_on').style.backgroundColor = button_released_color;
+}
+
+function timer_hw_on() {
+    let data = {
+       id : "timer_hw",
+       value : "on",
+       time: "1"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('timer_hw_repeat_off').style.backgroundColor = button_released_color;
+    document.getElementById('timer_hw_off').style.backgroundColor = button_released_color;
+    document.getElementById('timer_hw_on').style.backgroundColor = button_pressed_color;
+}
+
+//time series request
 function getTimeseries() {
     let data = {
        id : "timeseries",
@@ -384,6 +495,20 @@ function getTimeseries() {
     connection.send(json);
     console.log('Send: ' + json);
 }
+
+//time series request
+function getTimeseriesKeyExperimental(key) {
+    let data = {
+       id : "timeseriesexperimental",
+       value : key
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+}
+
+
 
 function set_sampling() {
     let data = {
@@ -424,7 +549,9 @@ var config={
                 backgroundColor: 'rgba( 71, 168, 189 , 1)', //Dot marker color
                 borderColor: 'rgba( 71, 168, 189, 1)', //Graph Line Color
                 data: [0],			
-            },*/{
+            },*/
+
+            {
                 label: 'Room Temperature',
 				yAxisID: 'temperature',
                 fill: false,  //Try with true
@@ -452,7 +579,18 @@ var config={
                 backgroundColor: 'rgba( 243, 18, 243 , 1)', //Dot marker color
                 borderColor: 'rgba( 243, 18, 243 , 1)', //Graph Line Color
                 data: [0],
-            }],
+            },
+            {
+                label: 'TOut',
+                yAxisID: 'temperature',
+				fill: false,  //Try with true
+                backgroundColor: 'rgba(156, 72, 56, 1)', //Dot marker color
+                borderColor: 'rgba(156, 72, 56, 1)', //Graph Line Color
+                data: [0],
+            },
+            
+            
+            ],
         },
         options: {
             title: {
@@ -476,7 +614,7 @@ var config={
 							//suggestedMin: 10,
 							//suggestedMax: 40
 							type: 'logarithmic',
-							min: 16,
+							min: 5,
 							max: 34
                         },
 						scaleLabel: {
@@ -572,10 +710,79 @@ function getMinNoZero(data){
 		}
 	}
 	
+    if (min==9999999) min=0 //all zeroes
+    
 	return min;
 }
 
+//sometimes esp sends unexpected big values, just filter them
+function getMaxWithLimits(data){
+	max=-1000
+	datalen=data.length;
+	for(i=0;i<datalen;i++){
+		if ((data[i] > max) && (data[i] < 1000)){
+			max=data[i];
+		}
+	}
+	
+    if (max==-1000) max=0
+    
+	return max;
+}
+
+
 function parseTimeSeries(json){
+	datalen=json.n;
+    console.log(datalen);
+	
+	if (!chart_obj) showGraph();
+
+
+    //https://stackoverflow.com/questions/49360165/chart-js-update-function-chart-labels-data-will-not-update-the-chart
+    //update chart
+    
+    if (json.val == "timestamp"){
+		 timeStamp=[]; 
+
+		for(i=0;i<datalen;i++){
+			timeStamp.push(moment(json.timestamp[i]*1000).format('HH:mm'));//(i);		
+		} 
+
+		chart_obj.data.labels=timeStamp;//json.timestamp;//
+	}
+	
+	if (json.val == "ac_sensor_t")
+		chart_obj.data.datasets[0].data=json.ac_sensor_t;
+	if (json.val == "dht_t")
+		chart_obj.data.datasets[1].data=json.dht_t;
+	if (json.val == "dht_h")			
+		chart_obj.data.datasets[2].data=json.dht_h;
+	if (json.val == "bmp_p")    
+		chart_obj.data.datasets[3].data=json.bmp_p;
+	if (json.val == "to")    		
+		chart_obj.data.datasets[4].data=json.to;
+    //chart_obj.data.datasets[3].backgroundColor= 'rgba('+Math.floor()*255+','+Math.floor()*255+','+Math.floor()*255+', 1)';
+	//chart_obj.data.datasets[3].borderColor= chart_obj.data.datasets[3].backgroundColor;
+
+    //window.
+    chart_obj.update();
+    
+    //compute min/max
+	if (json.val == "dht_t"){
+		document.getElementById('dht_temp_min').textContent = getMinNoZero(json.dht_t);//Math.min(...json.dht_t);
+		document.getElementById('dht_temp_max').textContent = getMaxWithLimits(json.dht_t);//Math.max(...json.dht_t);
+    }
+    if (json.val == "dht_h"){        
+		document.getElementById('dht_hum_min').textContent  = getMinNoZero(json.dht_h);//Math.min(...json.dht_h);
+		document.getElementById('dht_hum_max').textContent  = getMaxWithLimits(json.dht_h);//Math.max(...json.dht_h);
+	}
+	if (json.val == "bmp_p"){
+		document.getElementById('bmp_pres_min').textContent = getMinNoZero(json.bmp_p);//Math.min(...json.bmp_p);
+		document.getElementById('bmp_pres_max').textContent = getMaxWithLimits(json.bmp_p);//Math.max(...json.bmp_p);
+	}
+}
+
+function parseTimeSeriesOLD(json){
 	datalen=json.dht_t.length;
     console.log(datalen);
 	
@@ -596,6 +803,7 @@ function parseTimeSeries(json){
     chart_obj.data.datasets[2].data=json.dht_h;
     //chart_obj.data.datasets[4].data=json.bmp_t;
     chart_obj.data.datasets[3].data=json.bmp_p;
+    chart_obj.data.datasets[4].data=json.to;
     //chart_obj.data.datasets[3].backgroundColor= 'rgba('+Math.floor()*255+','+Math.floor()*255+','+Math.floor()*255+', 1)';
 	//chart_obj.data.datasets[3].borderColor= chart_obj.data.datasets[3].backgroundColor;
 
@@ -604,11 +812,36 @@ function parseTimeSeries(json){
     
     //compute min/max
     document.getElementById('dht_temp_min').textContent = getMinNoZero(json.dht_t);//Math.min(...json.dht_t);
-    document.getElementById('dht_temp_max').textContent = Math.max(...json.dht_t);
+    document.getElementById('dht_temp_max').textContent = getMaxWithLimits(json.dht_t);//Math.max(...json.dht_t);
     document.getElementById('dht_hum_min').textContent  = getMinNoZero(json.dht_h);//Math.min(...json.dht_h);
-    document.getElementById('dht_hum_max').textContent  = Math.max(...json.dht_h);
+    document.getElementById('dht_hum_max').textContent  = getMaxWithLimits(json.dht_h);//Math.max(...json.dht_h);
     document.getElementById('bmp_pres_min').textContent = getMinNoZero(json.bmp_p);//Math.min(...json.bmp_p);
-    document.getElementById('bmp_pres_max').textContent = Math.max(...json.bmp_p);
+    document.getElementById('bmp_pres_max').textContent = getMaxWithLimits(json.bmp_p);//Math.max(...json.bmp_p);
+}
+
+
+function parseTimeSeriesxx(json){
+	//datalen=json.dht_t.length;
+    //console.log(datalen);
+
+
+  debug_rx=document.getElementById('check_rx').checked;
+
+  cmdlen=0;
+
+
+	if (debug_rx){
+if (json.rx_data){ //if not null or empty	
+		textlen = document.getElementById('rx_data').textContent.length;
+		cmdlen = json.rx_data.length;
+		//add last rx_data is not the same
+		if (document.getElementById('rx_data').textContent[textlen-2] != json.rx_data[cmdlen-2])
+			document.getElementById('rx_data').innerHTML += '<br>DBG ' + json.rx_data;
+    }
+  } else document.getElementById('rx_data').innerHTML = json.rx_data;
+
+
+	
 }
 //On Page load show graphs
 window.onload = function() {

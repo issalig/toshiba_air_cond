@@ -71,86 +71,58 @@ void air_print_status(air_status_t *s) {
   Serial.print(" Heat: "); Serial.print(s->heat);
   Serial.print(" Save: "); Serial.print(s->save);
   Serial.print(" Errors: "); Serial.print(s->decode_errors);
+  //Serial.print(" INDOOR_ROOM:  "); Serial.print(s->indoor_room_temp);
+  Serial.print(" INDOOR_TA: "); Serial.print(s->indoor_ta);
+  Serial.print(" INDOOR_TCJ:"); Serial.print(s->indoor_tcj);
+  Serial.print(" INDOOR_TC: "); Serial.print(s->indoor_tc);
+  //Serial.print(" INDOOR_FILTER_TIME:  "); Serial.print(s->indoor_filter_time);
+  Serial.print(" OUTDOOR_TE:"); Serial.print(s->outdoor_te);
+  Serial.print(" OUTDOOR_TO:"); Serial.print(s->outdoor_to);
+  //Serial.print(" OUTDOOR_TD:   "); Serial.print(s->outdoor_td);
+  //Serial.print(" OUTDOOR_TS:   "); Serial.print(s->outdoor_ts);
+  //Serial.print(" OUTDOOR_THS:  "); Serial.print(s->outdoor_ths);
+  Serial.print(" OUTDOOR_CURRENT:  "); Serial.print(s->outdoor_current);
+  //Serial.print(" OUTDOOR_HOURS:    "); Serial.print(s->outdoor_cumhour);
+
+  Serial.print(" INDOOR_FAN_SPEED: "); Serial.print(s->indoor_fan_speed);
+  //Serial.print(" INDOOR_FAN_RUN_TIME: "); Serial.print(s->indoor_fan_run_time);
+
+  //Serial.print(" OUTDOOR_TL: "); Serial.print(s->outdoor_tl);
+  //Serial.print(" OUTDOOR_COMP_FREQ: "); Serial.print(s->outdoor_comp_freq);
+  //Serial.print(" OUTDOOR_LOWER_FAN_SPEED: "); Serial.print(s->outdoor_lower_fan_speed);
+  //Serial.print(" OUTDOOR_UPPER_FAN_SPEED: "); Serial.print(s->outdoor_upper_fan_speed);
+
   Serial.println("");
 }
 
 /*
    Hard-coded byte streams
 */
-int air_set_power_on(air_status_t *air) {
+void air_set_power_on(air_status_t *air) {
   byte data[] = {0x40, 0x00, 0x11, 0x03, 0x08, 0x41, 0x03, 0x18};
-  air_send_data(air, data, sizeof(data));
+  air_send_data(air, data, sizeof(data));  
 }
 
-int air_set_power_off(air_status_t *air)  {
+void air_set_power_off(air_status_t *air)  {
   byte data[] = {0x40, 0x00, 0x11, 0x03, 0x08, 0x41, 0x02, 0x19};
   air_send_data(air, data, sizeof(data));
 }
 
-int air_set_mode_cool(air_status_t *air) {
-  byte data[] = {0x40, 0x00, 0x11, 0x03, 0x08, 0x42, 0x02, 0x1A};
-  air_send_data(air, data, sizeof(data));
-}
-
-int air_set_mode_dry(air_status_t *air) {
-  byte data[] = {0x40, 0x00, 0x11, 0x03, 0x08, 0x42, 0x04, 0x1C};
-  air_send_data(air, data, sizeof(data));
-}
-
-int air_set_save_off(air_status_t *air) {
+void air_set_save_off(air_status_t *air) {
   //bit0 from 7th in remote message
   byte data[] = {0x40, 0x00, 0x11, 0x04, 0x08, 0x54, 0x01, 0x00, 0x08};
   air_send_data(air, data, sizeof(data));
 }
 
-int air_set_save_on(air_status_t *air) {
+void air_set_save_on(air_status_t *air) {
   //bit0 from 7th in remote message
   byte data[] = {0x40, 0x00, 0x11, 0x04, 0x08, 0x54, 0x01, 0x01, 0x09};
   air_send_data(air, data, sizeof(data));
 }
 
-//
-//int air_set_temp_minus(air_status_t *air)  {
-//  //               00    01    02    03    04    05    06    07    08    09    10    11   CRC
-//  byte data[] = {0x40, 0x00, 0x11, 0x08, 0x08, 0x4C, 0x0C, 0x1D, 0x7A, 0x00, 0x33, 0x33, 0x76};
-//  byte heat, cold, temp, mode, fan;
-//
-//  //get status
-//  //compose new message
-//#ifdef DEBUG
-//  Serial.println(""); Serial.print("Set temp "); Serial.print(air->target_temp - 1);  Serial.print(" ");  Serial.print(sizeof(data));
-//#endif
-//  data[8] = ((air->target_temp - 1) + 35) << 1; //temp is bit7-bit1
-//  data[10] = data[11] = air->heat ? 0x55 : 0x33;
-//
-//  //compute crc
-//  data[12] = XORChecksum8(data, sizeof(data) - 1);
-//
-//  air_send_data(air, data, sizeof(data));
-//}
-//
-//int air_set_temp_plus(air_status_t *air)  {
-//  //               00    01    02    03    04    05    06    07    08    09    10    11   CRC
-//  byte data[] = {0x40, 0x00, 0x11, 0x08, 0x08, 0x4C, 0x0C, 0x1D, 0x7A, 0x00, 0x33, 0x33, 0x76}; // press temp up   (current 25, 26 after pressing)
-//  byte heat, cold, temp, mode, fan;
-//
-//  //get status
-//  //compose new message
-//#ifdef DEBUG
-//  Serial.println(""); Serial.print("Set temp "); Serial.print(air->target_temp + 1);  Serial.print(" ");  Serial.print(sizeof(data));
-//#endif
-//  data[8] = ((air->target_temp + 1) + 35) << 1; //temp is bit7-bit1
-//  data[10] = data[11] = air->heat ? 0x55 : 0x33;
-//
-//  //compute crc
-//  data[12] = XORChecksum8(data, sizeof(data) - 1);
-//
-//  air_send_data(air, data, sizeof(data));
-//}
-
-int air_set_temp(air_status_t *air, uint8_t target_temp)  {
-  //               00    01    02    03    04    05    06    07    08    09    10    11   CRC
-  byte data[] = {0x40, 0x00, 0x11, 0x08, 0x08, 0x4C, 0x0C, 0x1D, 0x7A, 0x00, 0x33, 0x33, 0x76}; // press temp up   (current 25, 26 after pressing)
+void air_set_temp(air_status_t *air, uint8_t target_temp)  {
+  //       byte    00    01    02    03    04    05    06    07    08    09    10    11    CRC
+  byte data[] = {0x40, 0x00, 0x11, 0x08, 0x08, 0x4C, 0x0C, 0x1D, 0x7A, 0x00, 0x33, 0x33, 0x76};
   byte heat, cold, temp, mode, fan;
 
   //set mode   0C is byte for dry 1100  -> 100, 0A is cool 1010 ->  10
@@ -170,7 +142,7 @@ int air_set_temp(air_status_t *air, uint8_t target_temp)  {
   air_send_data(air, data, sizeof(data));
 }
 
-int air_set_mode(air_status_t *air, uint8_t value)  {
+void air_set_mode(air_status_t *air, uint8_t value)  {
   //From remote (Mode is bit3-bit0 from last data b yte) cool:010 fan:011 auto 101 heat:001 dry: 100
   //               00    01    02    03    04    05    06   CRC
   byte data[] = {0x40, 0x00, 0x11, 0x03, 0x08, 0x42, 0x04, 0x1C}; // dry
@@ -187,7 +159,7 @@ int air_set_mode(air_status_t *air, uint8_t value)  {
 
 // To check this, specially if we have no information, for example cannot read from RX
 
-int air_set_fan(air_status_t *air, uint8_t value)  {
+void air_set_fan(air_status_t *air, uint8_t value)  {
   //Master 7th byte bit4=1 bit3-bit1  auto:0x010 med:011 high:110 low:101
   //             00    01    02    03    04    05    06    07    08    09    10    11   CRC
   byte data[] = {0x40, 0x00, 0x11, 0x08, 0x08, 0x4C, 0x13, 0x1D, 0x7A, 0x00, 0x33, 0x33, 0x6E}; //LOW, FAN
@@ -198,15 +170,39 @@ int air_set_fan(air_status_t *air, uint8_t value)  {
   //set fan level
   data[7] = 0b11000 + value;
 
-  //set 8 current temp  (not sure if we should fill this pr leave 7A)
+  //set 8 current temp  (not sure if we should fill this or leave 7A)
   data[8] = ((air->target_temp) + 35) << 1; //temp is bit7-bit1
 
-  //set other 10, 11
+  //set 10, 11
   data[10] = data[11] = air->heat ? 0x55 : 0x33;
 
   //compose new message
   //compute crc
   data[12] = XORChecksum8(data, sizeof(data) - 1);
+
+  air_send_data(air, data, sizeof(data));
+}
+
+void air_set_timer(air_status_t *air, uint8_t timer_mode, uint8_t timer_value)  {
+  //               00    01    02    03    04    05    06    07    08    09    10    11    12   CRC
+  byte data[] = {0x40, 0x00, 0x11, 0x09, 0x08, 0x0c, 0x82, 0x00, 0x00, 0x30, 0x07, 0x02, 0x02, 0xe9};
+  //                                                                                     |----- number of 30 minutes
+  //                                                                               |----- repeated
+  //                                                                         |------ 07 poweron,   06 poweroff repeat, 05 poweroff,  00 cancel
+
+  data[10] = timer_mode;
+
+  if (timer_mode == TIMER_HW_CANCEL) {
+    data[11] = 0x4;
+    data[12] = 0x1;
+  } else {
+    data[11] = timer_value;
+    data[12] = timer_value;
+  }
+
+  //compose new message
+  //compute crc
+  data[13] = XORChecksum8(data, sizeof(data) - 1);
 
   air_send_data(air, data, sizeof(data));
 }
@@ -220,7 +216,7 @@ int air_set_fan(air_status_t *air, uint8_t value)  {
 */
 
 void init_air_serial(air_status_t *air) {
-  air->serial.begin(2400, SWSERIAL_8E1, D7, D8, false, 256);
+  air->serial.begin(2400, SWSERIAL_8E1, D7, D8, false);//, 256, 11*16);
   //begin(uint32_t baud, SoftwareSerialConfig config,       int8_t rxPin, int8_t txPin, bool invert, int bufCapacity = 64, int isrBufCapacity = 0);
 
   // high speed half duplex, turn off interrupts during tx
@@ -249,7 +245,7 @@ void air_decode_command(byte * data, air_status_t *s) {
     |  |     ||       |  |         |    |  |- bit2 HEAT:1 COLD:0
     |  |-Dst |        |  |         |    |- bit2 HEAT:1 COLD:0
     |-Src    |        |  |         |- bit7..bit1  - 35 =Temp
-             |        |  |-bit3..bit1 fan mode (auto:010 med:011 high:110 low:101 ) !!bit7-bit5
+             |        |  |-bit7..bit5 fan mode (auto:010 med:011 high:110 low:101 )
              |        |  |-bit2 ON:1 OFF:0
              |        |-bit7.bit5 (mode cool:010 fan:011 auto 101 heat:001 dry: 100)
              |        |-bit0 ON:1 OFF:0
@@ -295,11 +291,11 @@ void air_decode_command(byte * data, air_status_t *s) {
     } else if (data[2] == 0x58) {
 
       /*
-        0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19
+         0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19
         00 FE 58 0F 80 81 8D A8 00 00 7A 84 E9 00 33 33 01 00 01 9B
                                             |-always E9
                                          |-  1000 0100  1000010 66-35=31 (real temp??)
-                                      |-temp 0111 1010 111101 61-35 = 26
+                                      |-target temp 0111 1010 111101 61-35 = 26
       */
       s->save = data[14 + 2] & 0b1;
       s->heat = (data[13 + 2] & 0b100) >> 2;
@@ -328,7 +324,8 @@ void air_decode_command(byte * data, air_status_t *s) {
 
       s->preheat = (data[8] & 0b00000010) >> 1;
 
-      //s->sensor_temp = - (data[11] / 2.0 - 35); //TO CHECK
+      //WARNING: not sure
+      //s->sensor_temp = (data[11] / 2.0 - 35); //TO CHECK
 
     }  else if (data[2] == 0x55) {
       //data[2]==0x55 data[5]==0x81
@@ -348,21 +345,73 @@ void air_decode_command(byte * data, air_status_t *s) {
     s->mode = data[6] >> 5; //byte6 bit7-bit5
 
     //s->power=data[7] & 1; //byte7 bit0
-    //s->cold=(data[7] >> 2) &0b1 //bit2??
+    //(data[7] >> 2) &0b1 //bit2??
 
     //00 52 11 04 80 86 84 05 C0   dry       1000 >> 1 = 100 -> MODE_DRY;   101
     //00 52 11 04 80 86 44 05 00   cool      0100                       ;   101
     //00 52 11 04 80 86 64 01 24   fan       0110                       ;   001
     //00 52 11 04 80 86 44 01 04   cool auto 0100                       ;   001
+    //00 52 11 04 80 86 24 05 60   heat low  0010
+    //00 52 11 04 80 86 24 00 65   heat low  0010  OFF
+    //-not related to air flow
+
 
     //00 52 11 04 80 86 84 01 C4   DRY,LOW      0001
     //00 52 11 04 80 86 64 01 24   FAN,LOW/HIGH/MED
     //00 52 11 04 80 86 44 01 04   COOL,LOW     0001       101
     //00 52 11 04 80 86 44 05 00   COOL,MED     0101   ->  100
 
+    //00 52 11 04 80 86 24 00 65   heat low off
+    //00 52 11 04 80 86 24 01 64   heat low on
+    //00 52 11 04 80 86 24 05 60   heat low on
   } else if (data[5] == 0x55) {
   }
 
+  //sensor reading
+  if (data[2] == 0x1A) {
+    if (data[8] == 0xA2) {
+      //00 40 1A 05 80 EF 80 00 A2 12   //undefined value
+      s->sensor_val = -1;
+    } else if (data[8] == 0x2C) {
+      //00 40 1A 07 80 EF 80 00 2C 00 00 9E
+      s->sensor_val = data[9] * 256 + data[10]; //answer does not report query id, so we should assign it to the last queried sensor
+      //INDOOR_ROOM, INDOOR_TA, INDOOR_TCJ, INDOOR_TC, FILTER_TIME, OUTDOOR_TE, OUTDOOR_TO, OUTDOOR_TD, OUTDOOR_TS, OUTDOOR_THS, OUTDOOR_CURRENT, OUTDOOR_HOURS
+      switch (s->sensor_id) {
+        //case INDOOR_ROOM: s->indoor_room_temp = s->sensor_val; break;
+        case INDOOR_TA:   s->indoor_ta = s->sensor_val;  break;
+        case INDOOR_TCJ:  s->indoor_tcj = s->sensor_val;  break;
+        case INDOOR_TC:   s->indoor_tc = s->sensor_val;  break;
+        case INDOOR_FILTER_TIME: s->indoor_filter_time = s->sensor_val;  break;
+        case OUTDOOR_TE:  s->outdoor_te = s->sensor_val;  break;
+        case OUTDOOR_TO:  s->outdoor_to = s->sensor_val;  break;
+        case OUTDOOR_TD:  s->outdoor_td = s->sensor_val;  break;
+        case OUTDOOR_TS:  s->outdoor_ts = s->sensor_val;  break;
+        case OUTDOOR_THS: s->outdoor_ths = s->sensor_val;  break;
+        case OUTDOOR_CURRENT: s->outdoor_current = s->sensor_val;  break;
+        case OUTDOOR_HOURS:   s->outdoor_cumhour = s->sensor_val;  break;
+
+        case INDOOR_FAN_RUN_TIME: s->indoor_fan_run_time = s->sensor_val;  break; //0xF2 //Fan Run Time (x 100h)
+        case INDOOR_FAN_SPEED:    s->indoor_fan_speed = s->sensor_val;  break; //
+
+        case OUTDOOR_TL:  s->outdoor_tl = s->sensor_val;  break;
+        case OUTDOOR_COMP_FREQ:  s->outdoor_comp_freq = s->sensor_val;  break;
+        case OUTDOOR_LOWER_FAN_SPEED:  s->outdoor_lower_fan_speed = s->sensor_val;  break;
+        case OUTDOOR_UPPER_FAN_SPEED:  s->outdoor_upper_fan_speed = s->sensor_val;  break;
+
+        default:
+          break;
+      }
+    }
+    Serial.printf("Read sensor %x %d\n", s->sensor_id, s->sensor_val);
+  }
+
+  if (data[2] == 0x18) {
+
+    // answer 00 40 18 05 80 27 08 00 48 ba
+    //                                |---------Type 0x4 Num error 0x8   E-08
+    s->error_type = data[8] >> 4;
+    s->error_val = data[8] & 0b00001111;
+  }
 }
 
 //reads serial and gets a valid command in air.rx_data
@@ -382,32 +431,42 @@ void air_parse_serial(air_status_t *air) {
 
   i = air->curr_w_idx; i_start = air->curr_r_idx;
 
-  Serial.printf("curr_w %d curr_r %d (rbuff %d)\n", air->curr_w_idx, air->curr_r_idx, rbuffer);
+  //Serial.printf("curr_w %d curr_r %d (rbuff %d)\n", air->curr_w_idx, air->curr_r_idx, rbuffer);
 
   SoftwareSerial *ss;
   ss = &(air->serial);
 
   //STEP 1 producer reads from serial
-  Serial.print("Receiving data ");
+  //Serial.print("Receiving data ");
   while (ss->available()) {
     ch = (byte)ss->read();
-    Serial.print(ch < 0x10 ? " 0" : " ");
-    Serial.print(ch, HEX);
+    //Serial.print(ch < 0x10 ? " 0" : " ");
+    //Serial.print(ch, HEX);
     air->rx_data[i] = ch;
+    //air->rx2_data[air->rx_data_count] = ch;
+    //air->rx_data_count=air->rx_data_count+1;
     i = (i + 1) % MAX_RX_BUFFER;
-  }
-  Serial.print("Receiving data 2");
-  while (ss->available()) {
-    ch = (byte)ss->read();
-    Serial.print(ch < 0x10 ? " 0" : " ");
-    Serial.print(ch, HEX);
-    air->rx_data[i] = ch;
-    i = (i + 1) % MAX_RX_BUFFER;
+    air->buffer_rx += ((ch < 0x10) ? "0" : "")  + String(ch, HEX) + " ";
   }
 
+
+  for (k = i_start; k < i; k++) {
+    Serial.print(air->rx_data[k] < 0x10 ? " 0" : " ");
+    Serial.print(air->rx_data[k], HEX);
+  }
+  /*
+    Serial.print("Receiving data 2");
+    while (ss->available()) {
+    ch = (byte)ss->read();
+    Serial.print(ch < 0x10 ? " 0" : " ");
+    Serial.print(ch, HEX);
+    air->rx_data[i] = ch;
+    i = (i + 1) % MAX_RX_BUFFER;
+    }*/
+
   //STEP 2 consumer parses data and fill air_status structure
-  Serial.println("");
-  Serial.println("Parsing data ");
+  //Serial.println("");
+  //Serial.println("Parsing data ");
   //try all combinations
   //for (j_init = i_start; j_init != i; j_init = (j_init + 1) % MAX_RX_BUFFER) { //round buffer friendly
   //for (j_init = i_start; j_init < i; j_init = (j_init + 1) % MAX_RX_BUFFER) { //not round buffer
@@ -441,8 +500,10 @@ void air_parse_serial(air_status_t *air) {
         for (k = 0; k < mylen; k++) {
           Serial.print(cmd[k] < 0x10 ? " 0" : " ");
           Serial.print(cmd[k], HEX);
-          air->last_cmd[k] = cmd[k];
+          air->last_cmd[k] = cmd[k]; //add cmd to last_cmd
+          air->buffer_cmd += ((air->last_cmd[k] < 0x10) ? "0" : "")  + String(air->last_cmd[k], HEX) + " ";
         }
+        air->buffer_cmd += "<br>";
         //air->last_cmd[(mylen<32)?mylen:31]='\0';
 
         Serial.println("");
@@ -491,6 +552,10 @@ void air_parse_serial_rb(air_status_t *air) {
   int i_start, i_end, segment_len;
   bool found = false;
   bool rbuffer = true;
+
+  //drop buffers if not consumed
+  if (air->buffer_cmd.length() > 256) air->buffer_cmd = "";
+  if (air->buffer_rx.length() > 256) air->buffer_rx = "";
 
   //circular buffer avoids loosing parts of messages but it is not working so rbuffer=false to avoid resets
   if (!rbuffer)
@@ -588,17 +653,17 @@ void air_parse_serial_rb(air_status_t *air) {
 }
 
 
-void rb_init(rb_t *rb) {
+void rb_init(rb_t * rb) {
   rb->idx_r = 0;
   rb->idx_w = 0;
 }
 
-void rb_write(rb_t *rb, byte val) {
+void rb_write(rb_t * rb, byte val) {
   rb->data[rb->idx_w] = val;
   rb->idx_w = (rb->idx_w + 1) % MAX_RX_BUFFER;
 }
 
-int rb_readn(rb_t *rb, byte *r, int m, int n) {
+int rb_readn(rb_t * rb, byte * r, int m, int n) {
   int i, curr;
 
   for (i = 0; i < n; i++) {
@@ -609,7 +674,7 @@ int rb_readn(rb_t *rb, byte *r, int m, int n) {
   return i;
 }
 
-int rb_isdata(rb_t *rb) {
+int rb_isdata(rb_t * rb) {
   int val;
 
   if (rb->idx_w >= rb->idx_r)
@@ -619,7 +684,7 @@ int rb_isdata(rb_t *rb) {
   return val;
 }
 
-void print_rb_data(rb_t *rb, int i, int j) {
+void print_rb_data(rb_t * rb, int i, int j) {
   int k;
   Serial.print("Cmd: ");
   for (k = i; k < j; k++) {
@@ -629,7 +694,7 @@ void print_rb_data(rb_t *rb, int i, int j) {
   Serial.println();
 }
 
-void print_data(byte *data, int i, int j) {
+void print_data(byte * data, int i, int j) {
   int k;
   Serial.print("Cmd:_");
   for (k = i; k < j; k++) {
@@ -647,7 +712,7 @@ void air_parse_serial_ng(air_status_t *air) {
   byte cmd[MAX_RX_BUFFER];
 
   rb_t *rb;
-  rb=&(air->rb);
+  rb = &(air->rb);
 
   SoftwareSerial *ss;
   ss = &(air->serial);
@@ -671,35 +736,35 @@ void air_parse_serial_ng(air_status_t *air) {
   byte* p;
 
   Serial.println(rb_isdata(rb));
-  int num=rb_isdata(rb);
-  for (i = rb->idx_r; i < rb->idx_r+num; i++) {
-    if (rb_isdata(rb)<1) break;
+  int num = rb_isdata(rb);
+  for (i = rb->idx_r; i < rb->idx_r + num; i++) {
+    if (rb_isdata(rb) < 1) break;
     //Serial.println(i);
-//    for (j =  6; j < 32; j++) {
-      p = (byte*)&r;
-      n = rb_readn(rb, p, i, 64);
-      len = r[3] + 5; //len should be value in position 3 plus bytes      
-        Serial.printf("*%d %d, %d, %d %d\n", n, len,i,j, rb->idx_r);
+    //    for (j =  6; j < 32; j++) {
+    p = (byte*)&r;
+    n = rb_readn(rb, p, i, 64);
+    len = r[3] + 5; //len should be value in position 3 plus bytes
+    Serial.printf("*%d %d, %d, %d %d\n", n, len, i, j, rb->idx_r);
 
-      if ((n) < len) { //if estimated len in greater than values in buffer
-        //Serial.printf("_%d %d, %d, %d %d\n", n, len,i,j, rb.idx_r);
-        
-        continue; //if less bytes than possible len skip that one
-      }
-      //print_rb_data(&rb,i,j);
-      //print_data(p,i,j);
-      if (!(p[0]==0x00 || p[0]==0x40 || p[0]==0xFE || p[0]==0x52)) continue;
-      if (check_crc(p, len)) {
-        Serial.printf("+%d %d, %d, %d %d\n", n, len,i,j, rb->idx_r);
-        Serial.printf("idx %d\n", r[i]);
-        print_data(p,0,len);
-        rb->idx_r = (rb->idx_r + i + len) % MAX_RX_BUFFER; //update read index
-      }
+    if ((n) < len) { //if estimated len in greater than values in buffer
+      //Serial.printf("_%d %d, %d, %d %d\n", n, len,i,j, rb.idx_r);
+
+      continue; //if less bytes than possible len skip that one
     }
-//  }
+    //print_rb_data(&rb,i,j);
+    //print_data(p,i,j);
+    if (!(p[0] == 0x00 || p[0] == 0x40 || p[0] == 0xFE || p[0] == 0x52)) continue;
+    if (check_crc(p, len)) {
+      Serial.printf("+%d %d, %d, %d %d\n", n, len, i, j, rb->idx_r);
+      Serial.printf("idx %d\n", r[i]);
+      print_data(p, 0, len);
+      rb->idx_r = (rb->idx_r + i + len) % MAX_RX_BUFFER; //update read index
+    }
+  }
+  //  }
 }
 
-void air_send_data(air_status_t *air, byte *data, int len) {
+void air_send_data(air_status_t *air, byte * data, int len) {
   int i;
 
   SoftwareSerial *ss;
@@ -709,8 +774,7 @@ void air_send_data(air_status_t *air, byte *data, int len) {
 
 #ifdef DEBUG
   Serial.println("");
-  Serial.print("Sending data");
-  Serial.printf("(%d)\n", len);
+  Serial.printf("Sending data (%d)\n", len);
 #endif
   for (i = 0; i < len; i++) {
     ss->write(data[i]);
@@ -725,14 +789,76 @@ void air_send_data(air_status_t *air, byte *data, int len) {
   Serial.println("");
 #endif
 
-
+  ss->enableIntTx(false); //disable TX
   //copy cmd in last_cmd
   for (i = 0; i < len; i++) {
     air->last_cmd[i] = data[i];
   }
-  ss->enableIntTx(false); //disable TX
-
 }
+void air_get_error(air_status_t *air, uint8_t id)  {
+  //       byte    00    01    02    03    04    05    06    CRC
+  byte data[] = {0x40, 0x00, 0x15, 0x03, 0x08, 0x27, 0x01, 0x78};
+ 
+  data[6] = id;
+  data[7] = XORChecksum8(data, sizeof(data) - 1);
+
+  air->error_id = id;
+  air->error_val = -1;
+  air_send_data(air, data, sizeof(data));
+  delay(70); //delay a little bit or we will miss answer
+  air_parse_serial(air);
+  air->error_id = 0xff; //dummy value: spurious values received  will be assigned to it
+}
+
+void air_query_sensor(air_status_t *air, uint8_t id)  {
+  //       byte    00    01    02    03    04    05    06    07    08    09    10    11    CRC
+  byte data[] = {0x40, 0x00, 0x17, 0x08, 0x08, 0x80, 0xEF, 0x00, 0x2C, 0x08, 0x00, 0x02, 0x1E};
+
+  data[11] = id;
+  data[12] = XORChecksum8(data, sizeof(data) - 1);
+
+  air->sensor_id = id;
+  air->sensor_val = -1;
+  air_send_data(air, data, sizeof(data));
+  delay(70); //delay a little bit or we will miss answer  70ms
+  air_parse_serial(air);
+  air->sensor_id = 0xff; //dummy value: spurious values received  will be assigned to it
+}
+
+void air_query_sensors(air_status_t *air)  {
+  byte ids[] = {//INDOOR_ROOM,
+    INDOOR_FAN_SPEED,
+    INDOOR_TA, INDOOR_TCJ, INDOOR_TC,
+    //INDOOR_FILTER_TIME,
+    //INDOOR_FAN_SPEED,
+    //INDOOR_FAN_RUN_TIME,
+    OUTDOOR_TE, OUTDOOR_TO,
+    //OUTDOOR_TD, OUTDOOR_TS, OUTDOOR_THS,
+    OUTDOOR_CURRENT
+    //OUTDOOR_HOURS, OUTDOOR_TL, OUTDOOR_COMP_FREQ,
+    //OUTDOOR_LOWER_FAN_SPEED, OUTDOOR_UPPER_FAN_SPEED
+  };
+
+  int i = 0;
+  for (i = 0; i < sizeof(ids); i++) {
+
+    air_query_sensor(air, ids[i]);
+  }
+}
+
+//utility function to discover used sensors
+void air_explore_all_sensors(air_status_t *air)  {
+  int i = 0;
+  String s;
+  for (i = 0xa0; i <= 0xff; i++) {
+    air_query_sensor(air, i);
+    if (air->sensor_val != -1) {
+      Serial.printf("%02x - %d\n", i, air->sensor_val);
+      //s=s+air->sensor_id+ air->sensor_val
+    }
+  }
+}
+
 
 void air_send_test_data(air_status_t *air) {
   int i;
@@ -855,7 +981,8 @@ void air_send_test_data_partial2(air_status_t *air) {
   ss = &(air->serial);
 
   const unsigned char testdata[] = {
-    0x00, 0x01, 0xB9, 0x00, 0xFE, 0x1C, 0x0D, 0x80, 0x81, 0x8D, 0xAC, 0x00, 0x00, 0x76, 0x00, 0x33, 0x33, 0x01};
+    0x00, 0x01, 0xB9, 0x00, 0xFE, 0x1C, 0x0D, 0x80, 0x81, 0x8D, 0xAC, 0x00, 0x00, 0x76, 0x00, 0x33, 0x33, 0x01
+  };
 
   ss->enableIntTx(true);
 

@@ -8,13 +8,19 @@
               01/11/2020 fix bmp180 not connected
               02/12/2020 add min/max
               04/01/2021 pre-heat detection
+              14/01/2021 sensor info, to, tcj , ...
+              18/06/2021 fixed some crashes
 
   Author:     issalig
   Description: Control toshiba air cond via web
 
+  Instructions:
               HW
-              Connect circuit(see readme.md) for reading/writing to ESP8266
-
+              R/W circuit (see readme.md)
+              DHT is connected to D3 (not necessary)
+              BMP180 connected to D1 (SCL) D2 (SDA) (not necessary)
+              Software serial rx on D7, tx on D8
+              
               SW
               Upload data directory with ESP8266SketchDataUpload and flash it with USB for the first time. Then, when installed you can use OTA updates.
 
@@ -29,26 +35,47 @@
 
 
 #include <ESP8266WiFi.h>
-//#include <ESP8266WiFiMulti.h>
-#include <ArduinoOTA.h>
+
+#ifdef USE_ASYNC
+#include <ESPAsync_WiFiManager.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#else
+#include <WiFiManager.h>
+#include <ESP8266WiFiMulti.h>
 #include <ESP8266WebServer.h>
+#include <WebSocketsServer.h> //https://github.com/Links2004/arduinoWebSockets/
+#endif
+
+#include <ArduinoOTA.h>
 #include <ESP8266mDNS.h>
 #include <FS.h>
-#include <WebSocketsServer.h> //Links2004 ///arduino websockets gil maimon
 #include <ArduinoJson.h>  //by Benoit Blanchon
 #include <NTPClient.h> //install from arduino or get it from https://github.com/arduino-libraries/NTPClient
 #include <WiFiUdp.h>
 #include "toshiba_serial.hpp"
 #include "MySimpleTimer.hpp"
+#include "process_request.hpp"
 
+#include "config.h"
 #include "credentials.h" // set your wifi pass there
 
-// allows you to set the realm of authentication Default:"Login Required"
-const char* www_realm = "Custom Auth Realm";
-// the Content of the HTML response in case of Unautherized Access Default:empty
-String authFailResponse = "Authentication Failed";
+//#include <GDBStub.h>
 
-IPAddress ip(192, 168, 2, 200 );
+const char compile_date[] = __DATE__ " " __TIME__;
+
+//for LED status
+#include <Ticker.h>
+Ticker ticker;
+
+#ifndef LED_BUILTIN
+#define LED_BUILTIN 13 // ESP32 DOES NOT DEFINE LED_BUILTIN
+#endif
+
+int LED = LED_BUILTIN;
+
+
+IPAddress ip(192, 168, 2, 200);
 IPAddress gateway(192, 168, 2, 1);
 IPAddress subnet(255, 255, 255, 0);
 IPAddress dns(8, 8, 8, 8);
@@ -58,8 +85,13 @@ MySimpleTimer timerAC;
 
 //ESP8266WiFiMulti wifiMulti;       // Create an instance of the ESP8266WiFiMulti class, called 'wifiMulti'
 
+#ifdef USE_ASYNC
+AsyncWebServer server(80);
+AsyncWebSocket webSocket("/ws");
+#else
 ESP8266WebServer server(80);       // create a web server on port 80
 WebSocketsServer webSocket(81);    // create a websocket server on port 81
+#endif
 
 File fsUploadFile;                                    // a File variable to temporarily store the received file
 
@@ -76,11 +108,11 @@ DHT dht(DHTPin, DHTTYPE);
 Adafruit_BMP085 bmp;
 uint8_t bmp_status = 0;
 
-#define MAX_LOG_DATA 144//288 // for one day
 float dht_h[MAX_LOG_DATA];
 float dht_t[MAX_LOG_DATA];
 float ac_sensor[MAX_LOG_DATA];
-float ac_target[MAX_LOG_DATA];
+//float ac_target[MAX_LOG_DATA];
+int ac_outdoor_to[MAX_LOG_DATA];
 float bmp_t[MAX_LOG_DATA];
 float bmp_p[MAX_LOG_DATA];
 unsigned long timestamp[MAX_LOG_DATA];
@@ -97,16 +129,22 @@ MySimpleTimer timerStatus;
 MySimpleTimer timerReadSerial;
 MySimpleTimer timerSaveFile;
 
+#define RESET_MODE_PIN D4  //button to enter into wifi configuration
+
 /*__________________________________________________________SETUP__________________________________________________________*/
 
 void setup() {
 
-
   Serial.begin(115200);        // Start the Serial communication to send messages to the computer
+//  gdbstub_init();
   delay(10);
   Serial.println("\r\n");
 
   startWiFi();                 // Start a Wi-Fi access point, and try to connect to some given access points. Then wait for either an AP or STA connection
+
+  //startWifiManager();
+
+  //is_reset_button();
 
   startOTA();                  // Start the OTA service
 
@@ -126,6 +164,9 @@ void setup() {
 
   timeClient.begin();          // Get NTP time
 
+  timeClient.update();
+  air_status.boot_time = timeClient.getEpochTime();
+
   startTemperature();          // Start timer for temperature readings (120s)
 }
 
@@ -135,9 +176,20 @@ void startTemperature() {
   timerTemperature.repeat();
   timerTemperature.start();
 
+  //clear arrays
+  memset(dht_h, 0, MAX_LOG_DATA * sizeof(float));
+  memset(dht_t, 0, MAX_LOG_DATA * sizeof(float));
+  memset(ac_sensor, 0, MAX_LOG_DATA * sizeof(float));
+  memset(ac_outdoor_to, 0, MAX_LOG_DATA * sizeof(float));
+  memset(bmp_p, 0, MAX_LOG_DATA * sizeof(float));
+  memset(bmp_t, 0, MAX_LOG_DATA * sizeof(float));
+  memset(timestamp, 0, MAX_LOG_DATA * sizeof(unsigned long));
+
+
   dht.begin();
   dht_h[0] = dht.readHumidity();
   dht_t[0] = dht.readTemperature();
+  dht_t[0] = dht_h[0] = 0;//-1;
 
   if (!bmp.begin()) {
     Serial.println("Could not find a valid BMP085 sensor, check wiring!");
@@ -149,16 +201,22 @@ void startTemperature() {
   }
 
   ac_sensor[0] = air_status.sensor_temp;
-  ac_target[0] = air_status.target_temp * air_status.power;
+  //ac_target[0] = air_status.target_temp * air_status.power;
+
+  air_query_sensor(&air_status, OUTDOOR_TO);
+  ac_outdoor_to[0] = air_status.outdoor_to;
 
   timestamp[0] = 0; //timeClient.getEpochTime();
 }
 
 void startStatus() {
-  timerStatus.setUnit(1000);
-  timerStatus.setInterval(10);
+  timerStatus.setUnit(1000); // 1000ms
+  timerStatus.setInterval(120); //update every XX s
   timerStatus.repeat();
   timerStatus.start();
+
+  air_query_sensors(&air_status);
+
 }
 
 void startReadSerial() {
@@ -176,10 +234,10 @@ void startSaveFile() {
   timerSaveFile.start();
 }
 
-
+//software timer
 void handleTimer() {
   if (timerAC.isTime()) {
-    if (air_status.timer_mode_req == TIMER_POWER_OFF) {
+    if (air_status.timer_mode_req == TIMER_SW_OFF) {
       //set power off
       Serial.println("TIMER - POWER OFF");
       air_set_power_off(&air_status);
@@ -191,12 +249,14 @@ void handleTimer() {
   }
 }
 
+//we will call this every sampling time
 void handleTemperature() {
   if (timerTemperature.isTime()) {
+    Serial.printf("[TEMP] Reading sensors\n");
     // Reading temperature or humidity takes about 250 milliseconds!
     dht_h[temp_idx] = dht.readHumidity();
     dht_t[temp_idx] = dht.readTemperature();
-    Serial.printf("DHT temp %.1f hum %.1f\n", dht_t[temp_idx], dht_h[temp_idx]);
+    Serial.printf("DHT %d temp %.1f hum %.1f\n", temp_idx, dht_t[temp_idx], dht_h[temp_idx]);
 
     if (!bmp_status) //try again
       bmp_status = bmp.begin();
@@ -204,15 +264,19 @@ void handleTemperature() {
     if (bmp_status) {
       bmp_t[temp_idx] = bmp.readTemperature();
       bmp_p[temp_idx] = bmp.readPressure() / 100; //in mb
-      Serial.printf("BMP temp %.1f press %.1f\n", bmp_t[temp_idx], bmp_p[temp_idx]);
+      Serial.printf("BMP %d temp %.1f press %.1f\n",  temp_idx,bmp_t[temp_idx], bmp_p[temp_idx]);
     } else {
+      //set to -1 when not available
       bmp_t[temp_idx] = bmp_t[temp_idx] - 1;
       bmp_p[temp_idx] = bmp_p[temp_idx] - 1;
-      Serial.printf("BMP temp %.1f press %.1f\n", bmp_t[temp_idx], bmp_p[temp_idx]);
+      Serial.printf("BMP %d temp %.1f press %.1f\n", temp_idx, bmp_t[temp_idx], bmp_p[temp_idx]);
     }
 
-    ac_target[temp_idx] = air_status.target_temp * air_status.power; //0 if powered off
+    //ac_target[temp_idx] = air_status.target_temp * air_status.power; //0 if powered off
     ac_sensor[temp_idx] = air_status.sensor_temp;
+
+    air_query_sensor(&air_status, OUTDOOR_TO);
+    ac_outdoor_to[temp_idx] = air_status.outdoor_to;
 
     timeClient.update();
     timestamp[temp_idx] = timeClient.getEpochTime();
@@ -229,7 +293,7 @@ void handleSaveFile() {
   }
 }
 
-
+//get temp without logging it
 void getTemperatureCurrent() {
   // Reading temperature or humidity takes about 250 milliseconds!
   dht_h_current = dht.readHumidity();
@@ -247,10 +311,13 @@ void getTemperatureCurrent() {
   Serial.printf("BMP temp %.1f press %.1f\n", bmp_t_current, bmp_p_current);
 }
 
+//get current status, temperature and sensors. not intended for logging
 void handleStatus() {
   if (timerStatus.isTime()) {
     getTemperatureCurrent();
+    air_query_sensors(&air_status); //query few sensors
     air_print_status(&air_status);
+    //air_explore_all_sensors(&air_status); //it takes a lot of time, just to discover sensors
   }
 }
 
@@ -260,17 +327,22 @@ void handleReadSerial() {
   }
 }
 
+
+
 /*__________________________________________________________LOOP__________________________________________________________*/
 
 void loop() {
-
-  handleTimer();
+  handleTimer();                              // Set all handlers
   handleTemperature();
   handleStatus();
   handleReadSerial();
+  yield();                                    // Handle WiFi / reset software watchdog
 
-  webSocket.loop();                           // constantly check for websocket events
+#ifndef USE_ASYNC
+  //webSocket.loop();                           // constantly check for websocket events
   server.handleClient();                      // run the server
+#endif
+
   ArduinoOTA.handle();                        // listen for OTA events
 }
 
@@ -296,44 +368,16 @@ void startWiFi() { //fixed IP
   Serial.println(WiFi.localIP());
 }
 
-/*
-  void startWiFi_ap() { // Start a Wi-Fi access point, and try to connect to some given access points. Then wait for either an AP or STA connection
-  WiFi.softAP(ssid, password);             // Start the access point
-  Serial.print("Access Point \"");
-  Serial.print(ssid);
-  Serial.println("\" started\r\n");
-
-  wifiMulti.addAP(w_ssid, w_passwd);   // add Wi-Fi networks you want to connect to
-  //wifiMulti.addAP("ssid_from_AP_2", "your_password_for_AP_2");
-  //wifiMulti.addAP("ssid_from_AP_3", "your_password_for_AP_3");
-
-  Serial.println("Connecting");
-  while (wifiMulti.run() != WL_CONNECTED && WiFi.softAPgetStationNum() < 1) {  // Wait for the Wi-Fi to connect
-    delay(250);
-    Serial.print('.');
-  }
-  Serial.println("\r\n");
-  if (WiFi.softAPgetStationNum() == 0) {     // If the ESP is connected to an AP
-    Serial.print("Connected to ");
-    Serial.println(WiFi.SSID());             // Tell us what network we're connected to
-    Serial.print("IP address:\t");
-    Serial.print(WiFi.localIP());            // Send the IP address of the ESP8266 to the computer
-  } else {                                   // If a station is connected to the ESP SoftAP
-    Serial.print("Station connected to ESP8266 AP");
-  }
-  Serial.println("\r\n");
-  }
-*/
 
 void startOTA() { // Start the OTA service
   ArduinoOTA.setHostname(OTAName);
   ArduinoOTA.setPassword(OTAPassword);
 
   ArduinoOTA.onStart([]() {
-    Serial.println("Start");
+    Serial.println("Start OTA");
   });
   ArduinoOTA.onEnd([]() {
-    Serial.println("\r\nEnd");
+    Serial.println("\r\nEnd OTA");
   });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
     Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
@@ -365,8 +409,13 @@ void startSPIFFS() { // Start the SPIFFS and list all contents
 }
 
 void startWebSocket() { // Start a WebSocket server
+#ifdef USE_ASYNC
+  webSocket.onEvent(onWsAsyncEvent);
+  server.addHandler(&webSocket);
+#else
   webSocket.begin();                          // start the websocket server
-  webSocket.onEvent(webSocketEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
+  webSocket.onEvent(onWsEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
+#endif
   Serial.println("WebSocket server started.");
 }
 
@@ -377,30 +426,25 @@ void startMDNS() { // Start the mDNS responder
   Serial.println(".local");
 }
 
-bool isInternalIP(ESP8266WebServer *myserver) {
-  IPAddress clientIP = myserver->client().remoteIP();
-  IPAddress serverIP = WiFi.localIP();
-
-  Serial.println(myserver->client().remoteIP());
-  Serial.println(WiFi.localIP());
-
-  Serial.println(myserver->client().remoteIP()[0]);
-  Serial.println(WiFi.localIP()[0]);
-
-  Serial.println(myserver->client().remoteIP()[1]);
-  Serial.println(WiFi.localIP()[1]);
-  Serial.println(clientIP[0] == serverIP[0] && clientIP[1] == serverIP[1]);
-
-  return (clientIP[0] == serverIP[0] && clientIP[1] == serverIP[1]);
-}
 
 void startServer() { // Start a HTTP server with a file read handler and an upload handler
+#ifdef USE_ASYNC
+  server.on("/edit.html",  HTTP_POST, [](AsyncWebServerRequest * request) { // If a POST request is sent to the /edit.html address,
+    server.send(200, "text/plain", "");
+  }, handleFileUpload);                       // go to 'handleFileUpload'
+
+  server.onNotFound(handleNotFound);          // if someone requests any other file or page, go to function 'handleNotFound'
+  // and check if the file exists
+
+#else
   server.on("/edit.html",  HTTP_POST, []() {  // If a POST request is sent to the /edit.html address,
     server.send(200, "text/plain", "");
   }, handleFileUpload);                       // go to 'handleFileUpload'
 
   server.onNotFound(handleNotFound);          // if someone requests any other file or page, go to function 'handleNotFound'
   // and check if the file exists
+
+#endif
 
   /*
     server.on("/", []() {
@@ -426,6 +470,7 @@ void startServer() { // Start a HTTP server with a file read handler and an uplo
   server.begin();                             // start the HTTP server
   Serial.println("HTTP server started.");
 }
+
 
 /*__________________________________________________________SERVER_HANDLERS__________________________________________________________*/
 
@@ -482,62 +527,8 @@ void handleFileUpload() { // upload a new file to the SPIFFS
   }
 }
 
-/*void json2air(String request, air_status_t *air)
-  {
-  StaticJsonDocument<200> jsonDoc;
-  DeserializationError error = deserializeJson(jsonDoc, request);
-  if (error) {
-    return;
-  }
-  }*/
 
-String air_to_json(air_status_t *air)
-{
-  String response;
-  StaticJsonDocument<400> jsonDoc;
-
-  jsonDoc["id"] = "status";
-  jsonDoc["save"] = air->save;
-  jsonDoc["heat"] = air->heat;
-  jsonDoc["preheat"] = air->preheat;
-  jsonDoc["cold"] = air->cold;
-  jsonDoc["temp"] = air->target_temp;
-  jsonDoc["sensor_temp"] = air->sensor_temp;
-  jsonDoc["fan"] = air->fan_str;
-  jsonDoc["mode"] = air->mode_str;
-  jsonDoc["power"] = air->power;
-  jsonDoc["timer_mode"] = air->timer_mode_req;
-  jsonDoc["timer_enabled"] = timerAC.isEnabled();
-  jsonDoc["timer_pending"] = timerAC.pendingTime();
-  jsonDoc["timer_time"] = timerAC.getInterval();
-  jsonDoc["sampling"] = temp_interval;
-  jsonDoc["dht_temp"] = dht_t_current;//[(temp_idx - 1) % MAX_LOG_DATA];
-  jsonDoc["dht_hum"] = dht_h_current;//[(temp_idx - 1) % MAX_LOG_DATA];
-  jsonDoc["bmp_temp"] = bmp_t_current;//[(temp_idx - 1) % MAX_LOG_DATA];
-  jsonDoc["bmp_press"] = bmp_p_current;//[(temp_idx - 1) % MAX_LOG_DATA];
-  jsonDoc["decode_errors"] = air->decode_errors;
-
-  int i;
-  String str;
-  for (i = 0; (i < MAX_CMD_BUFFER) && (i < (air->last_cmd[3] + 5)) ; i++)
-    str += ((air->last_cmd[i] < 0x10) ? "0" : "")  + String(air->last_cmd[i], HEX) + " ";
-  jsonDoc["last_cmd"] = str;
-
-  str = "";
-  //for (i = air->curr_r_idx; (i < MAX_RX_BUFFER) && (i< air->curr_w_idx); i++) round buffer
-  for (i = 0; (i < MAX_RX_BUFFER) && (i < air->curr_w_idx); i++) //not round buffer
-    //for (i = air->curr_r_idx;  i!= air->curr_w_idx; i=(i+1)%MAX_RX_BUFFER)
-    str += ((air->rx_data[i] < 0x10) ? "0" : "")  + String(air->rx_data[i], HEX) + " ";
-  jsonDoc["rx_data"] = str;
-
-  //jsonDoc["tx_data"] = air->tx_data;
-
-  serializeJson(jsonDoc, response);
-
-  return response;
-}
-
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) { // When a WebSocket message is received
+void onWsEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) { // When a WebSocket message is received
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
       Serial.printf("WS [%u] Disconnected!\n", num);
@@ -549,159 +540,10 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       break;
     case WStype_TEXT:                     // if new text data is received
       Serial.printf("WS [%u] Received: %s\n", num, payload);
-
-      //decode json
-      StaticJsonDocument<200> jsonDoc;
-      DeserializationError error = deserializeJson(jsonDoc, payload);
-      if (error) {
-        return;
-      }
-
-      if (jsonDoc["id"] == "power") {            // power
-        if (jsonDoc["value"] == "on") {
-          air_set_power_on(&air_status);
-        } else if (jsonDoc["value"] == "off") {
-          air_set_power_off(&air_status);
-        }
-
-      } else if (jsonDoc["id"] == "temp") {
-        int val = atoi(jsonDoc["temp"]);
-
-        //if (jsonDoc["temp"] == "1") { //
-        if (val == 1) {
-          val = air_status.target_temp + 1;
-          if (val > 30) val = 30;
-          if (val < 19) val = 19;
-          air_set_temp(&air_status, val);
-          //} else if (jsonDoc["temp"] == "0") { //
-        } else if (val == 0) {
-          val = air_status.target_temp - 1;
-          if (val > 30) val = 30;
-          if (val < 19) val = 19;
-          air_set_temp(&air_status, val);
-        } else {
-          if (val > 30) val = 30;
-          if (val < 19) val = 19;
-          air_set_temp(&air_status, val);
-        }
-      }
-      else if (jsonDoc["id"] == "timer") {
-        Serial.println("Received timer");
-        int val = atoi(jsonDoc["timer_time"]);
-        timerAC.setInterval(val);
-        timerAC.start();
-        air_status.timer_mode_req = jsonDoc["timer_mode"];
-        air_status.timer_time_req = val;
-      }
-      else if (jsonDoc["id"] == "mode") {
-        Serial.println("Received mode");
-        if (jsonDoc["value"] == "cool") {
-          air_set_mode(&air_status, MODE_COOL);
-        } else if (jsonDoc["value"] == "dry") {
-          air_set_mode(&air_status, MODE_DRY);
-        } else if (jsonDoc["value"] == "fan") {
-          air_set_mode(&air_status, MODE_FAN);
-        } else if (jsonDoc["value"] == "heat") {
-          air_set_mode(&air_status, MODE_HEAT);
-        }
-      }
-      else if (jsonDoc["id"] == "fan") {
-        Serial.println("Received fan");
-        if (jsonDoc["value"] == "low") {
-          air_set_fan(&air_status, FAN_LOW);
-        } else if (jsonDoc["value"] == "medium") {
-          air_set_fan(&air_status, FAN_MEDIUM);
-        } else if (jsonDoc["value"] == "high") {
-          air_set_fan(&air_status, FAN_HIGH);
-        } else if (jsonDoc["value"] == "auto") {
-          air_set_fan(&air_status, FAN_AUTO);
-        }
-      }
-      else if (jsonDoc["id"] == "save") {
-        Serial.println("Received save");
-        if (jsonDoc["value"] == "1") {
-          air_set_save_on(&air_status);
-        } else if (jsonDoc["value"] == "0") {
-          air_set_save_off(&air_status);
-        }
-      }
-      else if (jsonDoc["id"] == "status") {
-        Serial.println("Status");
-
-        String message;
-        //int i;
-        //for (i = 0; i < MAX_CMD_BUFFER && i < (air_status.last_cmd[3] + 5) ; i++)
-        //  message += ((air_status.last_cmd[i] < 0x10) ? "0" : "" ) + String(air_status.last_cmd[i], HEX) + " ";
-        //Serial.println(message);
-
-        message = air_to_json(&air_status);
-        webSocket.broadcastTXT(message);
-      }
-      else if (jsonDoc["id"] == "sampling") {
-        Serial.println("Sampling time");
-        temp_interval = jsonDoc["value"];
-        timerTemperature.setUnit(1000);
-        timerTemperature.setInterval(temp_interval);
-        timerTemperature.repeat();
-        timerTemperature.start();
-
-      }
-      else if (jsonDoc["id"] == "timeseries") {
-        Serial.println("TimeSeries");
-        String message;
-
-        //use assistant to estimate size https://arduinojson.org/v6/assistant/
-        //https://arduinojson.org/v6/how-to/determine-the-capacity-of-the-jsondocument/
-        //3000 holds around 150 vals
-        DynamicJsonDocument docTimeSeries(16100);
-
-        docTimeSeries["id"] = "timeseries";
-        docTimeSeries["n"] = MAX_LOG_DATA;
-
-        JsonArray arrt = docTimeSeries.createNestedArray("timestamp");
-        int i;
-        /*arrt.add(timestamp[temp_idx]);
-          for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
-          arrt.add(timestamp[i]);
-          }*/
-        serialize_array_int(timestamp, arrt, temp_idx);
-
-        JsonArray arr = docTimeSeries.createNestedArray("dht_t");
-        serialize_array_float(dht_t, arr, temp_idx);
-
-        JsonArray arr2 = docTimeSeries.createNestedArray("dht_h");
-        serialize_array_float(dht_h, arr2, temp_idx);
-
-        JsonArray arr4 = docTimeSeries.createNestedArray("ac_sensor_t");
-        serialize_array_float(ac_sensor, arr4, temp_idx);
-
-        JsonArray arr6 = docTimeSeries.createNestedArray("bmp_p");
-        serialize_array_float(bmp_p, arr6, temp_idx);
-
-        serializeJson(docTimeSeries, message);
-        webSocket.broadcastTXT(message);
-
-      } //end if timeseries
-      break;
+      processRequest(payload);
   }
 }
 
-
-void serialize_array_float(float *ptr, JsonArray &arr, int idx) {
-  int i;
-  arr.add(ptr[idx]);
-  for (i = (idx + 1) % MAX_LOG_DATA; i != idx; i = (i + 1) % MAX_LOG_DATA) {
-    arr.add(ptr[i]);
-  }
-}
-
-void serialize_array_int(unsigned long int *ptr, JsonArray &arr, int idx) {
-  int i;
-  arr.add(ptr[idx]);
-  for (i = (idx + 1) % MAX_LOG_DATA; i != idx; i = (i + 1) % MAX_LOG_DATA) {
-    arr.add(ptr[i]);
-  }
-}
 
 
 int save_file(String name, String text) {
@@ -720,35 +562,20 @@ int save_file(String name, String text) {
   return (bytes);
 }
 
-/*
-int read_file(String name){
-  File file = SPIFFS.open(name.c_str()));
-    if(!file){
-        Serial.printf("Failed to open file %s for reading\n", name);
-        return;
-    }
- 
-    Serial.println("File Content:");
- 
-    while(file.available()){
- 
-        Serial.write(file.read());
-    }
- 
-    file2.close();
-}
-*/
 
 /*__________________________________________________________HELPER_FUNCTIONS__________________________________________________________*/
 
 String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
+  String val;
   if (bytes < 1024) {
-    return String(bytes) + "B";
+    val= String(bytes) + "B";
   } else if (bytes < (1024 * 1024)) {
-    return String(bytes / 1024.0) + "KB";
+    val= String(bytes / 1024.0) + "KB";
   } else if (bytes < (1024 * 1024 * 1024)) {
-    return String(bytes / 1024.0 / 1024.0) + "MB";
+    val= String(bytes / 1024.0 / 1024.0) + "MB";
   }
+
+  return val;
 }
 
 String getContentType(String filename) { // determine the filetype of a given filename, based on the extension
@@ -758,4 +585,10 @@ String getContentType(String filename) { // determine the filetype of a given fi
   else if (filename.endsWith(".ico")) return "image/x-icon";
   else if (filename.endsWith(".gz")) return "application/x-gzip";
   return "text/plain";
+}
+
+void tick()
+{
+  //toggle state
+  digitalWrite(LED, !digitalRead(LED));     // set pin to the opposite state
 }

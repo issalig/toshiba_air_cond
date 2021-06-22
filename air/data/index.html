@@ -43,6 +43,34 @@
 			<span id="dht_hum_min"  foostyle="font-size:3vw">-</span>/<span id="dht_hum_max" foostyle="font-size:3vw">-</span>%
 			<span id="bmp_pres_min"  foostyle="font-size:3vw">-</span>/<span id="bmp_pres_max" foostyle="font-size:3vw">-</span>mb
 			</div>
+			<span id="boot_time"  foostyle="font-size:3vw">-</span> <br>
+			<div>
+			</div>
+			<div>
+				<!-- 01 Room:<span id="indoor_room_temp"  foostyle="font-size:3vw">-</span> -->
+				02 TA:<span id="indoor_ta"  foostyle="font-size:3vw">-</span> <br>
+				03 TCJ:<span id="indoor_tcj"  foostyle="font-size:3vw">-</span><br>
+				04 TC:<span id="indoor_tc"  foostyle="font-size:3vw">-</span>
+				<!-- F3 Flt:<span id="indoor_filter_time"  foostyle="font-size:3vw">-</span> -->
+				<br>
+				07 Fan r:<span id="indoor_fan_speed"  foostyle="font-size:3vw">-</span> 
+				<!-- 07 Fan t:<span id="indoor_fan_run_time"  foostyle="font-size:3vw">-</span> -->
+				<br>
+				60 TE:<span id="outdoor_te"  foostyle="font-size:3vw">-</span> <br>
+				61 TO:<span id="outdoor_to"  foostyle="font-size:3vw">-</span> <br>
+				<!-- 62 TD:<span id="outdoor_td"  foostyle="font-size:3vw">-</span><br> -->
+				<!-- 63 TS:<span id="outdoor_ts"  foostyle="font-size:3vw">-</span> -->
+				<!-- 65 THS:<span id="outdoor_ths"  foostyle="font-size:3vw">-</span><br> -->
+				6A Curr:<span id="outdoor_current"  foostyle="font-size:3vw">-</span>
+				<!-- F1 Hours:<span id="outdoor_cumhour"  foostyle="font-size:3vw">-</span> -->
+				<br>
+				<!-- 6D TL:<span id="outdoor_tl"  foostyle="font-size:3vw">-</span> -->
+				<!-- 70 Comp Freq:<span id="outdoor_comp_freq"  foostyle="font-size:3vw">-</span><br> -->
+				<!-- 72 Fan low:<span id="outdoor_lower_fan_speed"  foostyle="font-size:3vw">-</span> -->
+				<!-- 73 Fan up:<span id="outdoor_upper_fan_speed"  foostyle="font-size:3vw">-</span> -->
+  
+  
+			</div>
 			 
             <div class="timer_radio">
             <input type="radio" id="timer_off" name="timer_r" value="0" checked>
@@ -53,8 +81,14 @@
             <span id="timer_time">-</span>
 			
             <input class="enabled" id="timer_range" type="range" min="0" max="60" step="1" oninput="timer_changed()" value="30" width="70%">             
-            <button id="timer_button" class="button" style="background-color:#999" onclick="setACTimer();">Timer</button>            
+            <button id="sw_timer_button" class="button" style="background-color:#999" onclick="set_sw_air_timer();">Timer</button>            
             </div>
+   
+            <p style="margin:8px 0px">
+			<button id="timer_hw_on" class="button" style="background-color:#999" onclick="timer_hw_on();">Timer ON</button>
+			<button id="timer_hw_off" class="button" style="background-color:#999" onclick="timer_hw_off();">OFF</button>
+			<button id="timer_hw_repeat_off" class="button" style="background-color:#999" onclick="timer_hw_repeat_off();">R OFF</button>
+			<button id="timer_hw_cancel" class="button" style="background-color:#999" onclick="timer_hw_cancel();">Cancel</button>
      
             <p style="margin:8px 0px">
 			<button id="save_button" class="button" style="background-color:#999" onclick="save_toggle();">Save</button>				
@@ -79,6 +113,7 @@
 
 				<tr>
 				<td></td>Connection: <span id="connection">---</span></td>
+                <td></td>Free mem: <span id="heap">---</span></td>
 				</tr>
 <!--
                 <tr>
@@ -117,6 +152,10 @@
                 </tr>
 -->
 
+				<tr>
+					<td><a href="/edit.html">Edit</a><br></td>
+				</tr>
+
                 <tr>					
                     <td > Sampling<input id="sampling_text" type="value" size="5"/><input id="sampling_button" type="button" onclick="set_sampling();"/> </td>
                 </tr>
@@ -134,7 +173,7 @@
                 </tr>                
             </table>         
 
-			<a href="/edit.html">Edit</a><br>
+			
 			
  <div class="chart-container" position: relative; height:350px; width:100%">
         <canvas id="temp_chart" width="400" height="400"></canvas>

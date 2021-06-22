@@ -8,13 +8,15 @@ void setup() {
   Serial.begin(115200);
   Serial.println("READ AB Bus");
   init_air_serial(&air_status);
+
+  //air_send_test_data_partial2(&air_status);
+  air_parse_serial_ng(&air_status);
+  air_send_test_data_partial2(&air_status);
+  air_parse_serial_ng(&air_status);
+  //air_status.serial.flush();
+  delay(5000);
 }
 
 void loop() {
-  air_send_test_data_partial(&air_status);
-  air_parse_serial(&air_status);
-  air_send_test_data_partial2(&air_status);
-  air_parse_serial(&air_status);
-  //air_status.serial.flush();
-  delay(500);
+
 }
