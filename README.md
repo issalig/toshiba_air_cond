@@ -1,9 +1,32 @@
 # toshiba_air_cond
-Decode Toshiba A-B protocol (aka TCC Link) for air conditioners.
+Decode Toshiba AB protocol (TCC Link??) for air conditioners with wired controllers.
 
 Tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
 
+Service manual http://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_Gainable_Std-Compact--DI_406566806110614061606_GB.pdf
+
+```
+RAV-SM406BTP-E 
+|     | |    |- CE marking
+|     | ||-Duct
+|     | |-gen
+|     |-duty 4.0 kW 
+|   |-Digital inverter
+|- Light comercial
+```
+
 https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf
+
+Error codes and sensor addresses
+http://www.toshiba-aircon.co.uk/assets/uploads/pdf/sales_tools/Technical_Handbook_ver._13.1.pdf
+https://www.cdlweb.info/wp-content/uploads/2020/10/1-CDL-Toshiba-R32-Technical-Handbook-V10-2020.pdf
+https://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_CassetteUTP_DI-SDI-111416-E_GB.pdf
+
+
+Interesting project with similar protocol for heat equipment https://github.com/H4jen/webasto_sniffer
+
+https://echonet.jp/wp/wp-content/uploads/pdf/General/Standard/Release/Release_F_en/SpecAppendixF_e.pdf
+
 
 # Status
 
@@ -12,23 +35,39 @@ https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC
 
 # TO-DOS
 
--Fix PCB: mirror transistor footprint, route EN line and necessary stuff for ESP12X
+- Fix PCB: mirror transistor footprint, route EN line and necessary stuff for ESP12X
+- Fix PCB: jumper for Hardware or Software Serial
 
--Fix parsing to support round buffer and not to loose partial frames (not necessary)
+- Fix parsing to support round buffer and not to loose partial frames (not necessary)
 
--Redesign HTML page (WIP, fixed divs)
+- Redesign HTML page (WIP, fixed divs) 
+https://mdbootstrap.com/snippets/jquery/ascensus/456902#html-tab-view   calculator
+https://codepen.io/lalwanivikas/pen/eZxjqo  calculator
+https://codepen.io/giana/pen/GJMBEv   calculator
+https://codepen.io/CiTA/pen/OwowEB remote
 
--Simple decode example
+- Simple decode example
 
--Protocol documentation
+- Clearer Protocol documentation
 
--Use DC buck/boost from A-B line to power ESP8266 (tried, but not working)
+- MQTT and HA support
 
--Guess timer opcodes if any (not sure if remote takes care of it internally)
+- Use DC buck/boost from A-B line to power ESP8266 (tried, but not working)
 
--Check other circuits as https://easyeda.com/marcegli/door-opener https://frog32.ch/smart-intercom.html https://electronics.stackexchange.com/questions/458996/logic-level-converter-for-nodemcu-esp8266-input-24v-16v-hi-lo-500-baud https://sudonull.com/post/18480-We-pump-the-intercom-with-the-MQTT-protocol-to-control-from-the-phone https://hackaday.com/2019/01/07/building-an-esp8266-doorbell-on-hard-mode/
-https://daeconsulting.co.za/2018/12/17/theres-someone-at-the-door/
+- Check other circuits as:
+  - https://easyeda.com/marcegli/door-opener
+  - https://frog32.ch/smart-intercom.html 
+  - https://electronics.stackexchange.com/questions/458996/logic-level-converter-for-nodemcu-esp8266-input-24v-16v-hi-lo-500-baud 
+  - https://sudonull.com/post/18480-We-pump-the-intercom-with-the-MQTT-protocol-to-control-from-the-phone
+  - https://hackaday.com/2019/01/07/building-an-esp8266-doorbell-on-hard-mode/
+  - https://daeconsulting.co.za/2018/12/17/theres-someone-at-the-door/
 
+- Announce project in other similar ones
+  - https://github.com/ToniA/arduino-heatpumpir/
+  - https://github.com/openenergymonitor
+  - https://github.com/roarfred/AmsToMqttBridge
+  - https://github.com/dgoodlad/esp8266-mitsubishi-aircon
+  - https://github.com/H4jen/webasto_sniffer
 
 # Data acquisition
 
@@ -36,17 +75,28 @@ DS0138 oscilloscope can be used to monitor the signal (voltage differs around 0.
 
 To capture data you can use pulseview with uart decoder 2400 bps, 8bits, start, stop, EVEN parity
 
-When the data has be validated visually you can use the following command line that reads RX data annotations and print one message per line according to 4th byte (message size).
+When the data has been validated visually you can use the following command line that reads RX data annotations and print one message per line according to 4th byte (message size).
+
+In case you need it you can install the following packages
+```
+sudo apt install sigrok-cli
+sudo apt install sigrok-firmware-fx2lafw
+```
+
 ```
 sigrok-cli -P uart:rx=D0:baudrate=2400:parity_type=even -A uart=rx_data -i  YOURFILE  | awk '{pad =" "; b[len%4]=$2; if(len==3) {bytes="0x"b[len];  printf("%s%s%s%s%s%s%s%s",b[0],pad,b[1],pad,b[2],pad,b[3],pad)} if(len>3) {printf("%s%s",$2,pad);} len=len+1; if(len==4+bytes+1) {print "";len=0;bytes=0}}'
 ```
 
+sigrok-cli -d fx2lafw -c samplerate=250000 -t D0=r -P uart:rx=D0:baudrate=2400:parity_type=even  -A uart=rx_data --continuous
+
 # Custom hardware
 https://learnabout-electronics.org/Semiconductors/opto_52.php
 
+Circuits have been designed to read and write the signal
+
 ```
 Air conditioning side:
-Signal is around 15.6 volts when 1 and 14 when 0. Zener diode provides 13V reference, so signal is 1 .. 2.6 and after diode (0.7 drop) is 0.3 .. 1.9, enough to activate photodiode (1.2V) when 1 and to not activate it when 0.
+Signal is around 15.6 volts when 1 and 14 when 0. Zener diode provides 13V reference, so signal is 1V .. 2.6V and after diode (0.7V drop) is 0.3V .. 1.9V, enough to activate photodiode (1.2V) when 1 and to not activate it when 0.
 
 Led drops 1.2v, and from signal we have a difference of 15.6-13=2.6, thus 2.6-1.2=1.4/100= 14mA which has a maximum CTR=140%
 Ic=3.3, If=14
@@ -58,7 +108,7 @@ Type     VZnom  IZT  for  rzjT    rzjk  at  IZK    IR  at  VR
 Izt=19 mA -> 2.6/19=130ohm  P=VI 2.6*19 =52mW
 
 
-Microcontroller side: 1k resistor limits the intensity. ESP8266 max current is 12mA > 3.3/1k = 3.3 mA
+Microcontroller side: 1k resistor limits the current. ESP8266 max current is 12mA > 3.3/1k = 3.3 mA
 
 Read schematic
                              1N4001  _______
@@ -119,52 +169,106 @@ Temp up button is connected to R24 and R46
 
 # Data format
 
-|Source | Dest | UNK  | Data Length | Data | CRC |
+Data packages have the following format:
 
-Source (1 byte)
-00 is master
-40 is remote controller
-FE is broadcast
-53 is ??
+|Source | Dest | Opcode 1  | Data Length | Data | CRC |
+|---|---|---|---|---|---|
 
-Dest (1 byte)
-Same as source
+And Data field is composed of the following parts:
 
-UNK
+| R/W mode | Opcode 2 | Payload |
+|---|---|---|
+
+
+
+
+Source (1 byte): 
+|#|Desc|
+|---|---|
+|00 | master (central unit) |
+|40 | remote controller |
+|FE | broadcast |
+|52 |??|
+
+Dest (1 byte):
+|#|Desc|
+|---|---|
+|00 | master (central unit) |
+|40 | remote controller|
+|FE | broadcast|
+|52 |??|
+
+Operation code 1 (1 byte) 
+- From master (00)
+  |Opc1|Desc|Example|
+  |---|---|---|
+  |10| ping|    00 FE 10 02 80 8A E6|
+  |11| parameters (temp. power, mode, fan, save)| 00 52 11 04 80 86 84 01 C4| 
+  |1A| sensor value| 00 40 1A 07 80 EF 80 00 2C 00 2B B5|
+  |1C| status |00 FE 1C 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9|
+  |58| extended status | |
+  |18| pong, answer to remote ping |00 40 18 08 80 0C 00 03 00 00 48 00 97|
+  |18| master ack after setting param  |00 40 18 02 80 A1 7B|
+- From remote (40)
+  |Opc1|Desc|Example|
+  |---|---|---|
+  |11|  set power |  40 00 11 03 08 41 03 18 |
+  |11 | set mode |   40 00 11 03 08 42 01 19 (heat)|
+  |11 | set temp | 40 00 11 08 08 4C 09 1D 6C 00 05 05 65|
+  |11 | set save | |
+  |15| Error history   | 40 00 15 07 08 0C 81 00 00 48 00 9F  |
+  |17|   sensor query   | 40 00 17 08 08 80 EF 00 2C 08 00 02 1E |
+  | 55        temperature|    40 00 55 05 08 81 00 69 00 F0 |
+  
 
 Data length (1 byte)
-Length of data field
+- Length of data field
 
-Data
-| R/W mode | Operation Code | Params |
+Data (composed of the following parts)
 
-R/W mode
-08 seems to be for Write (from remote) mode and 80 for Read mode (from master)
+R/W mode (1 byte)
+|Mode|Desc|
+|---|---|
+|08 |for Write mode (from remote 40)|
+|80 |for Read mode (from master 00)|
 
-Operation code
+Opcode2
 
-From master
+  - From master (00)
+  
+    | Opcode2 | Desc | Example |
+    |---|---|---|
+    | 81 | status | 00 FE 1C 0D 80 81 34 A8 00 00 6C 00 55 55 01 00 01 1E |
+    | 81 | extended status | 00 FE 58 0F 80 81 35 AC 02 00 6E 6F E9 00 55 55 01 00 01 DB|
+    | 8A | alive   |00 FE 10 02 80 8A E6|
+    | A1 | ack after setting param  |00 40 18 02 80 A1 7B|
+    | 86 | mode  |00 52 11 04 80 86 24 05 60| 
+    | 0C | pong,answer to ping opc2 0C | 00 40 18 08 80 0c 00 03 00 00 48 00 97 | 
 
-81 status
-8A ack (dest FE)
-A1 ack (dest 40)
-86 ??? (dest 52)
-
-From remote
-
-41 power
-42 mode
-4C temp
-54 save
-0C 81 status
-0C 82 timer ???
-0C 00 (answer to 0C)
+  - From remote (40)
+  
+  
+    | Opcode2 | Desc | Example |
+    |---|---|---|
+    | 41 |power|40 00 11 03 08 41 02 19|
+    | 42 |mode|40 00 11 03 08 42 02 1A|
+    | 4C |temp, fan|40 00 11 08 08 4C 11 1A 6E 00 55 55 78|
+    | 54 |save (opc1 11)|40 00 11 04 08 54 01 00 08 |
+    | 80 |sensor query|40 00 17 08 08 80 EF 00 2C 08 00 02 1E|
+    | 81 |sensor room temp |40 00 55 05 08 81 00 6A 00 F3|
+    | 0C 81 | ping |40 00 15 07 08 0C 81 00 00 48 00 9F|
+    | 0C 82 |timer |40 00 11 09 08 0C 82 00 00 30 05 01 01 EB|
+    
+    
 
 CRC is computed as Checksum8 XOR of all the bytes (Compute it at https://www.scadacore.com/tools/programming-calculators/online-checksum-calculator/)
 
-# Parameter decoding
+# Message types
 
-Status
+There are two different status messages sent from master: normal and extended. Opcode for both is 81
+Extended has two extra bytes, one could be some temperature? and other is always E9 in my experiments.
+
+Normal status
 ```
 00 FE 1C 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9
 |  |     ||       |  |         |    |      |- save mode bit0
@@ -180,27 +284,178 @@ Status
 remote, last byte bit0
 master, status in two bits  byte bit0  byte bit2
 ```
-Extended status
+Extended status 
 ```
+                                 -- -- extra values in extended
 00 FE 58 0F 80 81 8D A8 00 00 7A 84 E9 00 33 33 01 00 01 9B
                                     |-always E9
                                  |-  1000 0100  1000010 66-35=31 (real temp??)  
-                              |-temp 0111 1010 111101 61-35 = 26
-                              
-00 fe 58 0f 80 81 35 ac 02 00 6e 6e e9 00 55 55 01 00 01 da
-00 fe 58 0f 80 81 35 ac 00 00 6e 6e e9 00 55 55 01 00 01 d8
-                         |- 2 pre-heat
-                      
-00 fe 58 0f 80 81 34 a8 00 00 6e 6f e9 00 55 55 01 00 01 dc
-                              
+                              |-temp 0111 1010 111101 61-35 = 26    
+                        |- 0x2 pre-heat
+ 
+temperature reading also confirmed  in pg14 https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf                                                      
 ``` 
 
+ALIVE message (sent every 5 seconds from master)
+```
+00 fe 10 02 80 8a e6 
+|  |  |  |  |  |  |- CRC
+|  | OPC1|  |  |- OPC2 
+|  ALL   |  |-from master, info message??
+Master   |- Length
 
-# Logs and their guesses
+From master (00) to all (fe)
+
+```
+
+ACK sent after setting parameters
+```
+00 40 18 02 80 a1 7b 
+```
+
+PING/PONG, remote pings and master pongs
+```
+40 00 15 07 08 0c 81 00 00 48 00 9f 
+               |- opcode ping
+               
+00 40 18 08 80 0c 00 03 00 00 48 00 97
+               |- opcode ping
+```
+
+Temp from remote to master.
+```
+40 00 55 05 08 81 00 68 00 f1 
+      |           |  |- 0110 1000 -> 104/2 -> 52 - 35 = 17   (temp)
+      |-opc1         |-bit0 ON:1 OFF:0                 
+      
+```
+
+From master mode status Opcode 2 0x86
+```
+00 52 11 04 80 86 24 00 65  heat
+      |-opc1      |  |- mode  bit7-bit5, power bit0, bit2 ???
+                  |- 0010 0100 -> mode bit7-bit5  bit4-bit0 ???
+                     ---                  
+```
+
+Setting commands
+
+Power
+```
+40 00 11 03 08 41 03 18    ON
+40 00 11 03 08 41 02 19   OFF
+                  |- power >> 1 | 0b1
+```                  
+Set mode
+```
+40 00 11 03 08 42 01 19 //heat
+                  |-(Mode is bit3-bit0 from last data 6th byte) cool:010 fan:011 auto 101 heat:001 dry: 100            
+```
+
+Set temperature
+```
+00 01 02 03 04 05 06 07 08 09 10 11 12  byte nr
+40 00 11 08 08 4C 0C 1D 7A 00 33 33 76
+                              |  |-0x33 for cold 0x55 for heat
+                              |-0x33 for cold 0x55 for heat
+                  |  |  |- ((target_temp) + 35) << 1
+                  |  |- fan | 0b11000 
+                  |- mode | 0b1000  cool:010 fan:011 auto 101 heat:001 dry: 100
+```
+
+Set fan (requires info about target temp, fan and heat/cold mode)
+
+```
+00 01 02 03 04 05 06 07 08 09 10 11 12 byte nr
+40 00 11 08 08 4C 13 1D 7A 00 33 33 6E //LOW, FAN
+                  |  |  |     |  |-0x33 for cold 0x55 for heat
+                  |  |  |     |- 0x33 for cold 0x55 for heat
+                  |  |  |- (target_temp) + 35) << 1
+                  |  |- fan bit4=1 bit3-bit1  auto:0x010 med:011 high:110 low:101
+                  |-  0x10 + mode  cool:010 fan:011 auto 101 heat:001 dry: 100
+```
+
+Set save
+```
+40 00 11 04 08 54 01 01 09  Save ON
+40 00 11 04 08 54 01 00 08  Save OFF
+                     |- bit 0 7th byte
+```
+TEST+SET for Error history
+```
+40 00 15 03 08 27 01 78
+                  |-Error 1
+00 40 18 05 80 27 08 00 48 ba
+                        |-Type 0x4 Num error 0x8   E-08
+
+```
+
+TEST + CL for sensor query
+```
+40 00 17 08 08 80 EF 00 2C 08 00 F3 EF   
+                                 |- Filter sign time
+00 40 1A 07 80 EF 80 00 2C 03 1E 83  
+                           |  |
+                           |--|------0x03 0x1E->  798  2bytes
+
+00 40 1A 05 80 EF 80 00 A2 12  answer for unknown sensor
+
+```
+
+Timer is decoded but remote takes care of it internally and ignores it if sent from external sources (our circuit)
+
+```
+40 00 11 09 08 0c 82 00 00 30 07 02 02 e9    1h for poweron
+                                    |----- number of 30 minutes periods,  2 -> 1h
+                                 |----- number of 30 minutes periods,  2 -> 1h
+                              |------ 07 poweron   06 poweroff repeat 05 poweroff  00 cancel
+                              
+
+Sequence observed for 1h poweron
+
+40 00 11 03 08 41 03 18    powers on
+00 40 18 02 80 a1 7b       ack
+40 00 11 09 08 0c 82 00 00 30 00 04 01 eb  cancels timer
+00 40 18 02 80 a1 7b       ack
+
+```
+# Sensor addresses
+
+| No.  | Desc  | Example value  |
+|---|---|---|
+| 00 | Room Temp (Control Temp) (°C) | Obtained from master status frames 00 FE 1C ...|
+| 01 | Room temperature (remote controller) | Obtained from controller messages 40 00 55 ... |
+| 02 | Indoor unit intake air temperature (TA) | 23 |
+| 03 | Indoor unit heat exchanger (coil) temperature (TCJ) Liquid | 19 |
+| 04 | Indoor unit heat exchanger (coil) temperature (TC) Vapor | 19 |
+| 07 | Indoor Fan Speed|  0 |
+| 60 | Outdoor unit heat exchanger (coil) temperature (TE) | 18 |
+| 61 | Outside air temperature (TO)| 19 |
+| 62 | Compressor discharge temperature (TD) | 33 |
+| 63 | Compressor suction temperature (TS) | 26 |
+| 65 | Heatsink temperature (THS) | 55 |
+| 6a | Operating current (x1/10) | 0 |
+| 6d | TL Liquid Temp (°C) | 22 |
+| 70 | Compressor Frequency (rps)| 0 |
+| 72 | Fan Speed (Lower) (rpm) | 0 |
+| 73 | Fan Speed (Upper) (rpm) | defined in manual, not working  |
+| 74 | ? | 43, is this fan speed upper? |
+| 75 | ? | 0 |
+| 76 | ? | 0 |
+| 77 | ? | 0 |
+| 78 | ? | 0 |
+| 79 | ? | 0 |
+| f0 | ? | 204 |
+| f1 | Compressor cumulative operating hours (x100 h) | 7 |
+| f2 | Fan Run Time (x 100h) | 8 |
+| f3 | Filter sign time x 1h | 37 |
+
+
+# Notes from logs (used for the above info)
 
 ```
 Op code from remote
-4C 0C 1D  temp         40 00 11 08 08 4C 0C 1D 78 00 33 33 74
+4C 0C 1D  set temp     40 00 11 08 08 4C 0C 1D 78 00 33 33 74
 0C 81     status      
 41        power        40 00 11 03 08 41 03 18
 42        mode         40 00 11 03 08 42 02 1A //cool  02 -> 0000 0010
@@ -280,6 +535,10 @@ bit7..bit0 /2 - 35 =Temp
 40 00 55 05 08 81 00 7E 00 E7  //7E  0111 1110   126    126/2-35= 28
                      --                                       
 ```
+```
+40 00 11 08 08 4c 11 1c 6c 00 55 55 7c  //Set Fan Medium
+00 40 18 02 80 a1 7b  //kind of ack
+```
 
 Communication while POWERED OFF
 ```
@@ -320,67 +579,7 @@ Temp down
 00 FE 10 02 80 8A E6 # typical answer, maybe confirmation
 ```
 
-Temp up
 ```
-40 00 11 08 08 4C 0C 1D 7A 00 33 33 76 # press temp up   (current 25, 26 after pressing)
-00 40 18 02 80 A1 7B # typical answer, maybe confirmation
-00 FE 1C 0D 80 81 8D AC 00 00 7A 00 33 33 01 00 01 B5 # looks like current status
-00 52 11 04 80 86 84 05 C0 #
-00 FE 10 02 80 8A E6 # typical answer, maybe confirmation
-```
-
-Temp down from 26 to 18
-```
-40 00 11 08 08 4C 0C 1D 78 00 33 33 74 # press temp down (current 26, 25 after pressing)
-00 40 18 02 80 A1 7B # typical answer, maybe confirmation
-00 FE 1C 0D 80 81 8D AC 00 00 78 00 33 33 01 00 01 B7 # looks like current status
-00 52 11 04 80 86 84 05 C0 #this seq was in temp up ???
-
-40 00 11 08 08 4C 0C 1D 76 00 33 33 7A # press temp down (current 25, 24 after pressing)
-00 40 18 02 80 A1 7B
-00 FE 1C 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9
-00 52 11 04 80 86 84 05 C0 
-
-40 00 11 08 08 4C 0C 1D 74 00 33 33 78 # press temp down 22 
-00 40 18 02 80 A1 7B
-00 FE 1C 0D 80 81 8D AC 00 00 74 00 33 33 01 00 01 BB
-00 52 11 04 80 86 84 05 C0
-
-40 00 11 08 08 4C 0C 1D 72 00 33 33 7E # press temp down 21
-00 40 18 02 80 A1 7B
-00 FE 1C 0D 80 81 8D AC 00 00 72 00 33 33 01 00 01 BD
-00 52 11 04 80 86 84 05 C0
-
-40 00 11 08 08 4C 0C 1D 70 00 33 33 7C # press temp down 20
-...
-40 00 11 08 08 4C 0C 1D 6E 00 33 33 62 # press temp down 19
-...
-40 00 11 08 08 4C 0C 1D 6C 00 33 33 60 # press temp down 18
-...
-40 00 15 07 08 0C 81 00 00 48 00 9F # press temp up 19  !!!! 
-00 40 18 08 80 0C 00 03 00 00 48 00 97 
-
-40 00 11 08 08 4C 0C 1D 6C 00 33 33 60 # press temp up 20
-00 40 18 02 80 A1 7B
-00 52 11 04 80 86 84 05 C0
-00 FE 1C 0D 80 81 8D AC 00 00 6A 00 33 33 01 00 01 A5
-00 FE 10 02 80 8A E6
-
-40 00 55 05 08 81 00 7C 00 E5 # press temp up 21
-00 FE 58 0F 80 81 AC 00 00 6A 7F E9 00 33 33 01 00 01 75
-00 52 11 04 80 86 84 05 C0
-
-40 00 11 08 08 4C 0C 1D 6C 00 33 33 60 # press temp up 22
-...
-40 00 11 08 08 4C 0C 1D 6E 00 33 33 62 # press temp up 23
-...
-40 00 11 08 08 4C 0C 1D 70 00 33 33 7C # press temp up 24
-...
-40 00 11 08 08 4C 0C 1D 72 00 33 33 7E # press temp up 25
-...
-40 00 11 08 08 4C 0C 1D 70 00 33 33 7C # press temp up 26
-
-
 only messages from remote
 method 1
 40 00 11 08 08 4C 0C 1D 7C 00 33 33 70 //27     7C -> 0111 1100  111110  14     30    62
@@ -540,10 +739,6 @@ From master status  7th byte bit7-bit5
 
 ```
 
-Timer off  (it needs more working)
-```
-40 00 11 09 08 0C 82 00 00 30 05 01 01 EB 
-```
 
 TEST, ON, HEAT, COOL, OFF, TEST
 ```
@@ -557,16 +752,108 @@ TEST, ON, HEAT, COOL, OFF, TEST
 40 00 11 03 08 41 02 19  power off
 40 00 11 03 08 41 80 9B  test off?   1000
 ```
+
+TEST + CL sensor inquiry
+```
+40 00 17 08 08 80 EF 00 2C 08 00 02 1E
+                                 |----- sensor 2
+00 40 1A 07 80 EF 80 00 2C 00 15 8B  
+                              |--------- 0x15 -> 21
+
+00 40 1A 05 80 EF 80 00 A2 12  answer for unknown sensor
+
+40 00 17 08 08 80 EF 00 2C 08 00 F3 EF   F3 Filter sign time
+00 40 1A 07 80 EF 80 00 2C 03 1E 83     0x03 0x1E->  798  2bytes
+```
+
+Timer
+```
+40 00 11 09 08 0c 82 00 00 30 05 01 01 eb   30m poweroff
+40 00 11 09 08 0c 82 00 00 30 05 02 02 eb    2h poweroff
+40 00 11 09 08 0c 82 00 00 30 00 04 01 eb   cancel timer                                  
+40 00 11 09 08 0c 82 00 00 30 06 03 03 e8   1.5h poweroff repeat
+40 00 11 09 08 0c 82 00 00 30 06 01 01 e8   30m  poweroff repeat
+40 00 11 09 08 0c 82 00 00 30 07 30 30 e9   24h poweron
+40 00 11 09 08 0c 82 00 00 30 07 04 04 e9    2h poweron
+
+40 00 11 09 08 0c 82 00 00 30 07 02 02 e9    1h for poweron
+                                    |----- number of 30 minutes
+                                 |----- repeated
+                              |------ 07 poweron   06 poweroff repeat 05 poweroff  00 cancel
+
+```
+
+Power on
+
+```
+40 00 11 03 08 41 03 18                                      Power on 
+00 fe 1c 0d 80 81 35 ac 00 00 6c 00 55 55 01 00 01 1b        Normal status
+00 52 11 04 80 86 24 01 64                                   Mode
+00 fe 10 02 80 8a e6                                         Periodic ping
+40 00 15 07 08 0c 81 00 00 48 00 9f                          ??
+00 40 18 08 80 0c 00 03 00 00 48 00 97                       Answer to ??
+40 00 55 05 08 81 00 65 00 fc                                Sensor temp
+00 fe 58 0f 80 81 35 ac 00 00 6c 6f e9 00 55 55 01 00 01 db  Extended status
+00 52 11 04 80 86 24 01 64
+
+```
+Power off
+
+```
+40 00 11 03 08 41 02 19                                      Power off
+00 40 18 02 80 a1 7b                                         ACK after a command
+00 fe 1c 0d 80 81 34 a8 00 00 6c 00 55 55 01 00 01 1e        Normal status
+00 52 11 04 80 86 24 00 65                                   Mode
+00 fe 10 02 80 8a e6                                         Periodic ping
+40 00 15 07 08 0c 81 00 00 48 00 9f                          ??
+00 40 18 08 80 0c 00 03 00 00 48 00 97                       Answer to ??
+40 00 55 05 08 81 00 6a 00 f3                                Sensor temp
+00 fe 58 0f 80 81 34 a8 00 00 6c 6c e9 00 55 55 01 00 01 dd  Extended status
+
+```
+TEST+SET for Error history
+```
+40 00 15 03 08 27 01 78           Error 1
+00 40 18 05 80 27 08 00 48 ba     Type 0x4 Num error 0x8   E-08
+
+40 00 15 03 08 27 02 7b           Error 2
+00 40 18 05 80 27 08 00 43 b1     Type 0x4 Num error 0x3   E-03
+
+40 00 15 03 08 27 03 7a           Error 3
+00 40 18 05 80 27 00 00 00 fa     0x0 0x0   No error
+```
+
+```
+00 40 18 02 80 A1 7B
+00 40 18 08 80 0C 00 03 00 00 48 00 97
+00 40 1A 07 80 EF 80 00 2C 00 00 9E
+00 52 11 04 80 86 24 00 65
+00 55 55 01 00 01
+00 FE 10 02 80 8A E6
+00 FE 1C 0D 80 81 34 A8 00 00 6C 00 55 55 01 00 01 1E
+00 FE 58 0F 80 81 34 A8 00 00 6C 6D E9 00 55 55 01 00 01 DC
+40 00 11 03 08 41 02 19
+40 00 11 03 08 41 03 18
+40 00 11 08 08 4C 09 1D 6C 00 05 05 65
+40 00 11 09 08 0C 82 00 00 30 05 01 01 EB
+40 00 15 07 08 0C 81 00 00 48 00 9F
+40 00 17 08 08 80 EF 00 2C 08 00 02 1E
+40 00 55 05 08 81 00 66 00 FF
+```
+
+
 # Other info
 
 Info about commercial gateways but no info about protocol :(
 
 Connections https://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_CassetteUTP_DI-SDI-111416-E_GB.pdf
-Some info o features  pg52 http://www.toshiba-aircon.co.uk/assets/uploads/pdf/sales_tools/New_Technical_Handbook_version_14_1_3.pdf
-
+Sensor addresses (pg 52) http://www.toshiba-aircon.co.uk/assets/uploads/pdf/sales_tools/New_Technical_Handbook_version_14_1_3.pdf
+Sensor addresses (pg 73) https://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_CassetteUTP_DI-SDI-111416-E_GB.pdf
+Sensor addresses (pg 42) http://www.toshiba-aircon.co.uk/assets/uploads/pdf/sales_tools/Technical_Handbook_ver._13.1.pdf
 
 Error codes from Toshiba (pg 38) https://cdn.shopify.com/s/files/1/1144/2302/files/BP-STD_Toshiba_v1_08.pdf
-TCS-Net https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf
+Temperature formula TCS-Net https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf
+https://www.toshibaheatpumps.com/customer-support/owner-manuals
 https://www.intesisbox.com/intesis/product/media/intesisbox_to-ac-knx-16-64_user_manual_en.pdf?v=2.2
 
 
