@@ -1,9 +1,15 @@
 # toshiba_air_cond
-Decode Toshiba AB protocol (TCC Link??) for air conditioners with wired controllers.
+This project implements functions to decode Toshiba AB protocol (TCC Link?) for air conditioners with wired controllers and provides a hardware design to communicate.
 
-Tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
+In case you are interested in a board just contact me. If you are more in the DIY, you have the gerbers and remember if you improve the design please share it.
 
-Service manual http://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_Gainable_Std-Compact--DI_406566806110614061606_GB.pdf
+It has been tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
+
+You can find the service manual from central unit and wired controller here http://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_Gainable_Std-Compact--DI_406566806110614061606_GB.pdf
+
+https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf
+
+In paricular my unit is RAV-SM406BTP-E  which stands for
 
 ```
 RAV-SM406BTP-E 
@@ -15,16 +21,14 @@ RAV-SM406BTP-E
 |- Light comercial
 ```
 
-https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf
 
-Error codes and sensor addresses
+If you want to know about error codes and sensor addresses you can check the following links.
 http://www.toshiba-aircon.co.uk/assets/uploads/pdf/sales_tools/Technical_Handbook_ver._13.1.pdf
 https://www.cdlweb.info/wp-content/uploads/2020/10/1-CDL-Toshiba-R32-Technical-Handbook-V10-2020.pdf
 https://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_CassetteUTP_DI-SDI-111416-E_GB.pdf
 
 
-Interesting project with similar protocol for heat equipment https://github.com/H4jen/webasto_sniffer
-
+I found this projects interesting even that it is not the same protocol https://github.com/H4jen/webasto_sniffer
 https://echonet.jp/wp/wp-content/uploads/pdf/General/Standard/Release/Release_F_en/SpecAppendixF_e.pdf
 
 
@@ -35,7 +39,8 @@ https://echonet.jp/wp/wp-content/uploads/pdf/General/Standard/Release/Release_F_
 
 # TO-DOS
 
-- Fix PCB: mirror transistor footprint, route EN line and necessary stuff for ESP12X
+- Improve PCB
+- Fix PCB: route EN line and necessary stuff for ESP12X
 - Fix PCB: jumper for Hardware or Software Serial
 
 - Fix parsing to support round buffer and not to loose partial frames (not necessary)
