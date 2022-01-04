@@ -36,51 +36,11 @@ https://echonet.jp/wp/wp-content/uploads/pdf/General/Standard/Release/Release_F_
 
 -Operational.
 
-
-# TO-DOS
-
-- Improve PCB
-- Fix PCB: route EN line and necessary stuff for ESP12X
-- Fix PCB: jumper for Hardware or Software Serial
-
-- Fix parsing to support round buffer and not to loose partial frames (not necessary)
-
-- Redesign HTML page (WIP, fixed divs) 
-https://mdbootstrap.com/snippets/jquery/ascensus/456902#html-tab-view   calculator
-https://codepen.io/lalwanivikas/pen/eZxjqo  calculator
-https://codepen.io/giana/pen/GJMBEv   calculator
-https://codepen.io/CiTA/pen/OwowEB remote
-
-- Simple decode example
-
-- Clearer Protocol documentation
-
-- MQTT and HA support
-
-- Use DC buck/boost from A-B line to power ESP8266 (tried, but not working)
-
-- Check other circuits as:
-  - https://easyeda.com/marcegli/door-opener
-  - https://frog32.ch/smart-intercom.html 
-  - https://electronics.stackexchange.com/questions/458996/logic-level-converter-for-nodemcu-esp8266-input-24v-16v-hi-lo-500-baud 
-  - https://sudonull.com/post/18480-We-pump-the-intercom-with-the-MQTT-protocol-to-control-from-the-phone
-  - https://hackaday.com/2019/01/07/building-an-esp8266-doorbell-on-hard-mode/
-  - https://daeconsulting.co.za/2018/12/17/theres-someone-at-the-door/
-
-- Announce project in other similar ones
-  - https://github.com/ToniA/arduino-heatpumpir/
-  - https://github.com/openenergymonitor
-  - https://github.com/roarfred/AmsToMqttBridge
-  - https://github.com/dgoodlad/esp8266-mitsubishi-aircon
-  - https://github.com/H4jen/webasto_sniffer
-
 # Data acquisition
 
-DS0138 oscilloscope can be used to monitor the signal (voltage differs around 0.7V but it is usable) and guess voltages and bps. Later, an 8-channel USB logic analyzer (4-5 USD) can be used to capture data into the computer. REMEMBER to convert voltages to 0-3.3v before connecting it to logic analyzer or you will fry it. You can use the read circuit below.
+DS0138 oscilloscope can be used to monitor the signal (voltage differs around 0.7V but it is usable) and to guess voltages and baudrate. Later, an 8-channel USB logic analyzer (4-5 USD) can be used to capture data into the computer. **REMEMBER** to convert voltages to 0-3.3v before connecting it to logic analyzer or you will fry it. You can use the read circuit below.
 
 To capture data you can use pulseview with uart decoder 2400 bps, 8bits, start, stop, EVEN parity
-
-When the data has been validated visually you can use the following command line that reads RX data annotations and print one message per line according to 4th byte (message size).
 
 In case you need it you can install the following packages
 ```
@@ -88,16 +48,18 @@ sudo apt install sigrok-cli
 sudo apt install sigrok-firmware-fx2lafw
 ```
 
+When the data has been validated visually you can use the following command line that reads RX data annotations and print one message per line according to 4th byte (message size).
+
 ```
 sigrok-cli -P uart:rx=D0:baudrate=2400:parity_type=even -A uart=rx_data -i  YOURFILE  | awk '{pad =" "; b[len%4]=$2; if(len==3) {bytes="0x"b[len];  printf("%s%s%s%s%s%s%s%s",b[0],pad,b[1],pad,b[2],pad,b[3],pad)} if(len>3) {printf("%s%s",$2,pad);} len=len+1; if(len==4+bytes+1) {print "";len=0;bytes=0}}'
 ```
 
+```
 sigrok-cli -d fx2lafw -c samplerate=250000 -t D0=r -P uart:rx=D0:baudrate=2400:parity_type=even  -A uart=rx_data --continuous
+```
 
 # Custom hardware
-https://learnabout-electronics.org/Semiconductors/opto_52.php
-
-Circuits have been designed to read and write the signal
+I have designed some circuits to read and write the signal
 
 ```
 Air conditioning side:
@@ -845,6 +807,46 @@ TEST+SET for Error history
 40 00 17 08 08 80 EF 00 2C 08 00 02 1E
 40 00 55 05 08 81 00 66 00 FF
 ```
+
+
+
+# TO-DOS
+
+- Improve PCB
+- Fix PCB: route EN line and necessary stuff for ESP12X
+- Fix PCB: jumper for Hardware or Software Serial
+
+- Fix parsing to support round buffer and not to loose partial frames (not necessary)
+
+- Redesign HTML page (WIP, fixed divs) 
+https://mdbootstrap.com/snippets/jquery/ascensus/456902#html-tab-view   calculator
+https://codepen.io/lalwanivikas/pen/eZxjqo  calculator
+https://codepen.io/giana/pen/GJMBEv   calculator
+https://codepen.io/CiTA/pen/OwowEB remote
+
+- Simple decode example
+
+- Clearer Protocol documentation
+
+- MQTT and HA support
+
+- Use DC buck/boost from A-B line to power ESP8266 (tried, but not working)
+
+- Check other circuits as:
+  - https://easyeda.com/marcegli/door-opener
+  - https://frog32.ch/smart-intercom.html 
+  - https://electronics.stackexchange.com/questions/458996/logic-level-converter-for-nodemcu-esp8266-input-24v-16v-hi-lo-500-baud 
+  - https://sudonull.com/post/18480-We-pump-the-intercom-with-the-MQTT-protocol-to-control-from-the-phone
+  - https://hackaday.com/2019/01/07/building-an-esp8266-doorbell-on-hard-mode/
+  - https://daeconsulting.co.za/2018/12/17/theres-someone-at-the-door/
+
+- Announce project in other similar ones
+  - https://github.com/ToniA/arduino-heatpumpir/
+  - https://github.com/openenergymonitor
+  - https://github.com/roarfred/AmsToMqttBridge
+  - https://github.com/dgoodlad/esp8266-mitsubishi-aircon
+  - https://github.com/H4jen/webasto_sniffer
+
 
 
 # Other info
