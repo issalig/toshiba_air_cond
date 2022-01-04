@@ -61,8 +61,8 @@ sigrok-cli -d fx2lafw -c samplerate=250000 -t D0=r -P uart:rx=D0:baudrate=2400:p
 # Custom hardware
 I have designed some circuits to read and write the signal
 
-```
-Air conditioning side:
+## Read
+- Air conditioning side:
 Signal is around 15.6 volts when 1 and 14 when 0. Zener diode provides 13V reference, so signal is 1V .. 2.6V and after diode (0.7V drop) is 0.3V .. 1.9V, enough to activate photodiode (1.2V) when 1 and to not activate it when 0.
 
 Led drops 1.2v, and from signal we have a difference of 15.6-13=2.6, thus 2.6-1.2=1.4/100= 14mA which has a maximum CTR=140%
@@ -75,9 +75,9 @@ Type     VZnom  IZT  for  rzjT    rzjk  at  IZK    IR  at  VR
 Izt=19 mA -> 2.6/19=130ohm  P=VI 2.6*19 =52mW
 
 
-Microcontroller side: 1k resistor limits the current. ESP8266 max current is 12mA > 3.3/1k = 3.3 mA
+- Microcontroller side: 1k resistor limits the current. ESP8266 max current is 12mA > 3.3/1k = 3.3 mA
 
-Read schematic
+```
                              1N4001  _______
   A -----------------100R ---->|----|       |-------------3v3
                 |                   | PC817 |
@@ -89,14 +89,19 @@ Read schematic
                                               |
                                              GND
              
+```
+
+##Write
+
 Write circuit performs similarly to read circuit. When OUT signal is 1, transistor and pullup resistor are 0, thus optocoupler is OFF and voltage is 15.6 (HIGH). When OUT signal is 0, transistor is off and pullup resistor sends 1 and activates optocoupler and zener diode gives 13V (LOW).
 Some systems recommend to set the Follower in the remote unit.
 
-
-Write schematic (use under your own risk)
+Here I attach specs for the components.
 https://www.onsemi.com/pub/Collateral/P2N2222A-D.PDF 
 https://learnabout-electronics.org/Downloads/PC817%20optocoupler.pdf
 
+
+```
 
               3v3                                   1N4001
                |                             |--------<------- A               
@@ -108,10 +113,6 @@ https://learnabout-electronics.org/Downloads/PC817%20optocoupler.pdf
                |             |                     |
               GND           GND                    ------------ B
   
-  
-                                      |
-
-
 
 ```
 
