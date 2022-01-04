@@ -34,7 +34,7 @@ https://echonet.jp/wp/wp-content/uploads/pdf/General/Standard/Release/Release_F_
 
 # Status
 
--Operational.
+- Operational.
 
 # Data acquisition
 
