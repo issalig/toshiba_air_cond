@@ -1,6 +1,9 @@
 /*
   Name:       air.ino
-  Created:    01/06/2020 initial version
+  Description: Control toshiba air cond via web
+  Author:     issalig
+
+  History:    01/06/2020 initial version
               15/07/2020 Websockets
               27/08/2020 temperature graph
               05/09/2020 fix temp, fix heat mode
@@ -10,9 +13,9 @@
               04/01/2021 pre-heat detection
               14/01/2021 sensor info, to, tcj , ...
               18/06/2021 fixed some crashes
-
-  Author:     issalig
-  Description: Control toshiba air cond via web
+              18/11/2021 power consumption
+              07/12/2021 fixed query_sensors
+              04/01/2021 spiffs -> littlefs (fix crash problems)
 
   Instructions:
               HW
@@ -20,7 +23,8 @@
               DHT is connected to D3 (not necessary)
               BMP180 connected to D1 (SCL) D2 (SDA) (not necessary)
               Software serial rx on D7, tx on D8
-              
+              Wemos mini D1
+
               SW
               Upload data directory with ESP8266SketchDataUpload and flash it with USB for the first time. Then, when installed you can use OTA updates.
 
@@ -33,6 +37,8 @@
   Dependencies: https://github.com/plerup/espsoftwareserial
 */
 
+#include "LittleFS.h"
+#define SPIFFS LittleFS
 
 #include <ESP8266WiFi.h>
 
@@ -56,6 +62,7 @@
 #include "toshiba_serial.hpp"
 #include "MySimpleTimer.hpp"
 #include "process_request.hpp"
+#include "wip.hpp"
 
 #include "config.h"
 #include "credentials.h" // set your wifi pass there
@@ -74,7 +81,7 @@ Ticker ticker;
 
 int LED = LED_BUILTIN;
 
-
+//change it according to your network
 IPAddress ip(192, 168, 2, 200);
 IPAddress gateway(192, 168, 2, 1);
 IPAddress subnet(255, 255, 255, 0);
@@ -112,10 +119,10 @@ float dht_h[MAX_LOG_DATA];
 float dht_t[MAX_LOG_DATA];
 float ac_sensor[MAX_LOG_DATA];
 //float ac_target[MAX_LOG_DATA];
-int ac_outdoor_to[MAX_LOG_DATA];
+int ac_outdoor_te[MAX_LOG_DATA];
 float bmp_t[MAX_LOG_DATA];
 float bmp_p[MAX_LOG_DATA];
-unsigned long timestamp[MAX_LOG_DATA];
+unsigned long timestamps[MAX_LOG_DATA];
 int temp_idx = 0;
 float dht_h_current, dht_t_current, bmp_t_current, bmp_p_current = 0;
 
@@ -136,13 +143,13 @@ MySimpleTimer timerSaveFile;
 void setup() {
 
   Serial.begin(115200);        // Start the Serial communication to send messages to the computer
-//  gdbstub_init();
+  //  gdbstub_init();
   delay(10);
   Serial.println("\r\n");
 
-  startWiFi();                 // Start a Wi-Fi access point, and try to connect to some given access points. Then wait for either an AP or STA connection
+  //startWiFi();                 // Start a Wi-Fi access point, and try to connect to some given access points. Then wait for either an AP or STA connection
 
-  //startWifiManager();
+  startWifiManager();
 
   //is_reset_button();
 
@@ -158,16 +165,30 @@ void setup() {
 
   init_air_serial(&air_status);// Start air conditioning structure and software serial
 
+  air_status.ip = WiFi.localIP().toString();
+
   startReadSerial();           // Start timer for serial readings (1s)
 
   startStatus();               // Start timer for status print (10s)
 
-  timeClient.begin();          // Get NTP time
+  yield();
 
-  timeClient.update();
-  air_status.boot_time = timeClient.getEpochTime();
+  startTime();                 // Get time from NTP server
 
   startTemperature();          // Start timer for temperature readings (120s)
+}
+
+void startTime() {
+  long int boot_time;
+
+  timeClient.begin();          // Get NTP time
+  //timeClient.update();
+  for (int i = 0; i < 5; i++) {
+    timeClient.update();                        // update time
+    boot_time = timeClient.getEpochTime();
+    if (boot_time > 3600) break;                  // check we are not still in 1970
+  }
+  air_status.boot_time = boot_time;
 }
 
 void startTemperature() {
@@ -180,10 +201,10 @@ void startTemperature() {
   memset(dht_h, 0, MAX_LOG_DATA * sizeof(float));
   memset(dht_t, 0, MAX_LOG_DATA * sizeof(float));
   memset(ac_sensor, 0, MAX_LOG_DATA * sizeof(float));
-  memset(ac_outdoor_to, 0, MAX_LOG_DATA * sizeof(float));
+  memset(ac_outdoor_te, 0, MAX_LOG_DATA * sizeof(float));
   memset(bmp_p, 0, MAX_LOG_DATA * sizeof(float));
   memset(bmp_t, 0, MAX_LOG_DATA * sizeof(float));
-  memset(timestamp, 0, MAX_LOG_DATA * sizeof(unsigned long));
+  memset(timestamps, 0, MAX_LOG_DATA * sizeof(unsigned long));
 
 
   dht.begin();
@@ -203,10 +224,10 @@ void startTemperature() {
   ac_sensor[0] = air_status.sensor_temp;
   //ac_target[0] = air_status.target_temp * air_status.power;
 
-  air_query_sensor(&air_status, OUTDOOR_TO);
-  ac_outdoor_to[0] = air_status.outdoor_to;
+  air_query_sensor(&air_status, OUTDOOR_TE);
+  ac_outdoor_te[0] = air_status.outdoor_te;
 
-  timestamp[0] = 0; //timeClient.getEpochTime();
+  timestamps[0] = 0; //timeClient.getEpochTime();
 }
 
 void startStatus() {
@@ -234,14 +255,22 @@ void startSaveFile() {
   timerSaveFile.start();
 }
 
-//software timer
+//check power each minute
+//void startCheckPowerConsumption() {
+//  timerCheckPowerConsumption.setUnit(1000);
+//  timerCheckPowerConsumption.setInterval(60);
+//  timerCheckPowerConsumption.repeat();
+//  timerCheckPowerConsumption.start();
+//}
+
+//software air conditioning timer
 void handleTimer() {
   if (timerAC.isTime()) {
     if (air_status.timer_mode_req == TIMER_SW_OFF) {
       //set power off
       Serial.println("TIMER - POWER OFF");
       air_set_power_off(&air_status);
-    } else {
+    } else if (air_status.timer_mode_req == TIMER_SW_ON) {
       //set power on
       Serial.println("TIMER - POWER ON");
       air_set_power_on(&air_status);
@@ -264,7 +293,7 @@ void handleTemperature() {
     if (bmp_status) {
       bmp_t[temp_idx] = bmp.readTemperature();
       bmp_p[temp_idx] = bmp.readPressure() / 100; //in mb
-      Serial.printf("BMP %d temp %.1f press %.1f\n",  temp_idx,bmp_t[temp_idx], bmp_p[temp_idx]);
+      Serial.printf("BMP %d temp %.1f press %.1f\n",  temp_idx, bmp_t[temp_idx], bmp_p[temp_idx]);
     } else {
       //set to -1 when not available
       bmp_t[temp_idx] = bmp_t[temp_idx] - 1;
@@ -275,11 +304,11 @@ void handleTemperature() {
     //ac_target[temp_idx] = air_status.target_temp * air_status.power; //0 if powered off
     ac_sensor[temp_idx] = air_status.sensor_temp;
 
-    air_query_sensor(&air_status, OUTDOOR_TO);
-    ac_outdoor_to[temp_idx] = air_status.outdoor_to;
+    air_query_sensor(&air_status, OUTDOOR_TE);
+    ac_outdoor_te[temp_idx] = air_status.outdoor_te;
 
     timeClient.update();
-    timestamp[temp_idx] = timeClient.getEpochTime();
+    timestamps[temp_idx] = timeClient.getEpochTime();
 
     temp_idx = (temp_idx + 1) % MAX_LOG_DATA;
   }
@@ -315,15 +344,17 @@ void getTemperatureCurrent() {
 void handleStatus() {
   if (timerStatus.isTime()) {
     getTemperatureCurrent();
-    air_query_sensors(&air_status); //query few sensors
+    air_query_sensors(&air_status); //query few sensors, if this takes too much time it can crash wifi
     air_print_status(&air_status);
-    //air_explore_all_sensors(&air_status); //it takes a lot of time, just to discover sensors
+    //air_explore_all_sensors(&air_status); //it takes a lot of time, use it just to discover sensors
+    air_status.power_consumption += air_status.outdoor_current * 10 / 30; //30 readings per hour
   }
 }
 
 void handleReadSerial() {
+  int val;
   if (timerReadSerial.isTime()) {
-    air_parse_serial(&air_status);
+    val = air_parse_serial(&air_status);
   }
 }
 
@@ -472,6 +503,51 @@ void startServer() { // Start a HTTP server with a file read handler and an uplo
 }
 
 
+void startWifiManager() {
+  //set led pin as output
+  pinMode(LED_BUILTIN, OUTPUT);
+  // start ticker with 0.5 because we start in AP mode and try to connect
+  ticker.attach(0.6, tick);
+
+  //WiFiManager
+  //Local intialization. Once its business is done, there is no need to keep it around
+  WiFiManager wm;
+  //reset settings - for testing
+  //wm.resetSettings();
+  //wm.setSTAStaticIPConfig(ip, gateway, subnet);
+
+  //set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
+  wm.setAPCallback(configModeCallback);
+
+  //fetches ssid and pass and tries to connect
+  //if it does not connect it starts an access point with the specified name
+  //here  "AutoConnectAP"
+  //and goes into a blocking loop awaiting configuration
+  if (!wm.autoConnect("aircondAP")) {
+    Serial.println("failed to connect and hit timeout");
+    //reset and try again, or maybe put it to deep sleep
+    ESP.restart();
+    delay(1000);
+  }
+
+  //if you get here you have connected to the WiFi
+  Serial.println("connected...yeey :)");
+  ticker.detach();
+  //keep LED off
+  digitalWrite(LED, HIGH);
+}
+
+
+//gets called when WiFiManager enters configuration mode
+void configModeCallback (WiFiManager *myWiFiManager) {
+  Serial.println("Entered config mode");
+  Serial.println(WiFi.softAPIP());
+  //if you used auto generated SSID, print it
+  Serial.println(myWiFiManager->getConfigPortalSSID());
+  //entered config mode, make led toggle faster
+  ticker.attach(0.2, tick);
+}
+
 /*__________________________________________________________SERVER_HANDLERS__________________________________________________________*/
 
 void handleNotFound() { // if the requested file or page doesn't exist, return a 404 not found error
@@ -568,11 +644,11 @@ int save_file(String name, String text) {
 String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
   String val;
   if (bytes < 1024) {
-    val= String(bytes) + "B";
+    val = String(bytes) + "B";
   } else if (bytes < (1024 * 1024)) {
-    val= String(bytes / 1024.0) + "KB";
+    val = String(bytes / 1024.0) + "KB";
   } else if (bytes < (1024 * 1024 * 1024)) {
-    val= String(bytes / 1024.0 / 1024.0) + "MB";
+    val = String(bytes / 1024.0 / 1024.0) + "MB";
   }
 
   return val;

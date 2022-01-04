@@ -1,4 +1,5 @@
 #include "config.h"
+
 extern air_status_t air_status;
 extern WebSocketsServer webSocket;
 
@@ -16,10 +17,10 @@ extern float dht_h[MAX_LOG_DATA];
 extern float dht_t[MAX_LOG_DATA];
 extern float ac_sensor[MAX_LOG_DATA];
 
-extern int ac_outdoor_to[MAX_LOG_DATA];
+extern int ac_outdoor_te[MAX_LOG_DATA];
 extern float bmp_t[MAX_LOG_DATA];
 extern float bmp_p[MAX_LOG_DATA];
-extern unsigned long timestamp[MAX_LOG_DATA];
+extern unsigned long timestamps[MAX_LOG_DATA];
 extern int temp_idx;
 extern float dht_h_current, dht_t_current, bmp_t_current, bmp_p_current;
 
@@ -43,30 +44,39 @@ void serialize_array_float(float *ptr, JsonArray &arr, int idx) {
   int i;
   if (idx > MAX_LOG_DATA) idx = 0;
 
-  //arr.add((float)ptr[idx]);
-  //for (i = (idx + 1) % MAX_LOG_DATA; i != idx; i = (i + 1) % MAX_LOG_DATA) {
-  for (i = 0; i < MAX_LOG_DATA; i++){
-    Serial.printf("%d ", ptr[(idx+i)%MAX_LOG_DATA]);
-    arr.add((float)ptr[(idx+i)%MAX_LOG_DATA]);
+  for (i = 0; i < MAX_LOG_DATA; i++) {
+    //Serial.printf("%.2f ", ptr[(idx+i)%MAX_LOG_DATA]);
+    arr.add(ptr[(idx + i) % MAX_LOG_DATA]);
   }
+
+  //arr.add(arr.size());
+  //arr.add(arr.memoryUsage());
 }
 
 void serialize_array_ul_int(unsigned long *ptr, JsonArray &arr, int idx) {
   int i;
   if (idx > MAX_LOG_DATA) idx = 0;
-  arr.add((unsigned long)ptr[idx]);
-  for (i = (idx + 1) % MAX_LOG_DATA; i != idx; i = (i + 1) % MAX_LOG_DATA) {
-    arr.add((unsigned long)ptr[i]);
+
+  for (i = 0; i < MAX_LOG_DATA; i++) {
+    //Serial.printf("%.2f ", ptr[(idx+i)%MAX_LOG_DATA]);
+    arr.add(ptr[(idx + i) % MAX_LOG_DATA]);
   }
+
+  //arr.add(arr.size());
+  //arr.add(arr.memoryUsage());
+
 }
 
 void serialize_array_int(int *ptr, JsonArray &arr, int idx) {
   int i;
   if (idx > MAX_LOG_DATA) idx = 0;
-  arr.add((int)ptr[idx]);
-  for (i = (idx + 1) % MAX_LOG_DATA; i != idx; i = (i + 1) % MAX_LOG_DATA) {
-    arr.add((int)ptr[i]);
+
+  for (i = 0; i < MAX_LOG_DATA; i++) {
+    arr.add(ptr[(idx + i) % MAX_LOG_DATA]);
   }
+
+  //arr.add(arr.size());
+  //arr.add(arr.memoryUsage());
 }
 
 
@@ -116,6 +126,7 @@ String air_to_json(air_status_t *air)
   //jsonDoc["outdoor_ts"] = air->outdoor_ts;
   //jsonDoc["outdoor_ths"] = air->outdoor_ths;
   jsonDoc["outdoor_current"] = air->outdoor_current;
+  jsonDoc["power_consumption"] = air->power_consumption;
   //jsonDoc["outdoor_cumhour"] = air->outdoor_cumhour;
 
   jsonDoc["indoor_fan_speed"] = air->indoor_fan_speed;
@@ -141,6 +152,7 @@ String air_to_json(air_status_t *air)
 
   jsonDoc["heap"] = ESP.getFreeHeap();
   jsonDoc["compile"] = compile_date;
+  jsonDoc["ip"] = air->ip;
 
   int i;
   String str;
@@ -191,30 +203,37 @@ String string_to_json(String t)
 
 
 String timeseries_to_json(String id, String val, void *data, int data_type, int temp_idx) {
-  DynamicJsonDocument jdoc(5000); //For more than 1kb Dynamic is better
-  String message;
+  DynamicJsonDocument jsonDoc(2800); //For more than 1kb Dynamic is better
+  String message = "";
 
+  jsonDoc.clear();
 
-  doc["id"] = id;
-  doc["n"] = MAX_LOG_DATA;
-  doc["val"] = val;
+  jsonDoc["id"] = id;
+  jsonDoc["n"] = MAX_LOG_DATA;
+  jsonDoc["val"] = val;
 
-  JsonArray arr = jdoc.createNestedArray(val);
+  JsonArray jsonArr = jsonDoc.createNestedArray(val);
 
   switch (data_type) {
     case 0:
-      serialize_array_float((float*)data, arr, temp_idx);
+      serialize_array_float((float*)data, jsonArr, temp_idx);
     case 1:
-      serialize_array_int((int*)data, arr, temp_idx);
+      serialize_array_int((int*)data, jsonArr, temp_idx);
     case 2:
-      serialize_array_ul_int((unsigned long*)data, arr, temp_idx);
+      serialize_array_ul_int((unsigned long*)data, jsonArr, temp_idx);
   }
-  serializeJson(jdoc, message);
+
+  //jsonArr.add(jsonArr.size());
+  //jsonArr.add(jsonArr.memoryUsage());
+
+  jsonDoc.garbageCollect();
+
+  serializeJson(jsonDoc, message);
 
   Serial.println();
-  //serializeJson(jdoc, Serial);
+  //serializeJson(jsonDoc, Serial);
   Serial.printf("ts_json %s\n", message.c_str());
-  jdoc.clear();
+  jsonDoc.clear();
 
   return message;
 }
@@ -267,11 +286,18 @@ void processRequest( uint8_t *  payload) {
   }
   else if (jsonDoc["id"] == "timer") {
     Serial.println("Received timer");
-    int val = atoi(jsonDoc["timer_time"]);
-    timerAC.setInterval(val);
-    timerAC.start();
-    air_status.timer_mode_req = jsonDoc["timer_mode"];
-    air_status.timer_time_req = val;
+    int val = atoi(jsonDoc["timer_time"]); //time is a string :)
+    if (val == TIMER_SW_RESET) {
+      timerAC.disable();
+      air_status.timer_mode_req = jsonDoc["timer_mode"];
+      air_status.timer_time_req = 0;
+    }
+    else {
+      timerAC.setInterval(val);
+      timerAC.start();
+      air_status.timer_mode_req = jsonDoc["timer_mode"];
+      air_status.timer_time_req = val;
+    }
   }
   else if (jsonDoc["id"] == "mode") {
     Serial.println("Received mode");
@@ -360,11 +386,11 @@ void processRequest( uint8_t *  payload) {
 
     JsonArray arrt = docTimeSeries.createNestedArray("timestamp");
     int i;
-    /*arrt.add(timestamp[temp_idx]);
+    /*arrt.add(timestamps[temp_idx]);
       for (i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
-      arrt.add(timestamp[i]);
+      arrt.add(timestamps[i]);
       }*/
-    serialize_array_ul_int(timestamp, arrt, temp_idx);
+    serialize_array_ul_int(timestamps, arrt, temp_idx);
 
     JsonArray arr = docTimeSeries.createNestedArray("dht_t");
     serialize_array_float(dht_t, arr, temp_idx);
@@ -378,8 +404,8 @@ void processRequest( uint8_t *  payload) {
     JsonArray arr6 = docTimeSeries.createNestedArray("bmp_p");
     serialize_array_float(bmp_p, arr6, temp_idx);
 
-    JsonArray arr7 = docTimeSeries.createNestedArray("to");
-    serialize_array_int(ac_outdoor_to, arr7, temp_idx);
+    JsonArray arr7 = docTimeSeries.createNestedArray("te");
+    serialize_array_int(ac_outdoor_te, arr7, temp_idx);
 
     serializeJson(docTimeSeries, message);
     webSocket.broadcastTXT(message);
@@ -405,11 +431,12 @@ void processRequest( uint8_t *  payload) {
   }
   else if (jsonDoc["id"] == "timeseries") {
     //send data but not in a whole BIG json
-    String message;
+    String message = "";
 
-    message = timeseries_to_json("timeseries", "timestamp", timestamp, 2, temp_idx);
+    message = timeseries_to_json("timeseries", "timestamp", timestamps, 2, temp_idx);
     webSocket.broadcastTXT(message);
-
+    message = timeseries_to_json("timeseries", "timestamp", timestamps, 2, temp_idx);
+    webSocket.broadcastTXT(message);
     message = timeseries_to_json("timeseries", "dht_t", dht_t, 0, temp_idx);
     webSocket.broadcastTXT(message);
 
@@ -422,7 +449,7 @@ void processRequest( uint8_t *  payload) {
     message = timeseries_to_json("timeseries", "bmp_p", bmp_p, 0, temp_idx);
     webSocket.broadcastTXT(message);
 
-    message = timeseries_to_json("timeseries", "to", ac_outdoor_to, 1, temp_idx);
+    message = timeseries_to_json("timeseries", "te", ac_outdoor_te, 1, temp_idx);
     webSocket.broadcastTXT(message);
 
   } //end if timeseries

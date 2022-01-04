@@ -1,6 +1,6 @@
-#define MAX_LOG_DATA 144//288 // for one day
+#define MAX_LOG_DATA 144//
 
-#define USE_BMP
-#define USE_DHT
+#define USE_BMP //if BMP sensor installed
+#define USE_DHT //in DHT sensor installed
 
 //#define USE_ASYNC

@@ -1,3 +1,9 @@
+//Description: Javascript functions
+//Project: https://github.com/issalig/toshiba_air_cond
+//Author: Ismael Salvador 
+//Date December 2021
+//
+//References
 //https://coolors.co/ffbe0b-fb5607-ff006e-8338ec-3a86ff
 //https://circuits4you.com/2019/01/25/esp8266-dht11-humidity-temperature-data-logging/
 //https://circuits4you.com/2019/01/11/esp8266-data-logging-with-real-time-graphs/
@@ -210,12 +216,12 @@ if (json.rx_data){ //if not null or empty
   else { document.getElementById('preheat').style.backgroundColor = button_released_color;} 
   
   //document.getElementById('indoor_room_temp').textContent = json.indoor_room_temp;
-  document.getElementById('indoor_ta').textContent = json.indoor_ta;
-  document.getElementById('indoor_tcj').textContent = json.indoor_tcj;
-  document.getElementById('indoor_tc').textContent = json.indoor_tc;
+  //document.getElementById('indoor_ta').textContent = json.indoor_ta;
+  //document.getElementById('indoor_tcj').textContent = json.indoor_tcj;
+  //document.getElementById('indoor_tc').textContent = json.indoor_tc;
   //document.getElementById('indoor_filter_time').textContent = json.indoor_filter_time;
   document.getElementById('outdoor_te').textContent = json.outdoor_te;
-  document.getElementById('outdoor_to').textContent = json.outdoor_to;
+  //document.getElementById('outdoor_to').textContent = json.outdoor_to;
   //document.getElementById('outdoor_td').textContent = json.outdoor_td;
   //document.getElementById('outdoor_ts').textContent = json.outdoor_ts;
   //document.getElementById('outdoor_ths').textContent = json.outdoor_ths;
@@ -232,6 +238,9 @@ if (json.rx_data){ //if not null or empty
   
   var d = new Date(parseInt(json.boot_time*1000));
   document.getElementById('boot_time').innerHTML = "On "+ d.toLocaleTimeString() + " " + d.toLocaleDateString()
+  
+  document.getElementById('ip').textContent = json.ip;
+
   
 }
 
@@ -402,6 +411,20 @@ function temp_minus() {
 
 function timer_changed() {
 	document.getElementById('timer_time').textContent  = document.getElementById('timer_range').value;
+}
+
+function reset_sw_air_timer(){	
+    let data = {
+       id : "timer",
+       timer_mode : 2,
+       timer_time : "0"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('sw_timer_button').style.backgroundColor = button_released_color;
 }
 
 function set_sw_air_timer(){
@@ -581,7 +604,7 @@ var config={
                 data: [0],
             },
             {
-                label: 'TOut',
+                label: 'TExt',
                 yAxisID: 'temperature',
 				fill: false,  //Try with true
                 backgroundColor: 'rgba(156, 72, 56, 1)', //Dot marker color
@@ -595,7 +618,7 @@ var config={
         options: {
             title: {
                     display: true,
-                    text: "Air conditioning data"
+                    text: "Graph"
                 },
             maintainAspectRatio: false,
             elements: {
@@ -715,17 +738,17 @@ function getMinNoZero(data){
 	return min;
 }
 
-//sometimes esp sends unexpected big values, just filter them
+//sometimes arduinojson sends unexpected big values, just filter them
 function getMaxWithLimits(data){
-	max=-1000
+	max=-1500
 	datalen=data.length;
 	for(i=0;i<datalen;i++){
-		if ((data[i] > max) && (data[i] < 1000)){
+		if ((data[i] > max) && (data[i] < 1500)){
 			max=data[i];
 		}
 	}
 	
-    if (max==-1000) max=0
+    if (max==-1500) max=0
     
 	return max;
 }
@@ -736,8 +759,6 @@ function parseTimeSeries(json){
     console.log(datalen);
 	
 	if (!chart_obj) showGraph();
-
-
     //https://stackoverflow.com/questions/49360165/chart-js-update-function-chart-labels-data-will-not-update-the-chart
     //update chart
     
@@ -759,8 +780,8 @@ function parseTimeSeries(json){
 		chart_obj.data.datasets[2].data=json.dht_h;
 	if (json.val == "bmp_p")    
 		chart_obj.data.datasets[3].data=json.bmp_p;
-	if (json.val == "to")    		
-		chart_obj.data.datasets[4].data=json.to;
+	if (json.val == "te")    		
+		chart_obj.data.datasets[4].data=json.te;
     //chart_obj.data.datasets[3].backgroundColor= 'rgba('+Math.floor()*255+','+Math.floor()*255+','+Math.floor()*255+', 1)';
 	//chart_obj.data.datasets[3].borderColor= chart_obj.data.datasets[3].backgroundColor;
 
@@ -782,71 +803,8 @@ function parseTimeSeries(json){
 	}
 }
 
-function parseTimeSeriesOLD(json){
-	datalen=json.dht_t.length;
-    console.log(datalen);
-	
-	if (!chart_obj) showGraph();
-
-    timeStamp=[]; 
-
-    for(i=0;i<datalen;i++){
-		timeStamp.push(moment(json.timestamp[i]*1000).format('HH:mm'));//(i);		
-    } 
-
-    //https://stackoverflow.com/questions/49360165/chart-js-update-function-chart-labels-data-will-not-update-the-chart
-    //update chart
-	chart_obj.data.labels=timeStamp;//json.timestamp;//
-	chart_obj.data.datasets[0].data=json.ac_sensor_t;
-//    chart_obj.data.datasets[1].data=json.ac_target_t;
-	chart_obj.data.datasets[1].data=json.dht_t;
-    chart_obj.data.datasets[2].data=json.dht_h;
-    //chart_obj.data.datasets[4].data=json.bmp_t;
-    chart_obj.data.datasets[3].data=json.bmp_p;
-    chart_obj.data.datasets[4].data=json.to;
-    //chart_obj.data.datasets[3].backgroundColor= 'rgba('+Math.floor()*255+','+Math.floor()*255+','+Math.floor()*255+', 1)';
-	//chart_obj.data.datasets[3].borderColor= chart_obj.data.datasets[3].backgroundColor;
-
-    //window.
-    chart_obj.update();
-    
-    //compute min/max
-    document.getElementById('dht_temp_min').textContent = getMinNoZero(json.dht_t);//Math.min(...json.dht_t);
-    document.getElementById('dht_temp_max').textContent = getMaxWithLimits(json.dht_t);//Math.max(...json.dht_t);
-    document.getElementById('dht_hum_min').textContent  = getMinNoZero(json.dht_h);//Math.min(...json.dht_h);
-    document.getElementById('dht_hum_max').textContent  = getMaxWithLimits(json.dht_h);//Math.max(...json.dht_h);
-    document.getElementById('bmp_pres_min').textContent = getMinNoZero(json.bmp_p);//Math.min(...json.bmp_p);
-    document.getElementById('bmp_pres_max').textContent = getMaxWithLimits(json.bmp_p);//Math.max(...json.bmp_p);
-}
-
-
-function parseTimeSeriesxx(json){
-	//datalen=json.dht_t.length;
-    //console.log(datalen);
-
-
-  debug_rx=document.getElementById('check_rx').checked;
-
-  cmdlen=0;
-
-
-	if (debug_rx){
-if (json.rx_data){ //if not null or empty	
-		textlen = document.getElementById('rx_data').textContent.length;
-		cmdlen = json.rx_data.length;
-		//add last rx_data is not the same
-		if (document.getElementById('rx_data').textContent[textlen-2] != json.rx_data[cmdlen-2])
-			document.getElementById('rx_data').innerHTML += '<br>DBG ' + json.rx_data;
-    }
-  } else document.getElementById('rx_data').innerHTML = json.rx_data;
-
-
-	
-}
 //On Page load show graphs
 window.onload = function() {
     getTimeseries();
 	showGraph();
 };
-
-

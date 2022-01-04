@@ -24,6 +24,7 @@
 
 #define TIMER_SW_OFF 0
 #define TIMER_SW_ON  1
+#define TIMER_SW_RESET  2
 
 #define TIMER_HW_CANCEL     0x00
 #define TIMER_HW_ON         0x07
@@ -133,7 +134,9 @@ typedef struct {
   int outdoor_lower_fan_speed = 0;
   int outdoor_upper_fan_speed = 0;
   
-
+  float power_consumption = 0;
+  String ip;
+  
   rb_t rb;
 
   SoftwareSerial serial;

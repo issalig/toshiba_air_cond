@@ -100,7 +100,7 @@ void air_print_status(air_status_t *s) {
 */
 void air_set_power_on(air_status_t *air) {
   byte data[] = {0x40, 0x00, 0x11, 0x03, 0x08, 0x41, 0x03, 0x18};
-  air_send_data(air, data, sizeof(data));  
+  air_send_data(air, data, sizeof(data));
 }
 
 void air_set_power_off(air_status_t *air)  {
@@ -183,6 +183,7 @@ void air_set_fan(air_status_t *air, uint8_t value)  {
   air_send_data(air, data, sizeof(data));
 }
 
+//does not work correctly, maybe wall unit sets som internal register
 void air_set_timer(air_status_t *air, uint8_t timer_mode, uint8_t timer_value)  {
   //               00    01    02    03    04    05    06    07    08    09    10    11    12   CRC
   byte data[] = {0x40, 0x00, 0x11, 0x09, 0x08, 0x0c, 0x82, 0x00, 0x00, 0x30, 0x07, 0x02, 0x02, 0xe9};
@@ -416,7 +417,8 @@ void air_decode_command(byte * data, air_status_t *s) {
 
 //reads serial and gets a valid command in air.rx_data
 //calls decode command to fill air structure
-void air_parse_serial(air_status_t *air) {
+//returns true if one or command commands are decoded, false otherwise
+int air_parse_serial(air_status_t *air) {
   int i, j_init, j_end, k;
   uint8_t mylen = 0;
   byte ch;
@@ -424,6 +426,7 @@ void air_parse_serial(air_status_t *air) {
   int i_start, i_end, segment_len;
   bool found = false;
   bool rbuffer = false;
+  int retval = false;
 
   //circular buffer avoids loosing parts of messages but it is not working so rbuffer=false to avoid resets
   if (!rbuffer)
@@ -440,7 +443,7 @@ void air_parse_serial(air_status_t *air) {
   //Serial.print("Receiving data ");
   while (ss->available()) {
     ch = (byte)ss->read();
-    //Serial.print(ch < 0x10 ? " 0" : " ");
+    //Serial.print(ch < 0x10 ? "__ 0" : "__ ");
     //Serial.print(ch, HEX);
     air->rx_data[i] = ch;
     //air->rx2_data[air->rx_data_count] = ch;
@@ -475,7 +478,7 @@ void air_parse_serial(air_status_t *air) {
 
     segment_len = air->rx_data[(j_init + 3) % MAX_RX_BUFFER] + 5; //packet is byte size plus 5
     //    if ((segment_len <  MAX_CMD_BUFFER ) && ( ((j_init + segment_len) < MAX_RX_BUFFER)  ||  (((j_init + segment_len) % MAX_RX_BUFFER) < i))) { //max size of cmd packets are 32 bytes and not exceed last written byte
-    if ((segment_len <  MAX_CMD_BUFFER )) { //max size of cmd packets are 32 bytes and not exceed last written byte
+    if ((segment_len <  MAX_CMD_BUFFER ) /*&& ((j_init + segment_len) % MAX_RX_BUFFER < i)*/  ) { //max size of cmd packets are 32 bytes and not exceed last written byte
 
 #ifdef DEBUG
       Serial.println("");
@@ -510,6 +513,7 @@ void air_parse_serial(air_status_t *air) {
         if (mylen > 4) { //min valid package is 5 bytes long with 0 data bytes
           //if (cmd[5] == 0x81) { //decode only 0x81 -> status
           air_decode_command(cmd, air);
+          retval = true;
           //air_print_status(air);
           //}
         }
@@ -523,9 +527,11 @@ void air_parse_serial(air_status_t *air) {
     } //end if segment_len
 
     if (!found) {
-      Serial.println(""); Serial.print("Skipping ");
-      Serial.print("("); Serial.print(j_init); Serial.print(")");
-      Serial.println(air->rx_data[j_init % MAX_RX_BUFFER], HEX);
+#ifdef DEBUG
+      //Serial.println(""); Serial.print("Skipping ");
+      //Serial.print("("); Serial.print(j_init); Serial.print(")");
+      //Serial.println(air->rx_data[j_init % MAX_RX_BUFFER], HEX);
+#endif
       i_start = j_init;
       //Serial.printf("NOT i_start %d, j_init %d, j_end %d\n", i_start, j_init, j_end);
       air->decode_errors = air->decode_errors + 1;
@@ -538,6 +544,8 @@ void air_parse_serial(air_status_t *air) {
   //circular buffer avoids loosing parts of messages but it is not working
   air->curr_w_idx = i;
   air->curr_r_idx = i_start;
+
+  return retval;
 }
 
 
@@ -798,16 +806,20 @@ void air_send_data(air_status_t *air, byte * data, int len) {
 void air_get_error(air_status_t *air, uint8_t id)  {
   //       byte    00    01    02    03    04    05    06    CRC
   byte data[] = {0x40, 0x00, 0x15, 0x03, 0x08, 0x27, 0x01, 0x78};
- 
+
   data[6] = id;
   data[7] = XORChecksum8(data, sizeof(data) - 1);
 
   air->error_id = id;
   air->error_val = -1;
   air_send_data(air, data, sizeof(data));
-  delay(70); //delay a little bit or we will miss answer
+  unsigned long time_now = millis();
+  while (millis() - time_now < 70) { //avoid delay
+  }
   air_parse_serial(air);
   air->error_id = 0xff; //dummy value: spurious values received  will be assigned to it
+
+  yield();
 }
 
 void air_query_sensor(air_status_t *air, uint8_t id)  {
@@ -820,9 +832,14 @@ void air_query_sensor(air_status_t *air, uint8_t id)  {
   air->sensor_id = id;
   air->sensor_val = -1;
   air_send_data(air, data, sizeof(data));
-  delay(70); //delay a little bit or we will miss answer  70ms
+
+  unsigned long time_now = millis();
+  while (millis() - time_now < 70) { //avoid delay
+  }
   air_parse_serial(air);
   air->sensor_id = 0xff; //dummy value: spurious values received  will be assigned to it
+
+  yield();
 }
 
 void air_query_sensors(air_status_t *air)  {
@@ -830,10 +847,9 @@ void air_query_sensors(air_status_t *air)  {
     INDOOR_FAN_SPEED,
     INDOOR_TA, INDOOR_TCJ, INDOOR_TC,
     //INDOOR_FILTER_TIME,
-    //INDOOR_FAN_SPEED,
     //INDOOR_FAN_RUN_TIME,
     OUTDOOR_TE, OUTDOOR_TO,
-    //OUTDOOR_TD, OUTDOOR_TS, OUTDOOR_THS,
+    OUTDOOR_TD, OUTDOOR_TS, OUTDOOR_THS,
     OUTDOOR_CURRENT
     //OUTDOOR_HOURS, OUTDOOR_TL, OUTDOOR_COMP_FREQ,
     //OUTDOOR_LOWER_FAN_SPEED, OUTDOOR_UPPER_FAN_SPEED
@@ -841,7 +857,6 @@ void air_query_sensors(air_status_t *air)  {
 
   int i = 0;
   for (i = 0; i < sizeof(ids); i++) {
-
     air_query_sensor(air, ids[i]);
   }
 }
