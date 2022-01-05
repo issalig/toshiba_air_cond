@@ -38,7 +38,7 @@
 */
 
 #include "LittleFS.h"
-#define SPIFFS LittleFS
+#define SPIFFS LittleFS //lazy hack not to change names
 
 #include <ESP8266WiFi.h>
 
@@ -103,7 +103,7 @@ WebSocketsServer webSocket(81);    // create a websocket server on port 81
 File fsUploadFile;                                    // a File variable to temporarily store the received file
 
 MySimpleTimer timerTemperature;
-int temp_interval = 1200;//in secs
+int temp_interval = 1800;//in secs, 30 mins
 
 #include "DHT.h"
 const int DHTPin = D3;
@@ -146,10 +146,11 @@ void setup() {
   //  gdbstub_init();
   delay(10);
   Serial.println("\r\n");
+  Serial.println("Air conditioning starts!");
 
   //startWiFi();                 // Start a Wi-Fi access point, and try to connect to some given access points. Then wait for either an AP or STA connection
 
-  startWifiManager();
+  startWifiManager();          // Use wifimanager to connect
 
   //is_reset_button();
 
@@ -171,7 +172,7 @@ void setup() {
 
   startStatus();               // Start timer for status print (10s)
 
-  yield();
+  yield();                     // in case init takes a lot avoid wdt resets
 
   startTime();                 // Get time from NTP server
 
@@ -501,7 +502,6 @@ void startServer() { // Start a HTTP server with a file read handler and an uplo
   server.begin();                             // start the HTTP server
   Serial.println("HTTP server started.");
 }
-
 
 void startWifiManager() {
   //set led pin as output
