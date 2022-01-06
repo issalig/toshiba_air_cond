@@ -1,15 +1,13 @@
 # toshiba_air_cond
 This project implements functions to decode Toshiba AB protocol (TCC Link?) for air conditioners with wired controllers and provides a hardware design to communicate.
 
-In case you are interested in a board just contact me. If you are more in the DIY, you have the gerbers and remember if you improve the design please share it.
+In case you are interested in a board just contact me. If you are more into DIY, I provide the gerbers and remember if you improve the design please share it.
 
-It has been tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
+In particular, it has been tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
 
-You can find the service manual from central unit and wired controller here http://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_Gainable_Std-Compact--DI_406566806110614061606_GB.pdf
+You can find the service manual from central unit and wired controller here: http://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_Gainable_Std-Compact--DI_406566806110614061606_GB.pdf, https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf
 
-https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf
-
-In paricular my unit is RAV-SM406BTP-E  which stands for
+The unit where I have tested the project is model RAV-SM406BTP-E  which stands for
 
 ```
 RAV-SM406BTP-E 
@@ -20,16 +18,6 @@ RAV-SM406BTP-E
 |   |-Digital inverter
 |- Light comercial
 ```
-
-
-If you want to know about error codes and sensor addresses you can check the following links.
-http://www.toshiba-aircon.co.uk/assets/uploads/pdf/sales_tools/Technical_Handbook_ver._13.1.pdf
-https://www.cdlweb.info/wp-content/uploads/2020/10/1-CDL-Toshiba-R32-Technical-Handbook-V10-2020.pdf
-https://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_CassetteUTP_DI-SDI-111416-E_GB.pdf
-
-
-I found this projects interesting even that it is not the same protocol https://github.com/H4jen/webasto_sniffer
-https://echonet.jp/wp/wp-content/uploads/pdf/General/Standard/Release/Release_F_en/SpecAppendixF_e.pdf
 
 
 # Status
@@ -419,7 +407,7 @@ Sequence observed for 1h poweron
 | f3 | Filter sign time x 1h | 37 |
 
 
-# Notes from logs (used for the above info)
+# Notes from logs (these are my notes when I started to decode messages)
 
 ```
 Op code from remote
@@ -851,6 +839,16 @@ https://codepen.io/CiTA/pen/OwowEB remote
 
 
 # Other info
+
+
+If you want to know about error codes and sensor addresses you can check the following links.
+http://www.toshiba-aircon.co.uk/assets/uploads/pdf/sales_tools/Technical_Handbook_ver._13.1.pdf
+https://www.cdlweb.info/wp-content/uploads/2020/10/1-CDL-Toshiba-R32-Technical-Handbook-V10-2020.pdf
+https://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_CassetteUTP_DI-SDI-111416-E_GB.pdf
+
+
+I found this projects interesting even that it is not the same protocol https://github.com/H4jen/webasto_sniffer
+https://echonet.jp/wp/wp-content/uploads/pdf/General/Standard/Release/Release_F_en/SpecAppendixF_e.pdf
 
 Info about commercial gateways but no info about protocol :(
 
