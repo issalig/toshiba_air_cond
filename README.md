@@ -1,32 +1,80 @@
 # toshiba_air_cond
 This project implements functions to decode Toshiba AB protocol (TCC Link?) for air conditioners with wired controllers and provides a hardware design to communicate.
 
-In case you are interested in a board just open an issue and contact me. If you are more into DIY, I provide the gerbers and remember if you improve the design please share it.
+In case you are interested in a board just open an issue and contact me. If you are more into DIY, I also provide the gerbers and remember if you improve the design please share it.
 
-In particular, it has been tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
+In particular, this project has been tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
 
 You can find the service manual from central unit and wired controller here: http://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_Gainable_Std-Compact--DI_406566806110614061606_GB.pdf, https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf
-
-The unit where I have tested the project is model RAV-SM406BTP-E  which stands for
-
-```
-RAV-SM406BTP-E 
-|     | |    |- CE marking
-|     | ||-Duct
-|     | |-gen
-|     |-duty 4.0 kW 
-|   |-Digital inverter
-|- Light comercial
-```
 
 
 # Status
 
 - Operational.
 
+# Software installation
+Code is developed in Arduino for ESP8266 and in particular Wemos B1 mini board. Basically it as WebServer that serves a webpage and communicates with the client by means of WebSockets. Some nice features are OTA updates, WifiManager and others ...
+
+
+### Dependencies
+
+This project uses libraries and code by different authors, you can install them in Arduino IDE going to Tools->Library Manager
+
+- [esp8266](https://github.com/esp8266/Arduino)
+
+- [WiFiManager](https://github.com/tzapu/WiFiManager) by tzapu
+
+- [WebSockets](https://github.com/Links2004/arduinoWebSockets) by Links2004
+
+- [ArduinoJson](https://github.com/bblanchon/ArduinoJson) by Benoit Blanchon
+
+### Compilation
+Compile the code and upload it to the board. 
+
+### Install LittleFS sketch upload
+This project uses LittleFS filesystem to store the webpage files, .html, .js , ...
+In order to upload these files you need to install a plugin and follow the instructions:
+- Download the tool archive from (https://github.com/earlephilhower/arduino-esp8266littlefs-plugin/releases).
+- In your Arduino sketchbook directory, create tools directory if it doesn't exist yet.
+- Unpack the tool into tools directory (the path will look like <home_dir>/Arduino/tools/ESP8266LittleFS/tool/esp8266littlefs.jar).
+- Restart Arduino IDE.
+
+Files are located into the **data** folder of your sketch and all the contents of the folder will be uploaded
+- Make sure you have selected a board, port, and closed Serial Monitor. OTA ports are not valid, you need to plug the board into your computer.
+- Select Tools > ESP8266 LittleFS Data Upload menu item. This should start uploading the files into ESP8266 flash file system. When done, IDE status bar will display LittleFS Image Uploaded message. Might take a few minutes for large file system sizes.
+
+### WiFi setup
+Once you have the code and the data uploaded it is time to configure your WiFi. This project makes use of the great WiFiManager library so there is no need to hardcode your WiFi settings.
+- Plug your board and connect to airAP wifi network. You can do it with your cellphone or PC. 
+- Select your WiFi network and the password.
+- If everything is correct, airAP shuts down and board connects to your WiFi.
+
+### Connect
+Now the esp8266 is connected to your network and can be reached as http://air.local
+
+### Addons
+The project and the board support sensors for temperature, humidity and pressure (DHT11 and BMP180), these values are shown in a graph in the webpage. If you do not connect these sensor there is no problem. Graph will show indoor and outdoor temperature reported by the air conditioning.
+In the bottom side of the pcb you can find the connections, DHT is connected to D3 and BMP180 uses SPI.
+![image](https://user-images.githubusercontent.com/7136948/148600587-4383e831-2e45-4c01-80d2-e20d8952b76c.png)
+
+### Known bugs
+- After a little time without acitvity, the websocket is closed. I am still working on a reconnection function but for now just reload the page.
+- A reload can cause the board to reboot because a websocket is opened when it is serving webpage files. Sometimes happen and sometimes not. But it is not critical.
+
+# Instalation
+You will need an esp8266, a circuit for adapting signals to esp8266, a USB power supply, a a couple of dupont (female) wires.
+- Take out the cover of your remote controller
+- Loose the screws of AB terminals
+- Pass the wires through the ventilation holes of the cover.
+- Insert dupont wires on the terminals and screw them again
+- Close the cover
+- Connect dupont wires to the pcb and you are done.
+
+Just switch it on/off while you are in bed. If you like it just send me a beer and/or improve the project!
+
 # Data acquisition
 
-DS0138 oscilloscope can be used to monitor the signal (voltage differs around 0.7V but it is usable) and to guess voltages and baudrate. Later, an 8-channel USB logic analyzer (4-5 USD) can be used to capture data into the computer. **REMEMBER** to convert voltages to 0-3.3v before connecting it to logic analyzer or you will fry it. You can use the read circuit below.
+This is how I managed to decode the information from the AB bus. I used a DS0138 oscilloscope to monitor the signal (voltage may differ around 0.7V but it is usable) and to guess voltages and baudrate. Later, an 8-channel USB logic analyzer (4-5 USD) can be used to capture data into the computer. **REMEMBER** to convert voltages to 0-3.3v before connecting it to logic analyzer or you will fry it. You can use the read circuit below.
 
 To capture data you can use pulseview with uart decoder 2400 bps, 8bits, start, stop, EVEN parity
 
@@ -862,4 +910,15 @@ Temperature formula TCS-Net https://www.toshibaheatpumps.com/application/files/8
 https://www.toshibaheatpumps.com/customer-support/owner-manuals
 https://www.intesisbox.com/intesis/product/media/intesisbox_to-ac-knx-16-64_user_manual_en.pdf?v=2.2
 
+The unit where I have tested the project is model RAV-SM406BTP-E  which stands for
+
+```
+RAV-SM406BTP-E 
+|     | |    |- CE marking
+|     | ||-Duct
+|     | |-gen
+|     |-duty 4.0 kW 
+|   |-Digital inverter
+|- Light comercial
+```
 
