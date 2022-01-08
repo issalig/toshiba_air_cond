@@ -21,15 +21,13 @@ Code is developed in Arduino for ESP8266 and in particular Wemos B1 mini board. 
 This project uses libraries and code by different authors, you can install them in Arduino IDE going to Tools->Library Manager
 
 - [esp8266](https://github.com/esp8266/Arduino)
-
+- [espsoftwareserial](https://github.com/plerup/espsoftwareserial) by Peter Lerup
 - [WiFiManager](https://github.com/tzapu/WiFiManager) by tzapu
-
 - [WebSockets](https://github.com/Links2004/arduinoWebSockets) by Links2004
-
 - [ArduinoJson](https://github.com/bblanchon/ArduinoJson) by Benoit Blanchon
 
 ### Compilation
-Compile the code and upload it to the board. 
+Compile the code and upload it to the board. You will need to install the previous libraries and maybe some others. Once it is compiled it means you have all the dependencies installed.
 
 ### Install LittleFS sketch upload
 This project uses LittleFS filesystem to store the webpage files, .html, .js , ...
@@ -57,11 +55,16 @@ The project and the board support sensors for temperature, humidity and pressure
 In the bottom side of the pcb you can find the connections, DHT is connected to D3 and BMP180 uses SPI.
 ![image](https://user-images.githubusercontent.com/7136948/148600587-4383e831-2e45-4c01-80d2-e20d8952b76c.png)
 
+### OTA and file update
+OTA updates are available, so you do not need to unplug the esp everytime you want to flash it. In the Arduino IDE just set Tools->Port->air at xxx.
+
+If you just want to upload indivudual files you can use http://air.local/edit.html
+
 ### Known bugs
 - After a little time without acitvity, the websocket is closed. I am still working on a reconnection function but for now just reload the page.
 - A reload can cause the board to reboot because a websocket is opened when it is serving webpage files. Sometimes happen and sometimes not. But it is not critical.
 
-# Instalation
+# Hardware installation
 You will need an esp8266, a circuit for adapting signals to esp8266, a USB power supply, a a couple of dupont (female) wires.
 - Take out the cover of your remote controller
 - Loose the screws of AB terminals
