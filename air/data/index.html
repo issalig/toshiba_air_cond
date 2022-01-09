@@ -1,21 +1,22 @@
 <!--Description: Main page -->
 <!--Project: https://github.com/issalig/toshiba_air_cond -->
 <!--Author: Ismael Salvador -->
-<!--Date December 2021 -->
+<!--Date: January 2022 -->
 
 <!DOCTYPE html>
 <html>
 <head>
     <title>Air conditioning</title>
     <link href='main.css' rel='stylesheet' type='text/css'>
-    <link rel="icon" type="image/png" sizes="144x144"  href="/favicon-144x144.png">
+<!--    <link rel="icon" type="image/png" sizes="144x144"  href="/favicon-144x144.png"> -->
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon.ico">
     <link rel="manifest" href="/manifest.json">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <meta name="theme-color" content="#00878f">
     <meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0' name='viewport'>
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-	<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3"></script>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3"></script> 
+<!--	<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0"></script> -->
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.27.0/moment.min.js"></script>
 <!--
 	  <script src = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.js"></script>  
@@ -53,7 +54,7 @@
             <button id="sw_reset_timer_button" class="button" style="background-color:#999" onclick="reset_sw_air_timer();">Reset Timer</button>
             </div>
    
-            <!-- TIMER from TOSHIBA does NOT work, will use software timer -->
+            <!-- TIMER from TOSHIBA does NOT work, we will use software timer instead -->
             <!--
             <p style="margin:8px 0px">
 			<button id="timer_hw_on" class="button" style="background-color:#999" onclick="timer_hw_on();">Timer ON</button>
@@ -137,42 +138,6 @@ Debug information <br>
 				<tr>
 				<td>IP: <span id="ip">---</span></td>
 				</tr>
-<!--
-                <tr>
-                    <td >Target/Curr Temp: </td>
-                    <td> <div id="temp">---</div>/<div id="sensor_temp">---</div></td>
-                </tr>
--->
-<!--
-				<tr>
-                    <td >Mode: </td>
-                    <td><div id="mode">---</div></td>
-                </tr>
-                <tr>
-                    <td >Heat: </td>
-                    <td><div id="heat">---</div></td>
-                </tr>
--->
-<!--
-                <tr>
-                    <td >Cool: </td>
-                    <td><div id="cool">---</div></td>
-                </tr>
--->
-<!--
-                <tr>
-                    <td >Fan: </td>
-                    <td><div id="fan">---</div></td>
-                </tr>
-                <tr>
-                    <td >Save: </td>
-                    <td><div id="save">---</div></td>
-                </tr>
-                <tr>
-                    <td >Power: </td>
-                    <td><div id="power">---</div></td>
-                </tr>
--->
 
 				<tr>
 					<td><a href="/edit.html">Upload html</a><br></td>
@@ -194,18 +159,7 @@ Debug information <br>
                      </td>
                 </tr>                
             </table>         
-
-			
-			
-
-<!--
-<div>
-  <table id="dataTable">
-    <tr><th>Time</th><th>AC Temperature</th><th>AC Target</th><th>Temperaure (&deg;C)</th><th>Humidity (%)</th></tr>
-  </table>	
-
-        </div>
--->
+		
     </center>
 </body>
 </html>

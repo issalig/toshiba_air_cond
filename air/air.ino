@@ -35,6 +35,19 @@
 
 
   Dependencies: https://github.com/plerup/espsoftwareserial
+
+
+  This code in under license GPL v2
+ 
+  GNU GENERAL PUBLIC LICENSE
+
+  Version 2, June 1991
+
+  Copyright (C) 1989, 1991 Free Software Foundation, Inc.  
+  51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+
+  Everyone is permitted to copy and distribute verbatim copies
+  of this license document, but changing it is not allowed.
 */
 
 #include "LittleFS.h"
@@ -64,8 +77,7 @@
 #include "process_request.hpp"
 #include "wip.hpp"
 
-#include "config.h"
-#include "credentials.h" // set your wifi pass there
+#include "config.h" // check this file!!!
 
 //#include <GDBStub.h>
 
@@ -160,9 +172,11 @@ void setup() {
 
   startWebSocket();            // Start a WebSocket server
 
-  startMDNS();                 // Start the mDNS responder
+//  startMDNS();                 // Start the mDNS responder
 
   startServer();               // Start a HTTP server with a file read handler and an upload handler
+
+  startMDNS();                 // Start the mDNS responder
 
   init_air_serial(&air_status);// Start air conditioning structure and software serial
 
@@ -172,7 +186,7 @@ void setup() {
 
   startStatus();               // Start timer for status print (10s)
 
-  yield();                     // in case init takes a lot avoid wdt resets
+  //yield();                     // in case init takes a lot avoid wdt resets, it can cause problems with async
 
   startTime();                 // Get time from NTP server
 
@@ -237,8 +251,7 @@ void startStatus() {
   timerStatus.repeat();
   timerStatus.start();
 
-  air_query_sensors(&air_status);
-
+  air_query_sensors(&air_status); //query sensors on start
 }
 
 void startReadSerial() {
@@ -328,7 +341,7 @@ void getTemperatureCurrent() {
   // Reading temperature or humidity takes about 250 milliseconds!
   dht_h_current = dht.readHumidity();
   dht_t_current = dht.readTemperature();
-  Serial.printf("DHT temp %.1f hum %.1f\n", dht_t_current, dht_h_current);
+  Serial.printf("[DHT] temp %.1f hum %.1f\n", dht_t_current, dht_h_current);
 
   if (!bmp_status) //try again
     bmp_status = bmp.begin();
@@ -338,7 +351,7 @@ void getTemperatureCurrent() {
     bmp_p_current = bmp.readPressure() / 100; //in mb
   }
 
-  Serial.printf("BMP temp %.1f press %.1f\n", bmp_t_current, bmp_p_current);
+  Serial.printf("[BMP] temp %.1f press %.1f\n", bmp_t_current, bmp_p_current);
 }
 
 //get current status, temperature and sensors. not intended for logging
@@ -348,7 +361,7 @@ void handleStatus() {
     air_query_sensors(&air_status); //query few sensors, if this takes too much time it can crash wifi
     air_print_status(&air_status);
     //air_explore_all_sensors(&air_status); //it takes a lot of time, use it just to discover sensors
-    air_status.power_consumption += air_status.outdoor_current * 10 / 30; //30 readings per hour
+    air_status.power_consumption += air_status.outdoor_current * 10 / (3600/temp_interval); //30 readings per hour
   }
 }
 
@@ -368,7 +381,7 @@ void loop() {
   handleTemperature();
   handleStatus();
   handleReadSerial();
-  yield();                                    // Handle WiFi / reset software watchdog
+  //yield();                                    // Handle WiFi / reset software watchdog. it can cause problems with asumc
 
 #ifndef USE_ASYNC
   //webSocket.loop();                           // constantly check for websocket events
@@ -461,6 +474,7 @@ void startMDNS() { // Start the mDNS responder
 
 void startServer() { // Start a HTTP server with a file read handler and an upload handler
 #ifdef USE_ASYNC
+  Serial.print("Using Async");
   server.on("/edit.html",  HTTP_POST, [](AsyncWebServerRequest * request) { // If a POST request is sent to the /edit.html address,
     server.send(200, "text/plain", "");
   }, handleFileUpload);                       // go to 'handleFileUpload'
@@ -557,6 +571,8 @@ void handleNotFound() { // if the requested file or page doesn't exist, return a
 }
 
 bool handleFileRead(String path) { // send the right file to the client (if it exists)
+  bool ret;
+
   Serial.println("handleFileRead: " + path);
   if (path.endsWith("/")) path += "index.html";          // If a folder is requested, send the index file
   String contentType = getContentType(path);             // Get the MIME type
@@ -565,13 +581,20 @@ bool handleFileRead(String path) { // send the right file to the client (if it e
     if (SPIFFS.exists(pathWithGz))                         // If there's a compressed version available
       path += ".gz";                                         // Use the compressed verion
     File file = SPIFFS.open(path, "r");                    // Open the file
-    size_t sent = server.streamFile(file, contentType);    // Send it to the client
-    file.close();                                          // Close the file again
-    Serial.println(String("\tSent file: ") + path);
-    return true;
-  }
-  Serial.println(String("\tFile Not Found: ") + path);   // If the file doesn't exist, return false
-  return false;
+    if (!file) {
+      Serial.println("file open failed" + path);
+      ret = false;
+    } else {
+      size_t sent = server.streamFile(file, contentType);    // Send it to the client
+      file.close();                                          // Close the file again
+      Serial.println(String("\tSent file: ") + path);
+      ret = true;
+    }
+  } else
+    Serial.println(String("\tFile Not Found: ") + path);   // If the file doesn't exist, return false
+  ret = false;
+
+  return ret;
 }
 
 void handleFileUpload() { // upload a new file to the SPIFFS
@@ -603,23 +626,25 @@ void handleFileUpload() { // upload a new file to the SPIFFS
   }
 }
 
-
-void onWsEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) { // When a WebSocket message is received
+/* 
+ *  websocket callback
+ */
+void onWsEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) { 
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
-      Serial.printf("WS [%u] Disconnected!\n", num);
+      Serial.printf("[WS (%u)] Disconnected!\n", num);
       break;
     case WStype_CONNECTED: {              // if a new websocket connection is established
         IPAddress ip = webSocket.remoteIP(num);
-        Serial.printf("WS [%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
+        Serial.printf("[WS (%u)] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
       }
       break;
     case WStype_TEXT:                     // if new text data is received
-      Serial.printf("WS [%u] Received: %s\n", num, payload);
+      Serial.printf("[WS (%u)] Length %d Received: %s\n", num, length, payload);
+      //pendingWSRequest
       processRequest(payload);
   }
 }
-
 
 
 int save_file(String name, String text) {

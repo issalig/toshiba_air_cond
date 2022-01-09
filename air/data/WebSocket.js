@@ -1,13 +1,14 @@
 //Description: Javascript functions
 //Project: https://github.com/issalig/toshiba_air_cond
 //Author: Ismael Salvador 
-//Date December 2021
+//Date January 2022
 //
 //References
 //https://coolors.co/ffbe0b-fb5607-ff006e-8338ec-3a86ff
 //https://circuits4you.com/2019/01/25/esp8266-dht11-humidity-temperature-data-logging/
 //https://circuits4you.com/2019/01/11/esp8266-data-logging-with-real-time-graphs/
 //https://nagix.github.io/chartjs-plugin-datasource/samples/json-dataset.html
+//https://github.com/fablab-luenen/McLighting/blob/master/Arduino/McLighting/data/index.htm
 
 var power = false;
 var save = false;
@@ -15,15 +16,34 @@ var debug_cmd = false;
 var chart;
 var ac_sensor_values=[];
 var ac_target_values=[];
-var dht_t_values=[25,27,30,25];
-var dht_h_values=[60,70,80,90];
+var dht_t_values=[25,27,30,25]; //dummy values
+var dht_h_values=[60,70,80,90]; //dummy values
 var timeStamp = [0,1,2,3];
 var chart_obj;
 
+///////////////////////
+//Websocket connections
+///////////////////////
 
-var connection = new WebSocket('ws://'+location.hostname+':81/', ['arduino']);
+//small delay not to interrupt the load of files
+setTimeout(() => {
+  console.log('Waiting 0.6 sec')
+}, 600);
+ 
 
-connection.onopen = function () {
+var connection;
+
+  window.addEventListener('load', onLoad);
+  function initWebSocket() {
+    console.log('Trying to open a WebSocket connection...');
+    connection = new WebSocket('ws://'+location.hostname+':81/', ['arduino']);
+    connection.onopen    = onOpen;
+    connection.onclose   = onClose;
+    connection.onmessage = onMessage; // <-- add this line
+  }
+  function onOpen(event) {
+    console.log('Connection opened');
+        
     connection.send('Connect ' + new Date());
     document.getElementById('connection').textContent = "open";
     
@@ -46,30 +66,26 @@ connection.onopen = function () {
 		getTimeseries();
       setTimeout(scheduleRequestTimeSeries, 60*1000); //ask for time series every minute
    })();
-
-};
-
-connection.onerror = function (error) {
-    console.log('WebSocket Error ', error);
+  }
+  function onClose(event) {    
+    console.log('WebSocket connection closed');
+    document.getElementById('connection').textContent = "closed";
+    console.log('Reconnecting ...');
+    setTimeout(initWebSocket, 2000);
+  }
+  function onMessage(event) {//data from server
+    console.log('Server: ', event.data);
+    processData(event.data);
+  }
+  
+   function onError(e) {
+    console.log('WebSocket Error ', e);
     document.getElementById('connection').textContent = "error";
 };
 
-connection.onmessage = function (e) {  //data from server
-    console.log('Server: ', e.data);
-    processData(e.data);
-};
-
-connection.onclose = function(e){
-    console.log('WebSocket connection closed');
-    console.log('Reconnect will be attempted in 1 second.', e.reason);
-    document.getElementById('connection').textContent = "closed";
-    connection = new WebSocket('ws://'+location.hostname+':81/', ['arduino']);
-
-    //setTimeout(function() {
-	//	connection = new WebSocket('ws://'+location.hostname+':81/', ['arduino']);
-	//	console.log('Reconnecting.');
-	//	}, 1000);
-};
+  function onLoad(event) {
+    initWebSocket();
+  }
 
 //function sendData()
 //{
@@ -96,6 +112,11 @@ connection.onclose = function(e){
   //connection.send(json);
 //}
 
+
+////////////////////
+// Process petitions
+////////////////////
+
 function processData(data)
 {
   let json = JSON.parse(data); 
@@ -110,15 +131,12 @@ function processData(data)
 
 function parseStatus(json)
 {
-  button_pressed_color ='#002F7A';//#8338EC';// '#BCC6CC';
+  button_pressed_color ='#002F7A';
   button_released_color='#99C0FF';
 
   if (json.save=='1') save = true; else save=false;
   if (json.power=='1') power = true; else power=false;
   
-  //document.getElementById('save').textContent = json.save;
-  //document.getElementById('heat').textContent = json.heat;
-  //document.getElementById('cool').textContent = json.cool;
   document.getElementById('temp').textContent = json.temp;
   document.getElementById('sensor_temp').textContent = json.sensor_temp;
   document.getElementById('dht_temp').textContent = json.dht_temp;
@@ -126,12 +144,7 @@ function parseStatus(json)
   document.getElementById('bmp_temp').textContent = json.bmp_temp;
   document.getElementById('bmp_press').textContent = json.bmp_press;
 
-  //document.getElementById('sampling_text').value = json.sampling;
-
-  //document.getElementById('fan').textContent = json.fan;  
-  //document.getElementById('mode').textContent = json.mode;
-  //document.getElementById('power').textContent = json.power;
-  
+  //document.getElementById('sampling_text').value = json.sampling;  
   document.getElementById('decode_errors').textContent = json.decode_errors;
 
   document.getElementById('heap').textContent = json.heap;
@@ -167,7 +180,6 @@ if (json.rx_data){ //if not null or empty
 
 	//if (json.rx_data)
 		//document.getElementById('rx_data').innerHTML += '<br>' + json.rx_data;
-
 
   //document.getElementById('timer_time').textContent = json.timer_time;
   document.getElementById('timer_pending').textContent = json.timer_pending;
@@ -717,13 +729,6 @@ var config={
 //check for time labeling
 //https://www.chartjs.org/samples/latest/scales/time/line.html
 
-/*
-setInterval(function() {
-  // Call a function repetatively with 5 Second interval
-  getData();
-}, 5000); //5000mSeconds update rate
-*/ 
-
 function getMinNoZero(data){
 	min=9999999
 	datalen=data.length;
@@ -753,7 +758,6 @@ function getMaxWithLimits(data){
 	return max;
 }
 
-
 function parseTimeSeries(json){
 	datalen=json.n;
     console.log(datalen);
@@ -769,7 +773,7 @@ function parseTimeSeries(json){
 			timeStamp.push(moment(json.timestamp[i]*1000).format('HH:mm'));//(i);		
 		} 
 
-		chart_obj.data.labels=timeStamp;//json.timestamp;//
+		chart_obj.data.labels=timeStamp;
 	}
 	
 	if (json.val == "ac_sensor_t")

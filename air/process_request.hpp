@@ -1,3 +1,16 @@
+/*
+GNU GENERAL PUBLIC LICENSE
+
+Version 2, June 1991
+
+Copyright (C) 1989, 1991 Free Software Foundation, Inc.  
+51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+
+Everyone is permitted to copy and distribute verbatim copies
+of this license document, but changing it is not allowed.
+
+*/
+
 #include "config.h"
 
 extern air_status_t air_status;
@@ -83,18 +96,6 @@ void serialize_array_int(int *ptr, JsonArray &arr, int idx) {
 
 /*__________________________________________________________JSON_FUNCTIONS__________________________________________________________*/
 
-
-/*void json2air(String request, air_status_t *air)
-  {
-  StaticJsonDocument<200> jsonDoc;
-  DeserializationError error = deserializeJson(jsonDoc, request);
-  if (error) {
-    return;
-  }
-  }*/
-
-
-
 String air_to_json(air_status_t *air)
 {
   String response;
@@ -158,25 +159,16 @@ String air_to_json(air_status_t *air)
   String str;
   for (i = 0; (i < MAX_CMD_BUFFER) && (i < (air->last_cmd[3] + 5)) ; i++)
     str += ((air->last_cmd[i] < 0x10) ? "0" : "")  + String(air->last_cmd[i], HEX) + " ";
-  //jsonDoc["last_cmd"] = str;
 
   str = "";
-  //str += "[" + String(air->curr_r_idx) + "-" + String(air->curr_w_idx)+" "+ String(air->rx_data_count)+"]";
-  //for (i = air->curr_r_idx; (i < MAX_RX_BUFFER) && (i< air->curr_w_idx); i++) round buffer
+
   for (i = 0; (i < MAX_RX_BUFFER) && (i < air->curr_w_idx); i++) //not round buffer
-    //for (i = 0; (i < MAX_RX_BUFFER) && (i < air->rx_data_count); i++) //simple
-    //for (i = air->curr_r_idx;  i!= air->curr_w_idx; i=(i+1)%MAX_RX_BUFFER)
   {
     str += ((air->rx_data[i] < 0x10) ? "0" : "")  + String(air->rx_data[i], HEX) + " ";
   }
-  //jsonDoc["rx_data"] = str;
 
   jsonDoc["last_cmd"] = air->buffer_cmd;
   jsonDoc["rx_data"] = air->buffer_rx;
-
-  //air->rx_data_count = 0; //reset buffer
-
-  //jsonDoc["tx_data"] = air->tx_data;
 
   serializeJson(jsonDoc, response);
 
@@ -186,16 +178,13 @@ String air_to_json(air_status_t *air)
 
 String string_to_json(String t)
 {
+  int i;
+  String str;
   String response;
   StaticJsonDocument<800> jsonDoc; //400 without indoor/outdoor data
 
   jsonDoc["id"] = "txt";
-
-  int i;
-  String str;
-
   jsonDoc["txt"] = str;
-
   serializeJson(jsonDoc, response);
 
   return response;
@@ -223,45 +212,29 @@ String timeseries_to_json(String id, String val, void *data, int data_type, int 
       serialize_array_ul_int((unsigned long*)data, jsonArr, temp_idx);
   }
 
-  //jsonArr.add(jsonArr.size());
-  //jsonArr.add(jsonArr.memoryUsage());
-
   jsonDoc.garbageCollect();
-
   serializeJson(jsonDoc, message);
-
-  Serial.println();
-  //serializeJson(jsonDoc, Serial);
-  Serial.printf("ts_json %s\n", message.c_str());
   jsonDoc.clear();
 
   return message;
 }
 
-
 void processRequest( uint8_t *  payload) {
-
   //decode json
   StaticJsonDocument<200> jsonDoc;
   DeserializationError error = deserializeJson(jsonDoc, payload);
   if (error) {
-    Serial.printf("Could not deserialize JSON %s\n", payload);
+    Serial.printf("[JSON] Could not deserialize JSON %s\n", payload);
     return;
   }
 
-  Serial.printf("Processing %s\n", payload);
-
   if (jsonDoc["id"] == "power") {            // power
-    Serial.printf("begin power\n");
     if (jsonDoc["value"] == "on") {
       air_set_power_on(&air_status);
-      Serial.println("5");
     } else if (jsonDoc["value"] == "off") {
-      Serial.println("5b");
       air_set_power_off(&air_status);
     }
-    Serial.println("6");
-    Serial.printf("end power\n");
+
 
   } else if (jsonDoc["id"] == "temp") {
     int val = atoi(jsonDoc["temp"]);
@@ -285,7 +258,6 @@ void processRequest( uint8_t *  payload) {
     }
   }
   else if (jsonDoc["id"] == "timer") {
-    Serial.println("Received timer");
     int val = atoi(jsonDoc["timer_time"]); //time is a string :)
     if (val == TIMER_SW_RESET) {
       timerAC.disable();
@@ -300,7 +272,6 @@ void processRequest( uint8_t *  payload) {
     }
   }
   else if (jsonDoc["id"] == "mode") {
-    Serial.println("Received mode");
     if (jsonDoc["value"] == "cool") {
       air_set_mode(&air_status, MODE_COOL);
     } else if (jsonDoc["value"] == "dry") {
@@ -312,7 +283,6 @@ void processRequest( uint8_t *  payload) {
     }
   }
   else if (jsonDoc["id"] == "fan") {
-    Serial.println("Received fan");
     if (jsonDoc["value"] == "low") {
       air_set_fan(&air_status, FAN_LOW);
     } else if (jsonDoc["value"] == "medium") {
@@ -324,7 +294,6 @@ void processRequest( uint8_t *  payload) {
     }
   }
   else if (jsonDoc["id"] == "save") {
-    Serial.println("Received save");
     if (jsonDoc["value"] == "1") {
       air_set_save_on(&air_status);
     } else if (jsonDoc["value"] == "0") {
@@ -334,7 +303,6 @@ void processRequest( uint8_t *  payload) {
   //sets hw timer
   else if (jsonDoc["id"] == "timer_hw") {
     int val = atoi(jsonDoc["time"]);
-    Serial.println("Timer HW");
     if (jsonDoc["value"] == "cancel") {
       air_set_timer(&air_status, TIMER_HW_CANCEL, val);
     } else if (jsonDoc["value"] == "off") {
@@ -347,14 +315,8 @@ void processRequest( uint8_t *  payload) {
   }
   //status sends current values
   else if (jsonDoc["id"] == "status") {
-    Serial.println("Status");
-
     String message;
-    //int i;
-    //for (i = 0; i < MAX_CMD_BUFFER && i < (air_status.last_cmd[3] + 5) ; i++)
-    //  message += ((air_status.last_cmd[i] < 0x10) ? "0" : "" ) + String(air_status.last_cmd[i], HEX) + " ";
-    //Serial.println(message);
-
+    Serial.println(message);
     message = air_to_json(&air_status);
     webSocket.broadcastTXT(message);
     //reset serial buffers
@@ -363,7 +325,6 @@ void processRequest( uint8_t *  payload) {
   }
   //sets sampling period for data logging
   else if (jsonDoc["id"] == "sampling") {
-    Serial.println("Sampling time");
     temp_interval = jsonDoc["value"];
     timerTemperature.setUnit(1000);
     timerTemperature.setInterval(temp_interval);
@@ -373,7 +334,6 @@ void processRequest( uint8_t *  payload) {
   }
   //request timeseries values for graphic
   else if (jsonDoc["id"] == "timeseriesOLD") {
-    Serial.println("TimeSeries");
     String message;
 
     //use assistant to estimate size https://arduinojson.org/v6/assistant/
@@ -435,15 +395,19 @@ void processRequest( uint8_t *  payload) {
 
     message = timeseries_to_json("timeseries", "timestamp", timestamps, 2, temp_idx);
     webSocket.broadcastTXT(message);
-    message = timeseries_to_json("timeseries", "timestamp", timestamps, 2, temp_idx);
-    webSocket.broadcastTXT(message);
+
+    /*
+      uint8_t m[WEBSOCKETS_MAX_HEADER_SIZE+2000];
+      int l = message.length();
+      strncpy((char*)m[WEBSOCKETS_MAX_HEADER_SIZE],message.c_str(),l);
+
+      //bool broadcastTXT(uint8_t * payload, size_t length = 0, bool headerToPayload = false);
+      webSocket.broadcastTXT(m,(l - WEBSOCKETS_MAX_HEADER_SIZE),true);
+    */
     message = timeseries_to_json("timeseries", "dht_t", dht_t, 0, temp_idx);
     webSocket.broadcastTXT(message);
 
     message = timeseries_to_json("timeseries", "dht_h", dht_h, 0, temp_idx);
-    webSocket.broadcastTXT(message);
-
-    message = timeseries_to_json("timeseries", "ac_sensor_t", ac_sensor, 0, temp_idx);
     webSocket.broadcastTXT(message);
 
     message = timeseries_to_json("timeseries", "bmp_p", bmp_p, 0, temp_idx);
@@ -452,6 +416,9 @@ void processRequest( uint8_t *  payload) {
     message = timeseries_to_json("timeseries", "te", ac_outdoor_te, 1, temp_idx);
     webSocket.broadcastTXT(message);
 
+    message = timeseries_to_json("timeseries", "ac_sensor_t", ac_sensor, 0, temp_idx);
+    webSocket.broadcastTXT(message);
+
+
   } //end if timeseries
-  Serial.printf("end processRequest\n");
 }
