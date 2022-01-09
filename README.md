@@ -61,7 +61,7 @@ OTA updates are available, so you do not need to unplug the esp everytime you wa
 If you just want to upload indivudual files you can use http://air.local/edit.html
 
 ### Known bugs
-- After a little time without acitvity, the websocket is closed. I am still working on a reconnection function but for now just reload the page.
+- After a little time without acitvity, the websocket is closed. I am working on a reconnection function.
 - A reload can cause the board to reboot because a websocket is opened when it is serving webpage files. Sometimes happen and sometimes not. But it is not critical.
 
 # Hardware installation
@@ -71,7 +71,9 @@ You will need an esp8266, a circuit for adapting signals to esp8266, a USB power
 - Pass the wires through the ventilation holes of the cover.
 - Insert dupont wires on the terminals and screw them again
 - Close the cover
-- Connect dupont wires to the pcb and you are done.
+- Connect dupont wires to the pcb (A,B)
+- Plug the Wemos D1 mini into the pcb
+- Power Wemos with usb cable and the led will start blinking (if you have already programmed it)
 
 Just switch it on/off while you are in bed. If you like it just send me a beer and/or improve the project!
 
