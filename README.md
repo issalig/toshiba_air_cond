@@ -1,7 +1,7 @@
 # toshiba_air_cond
 This project implements functions to decode Toshiba AB protocol (TCC Link?) for air conditioners with wired controllers and provides a hardware design to communicate.
 
-In case you are interested in a board just open an issue and contact me. If you are more into DIY, I also provide the gerbers and remember if you improve the design please share it.
+In case you are **interested in a pcb board** just open an issue and contact me. If you are more into DIY, I also provide the gerbers and remember if you improve the design please share it, that's how open source works, if you do not want to share, this project is not for you.
 
 In particular, this project has been tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
 
