@@ -1,5 +1,5 @@
 # toshiba_air_cond
-This project implements functions to decode Toshiba AB protocol (TCC Link?) for air conditioners with wired controllers and provides a hardware design to communicate.
+This project implements functions to decode Toshiba AB protocol from indoor units to wired controllers and provides a hardware design to communicate.
 
 In case you are **interested in a pcb board** just open an issue and contact me. If you are more into DIY, I also provide the gerbers and remember if you improve the design please share it, that's how open source works, if you do not want to share, this project is not for you.
 
