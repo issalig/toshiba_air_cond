@@ -1,5 +1,5 @@
 # toshiba_air_cond
-This project implements functions to decode Toshiba AB protocol (TCC Link?) for air conditioners with wired controllers and provides a hardware design to communicate.
+This project implements functions to decode Toshiba AB protocol from indoor units to wired controllers and provides a hardware design to communicate.
 
 In case you are **interested in a pcb board** just open an issue and contact me. If you are more into DIY, I also provide the gerbers and remember if you improve the design please share it, that's how open source works, if you do not want to share, this project is not for you.
 
@@ -79,7 +79,7 @@ Just switch it on/off while you are in bed. If you like it just send me a beer a
 
 # Data acquisition
 
-This is how I managed to decode the information from the AB bus. I used a DS0138 oscilloscope to monitor the signal (voltage may differ around 0.7V but it is usable) and to guess voltages and baudrate. Later, an 8-channel USB logic analyzer (4-5 USD) can be used to capture data into the computer. **REMEMBER** to convert voltages to 0-3.3v before connecting it to logic analyzer or you will fry it. You can use the read circuit below.
+This is how I managed to decode the information from the AB bus. First I plugged a multimeter to check the range of the signal and not fry anything. Then I used a DS0138 oscilloscope to monitor the signal and to guess voltages and baudrate (a resistor divider is suggested in order to lower the voltage). Later, an 8-channel USB logic analyzer (4-5 USD) can be used to capture data into the computer. **REMEMBER** to convert voltages to 0-3.3v before connecting it to logic analyzer or you will make magic smoke. You can use the read circuit below.
 
 To capture data you can use pulseview with uart decoder 2400 bps, 8bits, start, stop, EVEN parity
 
@@ -103,10 +103,12 @@ sigrok-cli -d fx2lafw -c samplerate=250000 -t D0=r -P uart:rx=D0:baudrate=2400:p
 I have designed some circuits to read and write the signal
 
 ## Read
+I will use an optocoupler because it simplifies things and also isolates microcontroller from the rest of the system.
+
 - Air conditioning side:
 Signal is around 15.6 volts when 1 and 14 when 0. Zener diode provides 13V reference, so signal is 1V .. 2.6V and after diode (0.7V drop) is 0.3V .. 1.9V, enough to activate photodiode (1.2V) when 1 and to not activate it when 0.
 
-Led drops 1.2v, and from signal we have a difference of 15.6-13=2.6, thus 2.6-1.2=1.4/100= 14mA which has a maximum CTR=140%
+IR led from optocouple drops 1.2v, and from signal we have a difference of 15.6V-13V=2.6V, thus 2.6V-1.2V=1.4V/100ohm = 14mA which has a maximum CTR=140%
 Ic=3.3, If=14
 CTR=Ic/If
 
