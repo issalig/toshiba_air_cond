@@ -58,7 +58,7 @@ In the bottom side of the pcb you can find the connections, DHT is connected to 
 ### OTA and file update
 OTA updates are available, so you do not need to unplug the esp everytime you want to flash it. In the Arduino IDE just set Tools->Port->air at xxx.
 
-If you just want to upload indivudual files you can use http://air.local/edit.html
+If you just want to upload individual files you can use http://air.local/edit.html
 
 ### Known bugs
 - After a little time without acitvity, the websocket is closed. I am working on a reconnection function.
