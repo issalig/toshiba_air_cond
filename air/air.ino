@@ -12,11 +12,10 @@
               02/12/2020 add min/max
               04/01/2021 pre-heat detection
               14/01/2021 sensor info, to, tcj , ...
-              18/06/2021 fixed some crashes
               18/11/2021 power consumption
               07/12/2021 fixed query_sensors
-              04/01/2021 spiffs -> littlefs (fix crash problems)
-
+              04/01/2022 spiffs -> littlefs
+              04/02/2022 finally fixed websocket problem
   Instructions:
               HW
               R/W circuit (see readme.md)
@@ -38,12 +37,12 @@
 
 
   This code in under license GPL v2
- 
+
   GNU GENERAL PUBLIC LICENSE
 
   Version 2, June 1991
 
-  Copyright (C) 1989, 1991 Free Software Foundation, Inc.  
+  Copyright (C) 1989, 1991 Free Software Foundation, Inc.
   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 
   Everyone is permitted to copy and distribute verbatim copies
@@ -51,19 +50,19 @@
 */
 
 #include "LittleFS.h"
-#define SPIFFS LittleFS //lazy hack not to change names
+#define SPIFFS LittleFS //dirty hack not to change names in the migration of SPIFFS to LittleFS
 
 #include <ESP8266WiFi.h>
 
-#ifdef USE_ASYNC
-#include <ESPAsync_WiFiManager.h>
-#include <ESPAsyncTCP.h>
-#include <ESPAsyncWebServer.h>
-#else
-#include <WiFiManager.h>
-#include <ESP8266WiFiMulti.h>
-#include <ESP8266WebServer.h>
-#include <WebSocketsServer.h> //https://github.com/Links2004/arduinoWebSockets/
+#ifdef USE_ASYNC //for ESP32
+  #include <ESPAsync_WiFiManager.h_>
+  #include <ESPAsyncTCP.h_>
+  #include <ESPAsyncWebServer.h_>
+#else //use links2004 websocketserver
+  #include <WiFiManager.h>
+  #include <ESP8266WiFiMulti.h>
+  #include <ESP8266WebServer.h>
+  #include <WebSocketsServer.h> //https://github.com/Links2004/arduinoWebSockets/
 #endif
 
 #include <ArduinoOTA.h>
@@ -75,9 +74,8 @@
 #include "toshiba_serial.hpp"
 #include "MySimpleTimer.hpp"
 #include "process_request.hpp"
-//#include "wip.hpp"
 
-#include "config.h" // check this file!!!
+#include "config.h" // check it for settings
 
 //#include <GDBStub.h>
 
@@ -88,11 +86,12 @@ const char compile_date[] = __DATE__ " " __TIME__;
 Ticker ticker;
 
 #ifndef LED_BUILTIN
-#define LED_BUILTIN 13 // ESP32 DOES NOT DEFINE LED_BUILTIN
+  #define LED_BUILTIN 13 // ESP32 DOES NOT DEFINE LED_BUILTIN
 #endif
 
 int LED = LED_BUILTIN;
 
+//not necessary because now we use WifiManager
 //change it according to your network
 IPAddress ip(192, 168, 2, 200);
 IPAddress gateway(192, 168, 2, 1);
@@ -161,7 +160,6 @@ void setup() {
   Serial.println("Air conditioning starts!");
 
   //startWiFi();                 // Start a Wi-Fi access point, and try to connect to some given access points. Then wait for either an AP or STA connection
-
   startWifiManager();          // Use wifimanager to connect
 
   //is_reset_button();
@@ -172,11 +170,9 @@ void setup() {
 
   startWebSocket();            // Start a WebSocket server
 
-//  startMDNS();                 // Start the mDNS responder
+  startMDNS();                 // Start the mDNS responder
 
   startServer();               // Start a HTTP server with a file read handler and an upload handler
-
-  startMDNS();                 // Start the mDNS responder
 
   init_air_serial(&air_status);// Start air conditioning structure and software serial
 
@@ -186,11 +182,10 @@ void setup() {
 
   startStatus();               // Start timer for status print (10s)
 
-  //yield();                     // in case init takes a lot avoid wdt resets, it can cause problems with async
-
   startTime();                 // Get time from NTP server
 
   startTemperature();          // Start timer for temperature readings (120s)
+  
 }
 
 void startTime() {
@@ -361,7 +356,7 @@ void handleStatus() {
     air_query_sensors(&air_status); //query few sensors, if this takes too much time it can crash wifi
     air_print_status(&air_status);
     //air_explore_all_sensors(&air_status); //it takes a lot of time, use it just to discover sensors
-    air_status.power_consumption += air_status.outdoor_current * 10 / (3600/temp_interval); //30 readings per hour
+    air_status.power_consumption += air_status.outdoor_current * 10 / (3600 / temp_interval); //30 readings per hour
   }
 }
 
@@ -381,10 +376,9 @@ void loop() {
   handleTemperature();
   handleStatus();
   handleReadSerial();
-  //yield();                                    // Handle WiFi / reset software watchdog. it can cause problems with asumc
 
 #ifndef USE_ASYNC
-  //webSocket.loop();                           // constantly check for websocket events
+  webSocket.loop();                           // constantly check for websocket events
   server.handleClient();                      // run the server
 #endif
 
@@ -457,7 +451,7 @@ void startWebSocket() { // Start a WebSocket server
 #ifdef USE_ASYNC
   webSocket.onEvent(onWsAsyncEvent);
   server.addHandler(&webSocket);
-#else
+#else //use links2004
   webSocket.begin();                          // start the websocket server
   webSocket.onEvent(onWsEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
 #endif
@@ -566,7 +560,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 
 void handleNotFound() { // if the requested file or page doesn't exist, return a 404 not found error
   if (!handleFileRead(server.uri())) {        // check if the file exists in the flash memory (SPIFFS), if so, send it
-    server.send(404, "text/plain", "404: File Not Found");
+    server.send(404, "text/plain", "404: File Not Found: " + server.uri());
   }
 }
 
@@ -626,10 +620,10 @@ void handleFileUpload() { // upload a new file to the SPIFFS
   }
 }
 
-/* 
- *  websocket callback
- */
-void onWsEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) { 
+/*
+    websocket callback
+*/
+void onWsEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
       Serial.printf("[WS (%u)] Disconnected!\n", num);
