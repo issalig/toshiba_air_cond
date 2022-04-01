@@ -27,19 +27,13 @@ This project uses libraries and code by different authors
 - [ArduinoJson](https://github.com/bblanchon/ArduinoJson) by Benoit Blanchon
 
 ### Compilation
-Compile the code and upload it to the board. You only need to install VSCode editor and PlatformIO extension. PlatformIO will take care of download all deps for you. **[More info](./Code/ToshibaAir/README.md)**
+Compile the code and upload it to the board. You only need to install **VSCode** editor and **PlatformIO** extension. PlatformIO will take care of download all deps for you. **[More info](./Code/ToshibaAir/README.md)**
 
 ### Install LittleFS sketch upload
 This project uses LittleFS filesystem to store the webpage files, .html, .js , ...
-In order to upload these files you need to install a plugin and follow the instructions:
-- Download the tool archive from (https://github.com/earlephilhower/arduino-esp8266littlefs-plugin/releases).
-- In your Arduino sketchbook directory, create tools directory if it doesn't exist yet.
-- Unpack the tool into tools directory (the path will look like <home_dir>/Arduino/tools/ESP8266LittleFS/tool/esp8266littlefs.jar).
-- Restart Arduino IDE.
+In order to upload these files you need execute the task **Upload Filesystem Image**
 
-Files are located into the **data** folder of your sketch and all the contents of the folder will be uploaded
-- Make sure you have selected a board, port, and closed Serial Monitor. OTA ports are not valid, you need to plug the board into your computer.
-- Select Tools > ESP8266 LittleFS Data Upload menu item. This should start uploading the files into ESP8266 flash file system. When done, IDE status bar will display LittleFS Image Uploaded message. Might take a few minutes for large file system sizes.
+<img align="center" src="Code/ToshibaAir/doc/upload_fs.png" />
 
 ### WiFi setup
 Once you have the code and the data uploaded it is time to configure your WiFi. This project makes use of the great WiFiManager library so there is no need to hardcode your WiFi settings.
