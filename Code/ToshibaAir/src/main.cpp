@@ -1,54 +1,5 @@
-/*
-  Name:       air.ino
-  Description: Control toshiba air cond via web
-  Author:     issalig
 
-  History:    01/06/2020 initial version
-              15/07/2020 Websockets
-              27/08/2020 temperature graph
-              05/09/2020 fix temp, fix heat mode
-              01/10/2020 bmp180 support adds pressure
-              01/11/2020 fix bmp180 not connected
-              02/12/2020 add min/max
-              04/01/2021 pre-heat detection
-              14/01/2021 sensor info, to, tcj , ...
-              18/11/2021 power consumption
-              07/12/2021 fixed query_sensors
-              04/01/2022 spiffs -> littlefs
-              04/02/2022 finally fixed websocket problem
-  Instructions:
-              HW
-              R/W circuit (see readme.md)
-              DHT is connected to D3 (not necessary)
-              BMP180 connected to D1 (SCL) D2 (SDA) (not necessary)
-              Software serial rx on D7, tx on D8
-              Wemos mini D1
-
-              SW
-              Upload data directory with ESP8266SketchDataUpload and flash it with USB for the first time. Then, when installed you can use OTA updates.
-
-
-  References: https://github.com/tttapa/ESP8266/
-              https://github.com/luisllamasbinaburo/ESP8266-Examples
-              https://diyprojects.io/esp8266-web-server-part-5-add-google-charts-gauges-and-charts/#.X0gBsIbtY5k
-
-
-  Dependencies: https://github.com/plerup/espsoftwareserial
-
-
-  This code in under license GPL v2
-
-  GNU GENERAL PUBLIC LICENSE
-
-  Version 2, June 1991
-
-  Copyright (C) 1989, 1991 Free Software Foundation, Inc.
-  51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
-
-  Everyone is permitted to copy and distribute verbatim copies
-  of this license document, but changing it is not allowed.
-*/
-
+#include <Arduino.h>
 #include "LittleFS.h"
 #define SPIFFS LittleFS //dirty hack not to change names in the migration of SPIFFS to LittleFS
 
@@ -62,14 +13,14 @@
   #include <WiFiManager.h>
   #include <ESP8266WiFiMulti.h>
   #include <ESP8266WebServer.h>
-  #include <WebSocketsServer.h> //https://github.com/Links2004/arduinoWebSockets/
+  #include <WebSocketsServer.h>
 #endif
 
 #include <ArduinoOTA.h>
 #include <ESP8266mDNS.h>
 #include <FS.h>
-#include <ArduinoJson.h>  //by Benoit Blanchon
-#include <NTPClient.h> //install from arduino or get it from https://github.com/arduino-libraries/NTPClient
+#include <ArduinoJson.h>
+#include <NTPClient.h> 
 #include <WiFiUdp.h>
 #include "toshiba_serial.hpp"
 #include "MySimpleTimer.hpp"
@@ -149,7 +100,34 @@ MySimpleTimer timerSaveFile;
 
 #define RESET_MODE_PIN D4  //button to enter into wifi configuration
 
-/*__________________________________________________________SETUP__________________________________________________________*/
+
+void configModeCallback (WiFiManager *myWiFiManager);
+void handleNotFound();
+bool handleFileRead(String path);
+void handleFileUpload();
+void onWsEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length);
+int save_file(String name, String text);
+String formatBytes(size_t bytes);
+String getContentType(String filename);
+void tick();
+void startWifiManager();
+void startOTA();
+void startSPIFFS();
+void startWebSocket();
+void startMDNS();
+void startServer();
+void startReadSerial();           // Start timer for serial readings (1s)
+void handleTimer();
+void handleTemperature();
+void handleSaveFile();
+void getTemperatureCurrent();
+void handleStatus();
+void handleReadSerial();
+void startStatus();               // Start timer for status print (10s)
+void startTime();                 // Get time from NTP server
+void startTemperature();
+
+
 
 void setup() {
 
@@ -186,6 +164,20 @@ void setup() {
 
   startTemperature();          // Start timer for temperature readings (120s)
   
+}
+
+void loop() {
+  handleTimer();                              // Set all handlers
+  handleTemperature();
+  handleStatus();
+  handleReadSerial();
+
+#ifndef USE_ASYNC
+  webSocket.loop();                           // constantly check for websocket events
+  server.handleClient();                      // run the server
+#endif
+
+  ArduinoOTA.handle();                        // listen for OTA events
 }
 
 void startTime() {
@@ -366,26 +358,6 @@ void handleReadSerial() {
     val = air_parse_serial(&air_status);
   }
 }
-
-
-
-/*__________________________________________________________LOOP__________________________________________________________*/
-
-void loop() {
-  handleTimer();                              // Set all handlers
-  handleTemperature();
-  handleStatus();
-  handleReadSerial();
-
-#ifndef USE_ASYNC
-  webSocket.loop();                           // constantly check for websocket events
-  server.handleClient();                      // run the server
-#endif
-
-  ArduinoOTA.handle();                        // listen for OTA events
-}
-
-/*__________________________________________________________SETUP_FUNCTIONS__________________________________________________________*/
 
 void startWiFi() { //fixed IP
   WiFi.mode(WIFI_STA);
@@ -687,3 +659,5 @@ void tick()
   //toggle state
   digitalWrite(LED, !digitalRead(LED));     // set pin to the opposite state
 }
+
+

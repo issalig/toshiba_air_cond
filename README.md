@@ -18,7 +18,7 @@ Code is developed in Arduino for ESP8266 and in particular Wemos B1 mini board. 
 
 ### Dependencies
 
-This project uses libraries and code by different authors, you can install them in Arduino IDE going to Tools->Library Manager
+This project uses libraries and code by different authors
 
 - [esp8266](https://github.com/esp8266/Arduino)
 - [espsoftwareserial](https://github.com/plerup/espsoftwareserial) by Peter Lerup
@@ -27,7 +27,7 @@ This project uses libraries and code by different authors, you can install them 
 - [ArduinoJson](https://github.com/bblanchon/ArduinoJson) by Benoit Blanchon
 
 ### Compilation
-Compile the code and upload it to the board. You will need to install the previous libraries and maybe some others. Once it is compiled it means you have all the dependencies installed.
+Compile the code and upload it to the board. You only need to install VSCode editor and PlatformIO extension. PlatformIO will take care of download all deps for you. **[More info](./Code/ToshibaAir/README.md)**
 
 ### Install LittleFS sketch upload
 This project uses LittleFS filesystem to store the webpage files, .html, .js , ...
