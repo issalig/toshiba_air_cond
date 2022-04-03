@@ -91,7 +91,6 @@ void setup() {
   Serial.println("\r\n");
   Serial.println("Air conditioning starts!");
 
-  //startWiFi();                 // Start a Wi-Fi access point, and try to connect to some given access points. Then wait for either an AP or STA connection
   startWifiManager();          // Use wifimanager to connect
 
   //is_reset_button();
@@ -411,27 +410,6 @@ void startServer() { // Start a HTTP server with a file read handler and an uplo
   // and check if the file exists
 
 #endif
-
-  /*
-    server.on("/", []() {
-    if (!isInternalIP(&server)){ //ask for autheitcation if not inside local net
-    if (!server.authenticate(http_user, http_passwd))
-      //Basic Auth Method with Custom realm and Failure Response
-      //return server.requestAuthentication(BASIC_AUTH, www_realm, authFailResponse);
-      //Digest Auth Method with realm="Login Required" and empty Failure Response
-      //return server.requestAuthentication(DIGEST_AUTH);
-      //Digest Auth Method with Custom realm and empty Failure Response
-      //return server.requestAuthentication(DIGEST_AUTH, www_realm);
-      //Digest Auth Method with Custom realm and Failure Response
-    {
-      return server.requestAuthentication(DIGEST_AUTH, www_realm, authFailResponse);
-    }}
-    //server.sendHeader("Location", "/index.html");     // Redirect the client to main page
-    //server.send(303);
-
-    //server.send(200, "text/html", inde);
-    });
-  */
 
   server.begin();                             // start the HTTP server
   Serial.println("HTTP server started.");
