@@ -3,7 +3,7 @@
 
 #define MAX_LOG_DATA 72 //store up to 72 readings in a circular buffer
 
-#define USE_BMP //if BMP sensor installed
+// #define USE_BMP //if BMP sensor installed
 #define USE_DHT //in DHT sensor installed
 
 //#define USE_ASYNC

@@ -6,11 +6,12 @@
 #include "ntp_timer.hpp"
 #include "wifi.hpp"
 #include "ota.hpp"
+#include "sensors.hpp"
+
 
 
 
 #include <ESP8266WiFi.h>
-#include "DHT.h"
 
 #define SPIFFS LittleFS //dirty hack not to change names in the migration of SPIFFS to LittleFS
 #ifdef USE_ASYNC //for ESP32
