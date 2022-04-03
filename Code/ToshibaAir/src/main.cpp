@@ -1,14 +1,5 @@
 #include "main.h"
 
-
-
-//not necessary because now we use WifiManager
-//change it according to your network
-IPAddress ip(192, 168, 2, 200);
-IPAddress gateway(192, 168, 2, 1);
-IPAddress subnet(255, 255, 255, 0);
-IPAddress dns(8, 8, 8, 8);
-
 air_status_t air_status;
 MySimpleTimer timerAC;
 
@@ -311,27 +302,6 @@ void handleReadSerial() {
     val = air_parse_serial(&air_status);
   }
 }
-
-void startWiFi() { //fixed IP
-  WiFi.mode(WIFI_STA);
-  WiFi.config(ip, gateway, subnet, dns);
-  WiFi.begin(w_ssid, w_passwd);
-  Serial.print("Connected to:\t");
-  Serial.println(w_ssid);
-
-  // wait for connection
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(200);
-    Serial.print('.');
-  }
-
-  // show IP
-  Serial.println("Connection stablished.");
-  Serial.print("IP address:\t");
-  Serial.println(WiFi.localIP());
-}
-
 
 void startOTA() { // Start the OTA service
   ArduinoOTA.setHostname(OTAName);
