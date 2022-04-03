@@ -2,6 +2,8 @@
 #include "DHT.h"
 #include "config.h"
 #include <Arduino.h>
+#include "helper.hpp"
+
 
 struct dht_data {
   float temperature;
@@ -19,7 +21,7 @@ void initialize() { dht.begin(); }
 
 dht_data_t read() {
   dht_data_t result;
-  result.temperature = dht.readTemperature();
+  result.temperature = round_f(dht.readTemperature());
   result.humidity = dht.readHumidity();
   return result;
 }
