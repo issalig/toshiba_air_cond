@@ -1,5 +1,5 @@
-#ifndef CONFIG
-#define CONFIG
+#pragma once
+
 
 #define MAX_LOG_DATA 72 //store up to 72 readings in a circular buffer
 
@@ -18,4 +18,4 @@ const char *OTAPassword = "esp8266";
 
 const char* mdnsName = "air"; // Domain name for the mDNS responder. Just connect to air.local
 
-#endif
+
