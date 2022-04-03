@@ -4,6 +4,8 @@
 #include "helper.hpp"
 #include "LittleFS.h"
 #include "ntp_timer.hpp"
+#include "wifi.hpp"
+
 
 #include <ESP8266WiFi.h>
 #include "DHT.h"
@@ -34,6 +36,3 @@
 //#include <GDBStub.h>
 
 const char compile_date[] = __DATE__ " " __TIME__;
-
-//for LED status
-#include <Ticker.h>
