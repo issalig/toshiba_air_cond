@@ -50,7 +50,6 @@ void handleFileUpload();
 void onWsEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length);
 int save_file(String name, String text);
 
-void startOTA();
 void startSPIFFS();
 void startWebSocket();
 void startMDNS();
@@ -79,7 +78,7 @@ void setup() {
 
   //is_reset_button();
 
-  startOTA();                  // Start the OTA service
+  OTA::initialize();                  // Start the OTA service
 
   startSPIFFS();               // Start the SPIFFS and list all contents
 
@@ -283,30 +282,6 @@ void handleReadSerial() {
   }
 }
 
-void startOTA() { // Start the OTA service
-  ArduinoOTA.setHostname(OTAName);
-  ArduinoOTA.setPassword(OTAPassword);
-
-  ArduinoOTA.onStart([]() {
-    Serial.println("Start OTA");
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("\r\nEnd OTA");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-  });
-  ArduinoOTA.begin();
-  Serial.println("OTA ready\r\n");
-}
 
 void startSPIFFS() { // Start the SPIFFS and list all contents
   SPIFFS.begin();                             // Start the SPI Flash File System (SPIFFS)

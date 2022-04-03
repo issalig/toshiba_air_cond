@@ -5,6 +5,8 @@
 #include "LittleFS.h"
 #include "ntp_timer.hpp"
 #include "wifi.hpp"
+#include "ota.hpp"
+
 
 
 #include <ESP8266WiFi.h>
@@ -22,7 +24,7 @@
   #include <WebSocketsServer.h>
 #endif
 
-#include <ArduinoOTA.h>
+
 #include <ESP8266mDNS.h>
 #include <FS.h>
 #include <ArduinoJson.h>
