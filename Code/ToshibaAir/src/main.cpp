@@ -1,5 +1,6 @@
 #include "main.h"
 
+Ticker ticker;
 air_status_t air_status;
 MySimpleTimer timerAC;
 
@@ -44,8 +45,6 @@ NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 0); //do not apply utc here
 MySimpleTimer timerStatus;
 MySimpleTimer timerReadSerial;
 MySimpleTimer timerSaveFile;
-
-#define RESET_MODE_PIN D4  //button to enter into wifi configuration
 
 
 void configModeCallback (WiFiManager *myWiFiManager);

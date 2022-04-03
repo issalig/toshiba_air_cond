@@ -36,13 +36,3 @@ const char compile_date[] = __DATE__ " " __TIME__;
 
 //for LED status
 #include <Ticker.h>
-Ticker ticker;
-
-#ifndef LED_BUILTIN
-  #define LED_BUILTIN 13 // ESP32 DOES NOT DEFINE LED_BUILTIN
-#endif
-
-int LED = LED_BUILTIN;
-
-const int DHTPin = D3;
-#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
