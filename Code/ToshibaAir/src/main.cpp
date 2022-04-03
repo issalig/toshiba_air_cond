@@ -12,8 +12,6 @@ IPAddress dns(8, 8, 8, 8);
 air_status_t air_status;
 MySimpleTimer timerAC;
 
-//ESP8266WiFiMulti wifiMulti;       // Create an instance of the ESP8266WiFiMulti class, called 'wifiMulti'
-
 #ifdef USE_ASYNC
 AsyncWebServer server(80);
 AsyncWebSocket webSocket("/ws");
@@ -27,9 +25,7 @@ File fsUploadFile;                                    // a File variable to temp
 MySimpleTimer timerTemperature;
 int temp_interval = 1800;//in secs, 30 mins
 
-#include "DHT.h"
-const int DHTPin = D3;
-#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+
 DHT dht(DHTPin, DHTTYPE);
 
 #include <Wire.h>
@@ -67,8 +63,6 @@ bool handleFileRead(String path);
 void handleFileUpload();
 void onWsEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length);
 int save_file(String name, String text);
-String formatBytes(size_t bytes);
-String getContentType(String filename);
 void tick();
 void startWifiManager();
 void startOTA();
@@ -589,35 +583,9 @@ int save_file(String name, String text) {
   return (bytes);
 }
 
-
-/*__________________________________________________________HELPER_FUNCTIONS__________________________________________________________*/
-
-String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
-  String val;
-  if (bytes < 1024) {
-    val = String(bytes) + "B";
-  } else if (bytes < (1024 * 1024)) {
-    val = String(bytes / 1024.0) + "KB";
-  } else if (bytes < (1024 * 1024 * 1024)) {
-    val = String(bytes / 1024.0 / 1024.0) + "MB";
-  }
-
-  return val;
-}
-
-String getContentType(String filename) { // determine the filetype of a given filename, based on the extension
-  if (filename.endsWith(".html")) return "text/html";
-  else if (filename.endsWith(".css")) return "text/css";
-  else if (filename.endsWith(".js")) return "application/javascript";
-  else if (filename.endsWith(".ico")) return "image/x-icon";
-  else if (filename.endsWith(".gz")) return "application/x-gzip";
-  return "text/plain";
-}
-
 void tick()
 {
   //toggle state
   digitalWrite(LED, !digitalRead(LED));     // set pin to the opposite state
 }
-
 

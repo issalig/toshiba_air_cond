@@ -1,10 +1,13 @@
 #pragma once
 #include <Arduino.h>
+#include "config.h" // check it for settings
+#include "helper.hpp"
 #include "LittleFS.h"
-#define SPIFFS LittleFS //dirty hack not to change names in the migration of SPIFFS to LittleFS
 
 #include <ESP8266WiFi.h>
+#include "DHT.h"
 
+#define SPIFFS LittleFS //dirty hack not to change names in the migration of SPIFFS to LittleFS
 #ifdef USE_ASYNC //for ESP32
   #include <ESPAsync_WiFiManager.h_>
   #include <ESPAsyncTCP.h_>
@@ -26,7 +29,6 @@
 #include "MySimpleTimer.hpp"
 #include "process_request.hpp"
 
-#include "config.h" // check it for settings
 
 //#include <GDBStub.h>
 
@@ -41,3 +43,6 @@ Ticker ticker;
 #endif
 
 int LED = LED_BUILTIN;
+
+const int DHTPin = D3;
+#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
