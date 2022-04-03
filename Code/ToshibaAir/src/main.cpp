@@ -36,11 +36,7 @@ unsigned long timestamps[MAX_LOG_DATA];
 int temp_idx = 0;
 float dht_h_current, dht_t_current, bmp_t_current, bmp_p_current = 0;
 
-// Define NTP Client to get time
-WiFiUDP ntpUDP;
-const long utcOffsetInSeconds = 3600; //1 hour for Europe/Brussels
-int timeOffset = 0;
-NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 0); //do not apply utc here
+
 
 MySimpleTimer timerStatus;
 MySimpleTimer timerReadSerial;
@@ -68,7 +64,6 @@ void getTemperatureCurrent();
 void handleStatus();
 void handleReadSerial();
 void startStatus();               // Start timer for status print (10s)
-void startTime();                 // Get time from NTP server
 void startTemperature();
 
 
@@ -103,7 +98,7 @@ void setup() {
 
   startStatus();               // Start timer for status print (10s)
 
-  startTime();                 // Get time from NTP server
+  NTPTimer::initialize(air_status.boot_time);                // Get time from NTP server
 
   startTemperature();          // Start timer for temperature readings (120s)
   
@@ -121,19 +116,6 @@ void loop() {
 #endif
 
   ArduinoOTA.handle();                        // listen for OTA events
-}
-
-void startTime() {
-  long int boot_time;
-
-  timeClient.begin();          // Get NTP time
-  //timeClient.update();
-  for (int i = 0; i < 5; i++) {
-    timeClient.update();                        // update time
-    boot_time = timeClient.getEpochTime();
-    if (boot_time > 3600) break;                  // check we are not still in 1970
-  }
-  air_status.boot_time = boot_time;
 }
 
 void startTemperature() {
@@ -251,8 +233,8 @@ void handleTemperature() {
     air_query_sensor(&air_status, OUTDOOR_TE);
     ac_outdoor_te[temp_idx] = air_status.outdoor_te;
 
-    timeClient.update();
-    timestamps[temp_idx] = timeClient.getEpochTime();
+    NTPTimer::timeClient.update();
+    timestamps[temp_idx] = NTPTimer::timeClient.getEpochTime();
 
     temp_idx = (temp_idx + 1) % MAX_LOG_DATA;
   }

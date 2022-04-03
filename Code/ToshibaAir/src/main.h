@@ -3,6 +3,7 @@
 #include "config.h" // check it for settings
 #include "helper.hpp"
 #include "LittleFS.h"
+#include "ntp_timer.hpp"
 
 #include <ESP8266WiFi.h>
 #include "DHT.h"
