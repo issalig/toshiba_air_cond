@@ -12,7 +12,7 @@ of this license document, but changing it is not allowed.
 */
 
 #include "SoftwareSerial.h" //https://github.com/plerup/espsoftwareserial
-#include "..\doc\examples\air_test\toshiba_serial.h"
+#include "toshiba_serial.h"
 
 #define DEBUG 1
 
