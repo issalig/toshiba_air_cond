@@ -248,9 +248,13 @@ void handleSaveFile() {
 void getTemperatureCurrent() {
   // Reading temperature or humidity takes about 250 milliseconds!
   auto dht_d = readDHTSensor();
+  dht_t_current = dht_d.temperature;
+  dht_h_current = dht_d.humidity;
   Serial.printf("[DHT] temp %.1f hum %.1f\n", dht_d.temperature, dht_d.humidity);
 
   auto bmp_d = readBPMSensor();
+  bmp_t_current = bmp_d.temperature;
+  bmp_p_current = bmp_d.pressure;
   Serial.printf("[BMP] temp %.1f press %.1f\n", bmp_d.temperature, bmp_d.pressure);
 }
 
