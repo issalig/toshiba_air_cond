@@ -9,18 +9,11 @@
 #include "sensors.hpp"
 
 
-
-
-#include <ESP8266WiFi.h>
-
 #define SPIFFS LittleFS //dirty hack not to change names in the migration of SPIFFS to LittleFS
 #ifdef USE_ASYNC //for ESP32
-  #include <ESPAsync_WiFiManager.h_>
   #include <ESPAsyncTCP.h_>
   #include <ESPAsyncWebServer.h_>
 #else //use links2004 websocketserver
-  #include <WiFiManager.h>
-  #include <ESP8266WiFiMulti.h>
   #include <ESP8266WebServer.h>
   #include <WebSocketsServer.h>
 #endif
