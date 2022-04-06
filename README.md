@@ -3,14 +3,16 @@ This project implements functions to decode Toshiba AB protocol from indoor unit
 
 In case you are **interested in a pcb board** just open an issue and contact me. If you are more into DIY, I also provide the gerbers and remember if you improve the design please share it, that's how open source works, if you do not want to share, this project is not for you.
 
-In particular, this project has been tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
+In particular, this project has been tested with remote control unit RBC-AMT32E and central unit [RAV-SM406BTP-E](http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
 
-You can find the service manual from central unit and wired controller here: http://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_Gainable_Std-Compact--DI_406566806110614061606_GB.pdf, https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf
+You can find the service manual from central unit and wired controller [here](http://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_Gainable_Std-Compact--DI_406566806110614061606_GB.pdf) and [ other here](https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf)
 
 
 # Status
 
 - Operational.
+
+---
 
 # Software installation
 Code is developed in Arduino for ESP8266 and in particular Wemos B1 mini board. Basically it as WebServer that serves a webpage and communicates with the client by means of WebSockets. Some nice features are OTA updates, WifiManager and others ...
@@ -26,16 +28,31 @@ This project uses libraries and code by different authors
 - [WebSockets](https://github.com/Links2004/arduinoWebSockets) by Links2004
 - [ArduinoJson](https://github.com/bblanchon/ArduinoJson) by Benoit Blanchon
 
-### Compilation
+
+
+### Compilation with Arduino IDE
+Compile the code and upload it to the board. You will need to install the previous libraries and maybe some others. Once it is compiled it means you have all the dependencies installed.
+
+#### Install LittleFS sketch upload
+This project uses LittleFS filesystem to store the webpage files, .html, .js , ... In order to upload these files you need to install a plugin and follow the instructions:
+
+Download the tool archive from (https://github.com/earlephilhower/arduino-esp8266littlefs-plugin/releases).
+In your Arduino sketchbook directory, create tools directory if it doesn't exist yet.
+Unpack the tool into tools directory (the path will look like <home_dir>/Arduino/tools/ESP8266LittleFS/tool/esp8266littlefs.jar).
+Restart Arduino IDE.
+
+### Compilation with PlatformIO
 Compile the code and upload it to the board. You only need to install **VSCode** editor and **PlatformIO** extension. PlatformIO will take care of download all deps for you. **[More info](./Code/ToshibaAir/README.md)**
 
-### Install LittleFS sketch upload
+#### LittleFS files upload
 This project uses LittleFS filesystem to store the webpage files, .html, .js , ...
 In order to upload these files you need execute the task **Upload Filesystem Image**
 
 <img align="center" src="Code/ToshibaAir/doc/upload_fs.png" />
 
-### WiFi setup
+
+---
+## WiFi setup
 Once you have the code and the data uploaded it is time to configure your WiFi. This project makes use of the great WiFiManager library so there is no need to hardcode your WiFi settings.
 - Plug your board and connect to airAP wifi network. You can do it with your cellphone or PC. 
 - Select your WiFi network and the password.
@@ -128,7 +145,7 @@ Izt=19 mA -> 2.6/19=130ohm  P=VI 2.6*19 =52mW
              
 ```
 
-##Write
+## Write
 
 Write circuit performs similarly to read circuit. When OUT signal is 1, transistor and pullup resistor are 0, thus optocoupler is OFF and voltage is 15.6 (HIGH). When OUT signal is 0, transistor is off and pullup resistor sends 1 and activates optocoupler and zener diode gives 13V (LOW).
 Some systems recommend to set the Follower in the remote unit.
@@ -153,7 +170,7 @@ https://learnabout-electronics.org/Downloads/PC817%20optocoupler.pdf
 
 ```
 
-## Plan B. (In fact it was plan A but then I managed to decode AB protocol, yeah!)
+### Plan B. (In fact it was plan A but then I managed to decode AB protocol, yeah!)
 
 To solder wires to button pads on the remote controller and close circuit to simulate pressing them (with and optocoupler).
 
