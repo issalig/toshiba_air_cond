@@ -136,7 +136,7 @@ Izt=19 mA -> 2.6/19=130ohm  P=VI 2.6*19 =52mW
              
 ```
 
-##Write
+## Write
 
 Write circuit performs similarly to read circuit. When OUT signal is 1, transistor and pullup resistor are 0, thus optocoupler is OFF and voltage is 15.6 (HIGH). When OUT signal is 0, transistor is off and pullup resistor sends 1 and activates optocoupler and zener diode gives 13V (LOW).
 Some systems recommend to set the Follower in the remote unit.
