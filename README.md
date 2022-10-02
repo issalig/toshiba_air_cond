@@ -112,8 +112,10 @@ IR led from optocouple drops 1.2v, and from signal we have a difference of 15.6V
 Ic=3.3, If=14
 CTR=Ic/If
 
+```
 Type     VZnom  IZT  for  rzjT    rzjk  at  IZK    IR  at  VR
 1N4743A  13     19        <10     <100      0.25   <5      9.9
+```
 
 Izt=19 mA -> 2.6/19=130ohm  P=VI 2.6*19 =52mW
 
