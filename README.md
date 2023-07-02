@@ -18,7 +18,7 @@ Code is developed in Arduino for ESP8266 and in particular Wemos B1 mini board. 
 
 ### Dependencies
 
-This project uses libraries and code by different authors, you can install them in Arduino IDE going to Tools->Library Manager
+This project uses libraries and code from different authors, you can install them in Arduino IDE going to Tools->Library Manager
 
 - [esp8266](https://github.com/esp8266/Arduino)
 - [espsoftwareserial](https://github.com/plerup/espsoftwareserial) by Peter Lerup
