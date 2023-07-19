@@ -77,6 +77,9 @@ You will need an esp8266, a circuit for adapting signals to esp8266, a USB power
 
 Just switch it on/off while you are in bed. If you like it just send me a beer and/or improve the project!
 
+![image](https://github.com/issalig/toshiba_air_cond/blob/master/pcb/remote_back_pcb.jpg)
+![image](https://github.com/issalig/toshiba_air_cond/blob/master/pcb/mounted_board.jpg)
+
 # Data acquisition
 
 This is how I managed to decode the information from the AB bus. First I plugged a multimeter to check the range of the signal and not fry anything. Then I used a DS0138 oscilloscope to monitor the signal and to guess voltages and baudrate (a resistor divider is suggested in order to lower the voltage). Later, an 8-channel USB logic analyzer (4-5 USD) can be used to capture data into the computer. **REMEMBER** to convert voltages to 0-3.3v before connecting it to logic analyzer or you will make magic smoke. You can use the read circuit below.
