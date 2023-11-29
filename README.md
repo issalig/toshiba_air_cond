@@ -13,7 +13,7 @@ You can find the service manual from central unit and wired controller here: htt
 - Operational.
 
 # Software installation
-Code is developed in Arduino for ESP8266 and in particular Wemos B1 mini board. Basically it as WebServer that serves a webpage and communicates with the client by means of WebSockets. Some nice features are OTA updates, WifiManager and others ...
+Code is developed in Arduino for ESP8266 and in particular for Wemos D1 mini board. Basically it is a WebServer that serves a webpage and communicates with the client by means of WebSockets. Some nice features are OTA updates, WifiManager and others ...
 
 
 ### Dependencies
