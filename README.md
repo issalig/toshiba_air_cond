@@ -67,7 +67,7 @@ If you just want to upload individual files you can use http://air.local/edit.ht
 # Hardware installation
 You will need an esp8266, a circuit for adapting signals to esp8266, a USB power supply, a a couple of dupont (female) wires.
 - Take out the cover of your remote controller
-- Loose the screws of AB terminals
+- Loose the screws of AB terminals. **WARNING**: My PCB assumes A is positive and B is negative. If this is not your case you can damage the PCB. (https://github.com/issalig/toshiba_air_cond/discussions/40#discussioncomment-8149607)
 - Pass the wires through the ventilation holes of the cover.
 - Insert dupont wires on the terminals and screw them again
 - Close the cover
