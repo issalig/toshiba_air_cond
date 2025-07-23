@@ -1,19 +1,82 @@
+<!DOCTYPE html>
 <html>
 <head>
-    <title>HTML Upload successful</title>
-    <link href='main.css' rel='stylesheet' type='text/css'>    
+    <title>File Upload Successful</title>
     <meta name="theme-color" content="#00878f">
     <meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0' name='viewport'>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body {
+            background: #f4f8fb;
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+        }
+        .controller-card {
+            max-width: 420px;
+            margin: 30px auto;
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 4px 24px #002F7A22;
+            padding: 24px 18px 18px 18px;
+        }
+        header {
+            background-color: #002F7A;
+            color: white;
+            padding: 12px;
+            font-family: 'Roboto', sans-serif;
+            box-shadow: 1px 1px 5px #555555;
+            border-radius: 12px 12px 0 0;
+            text-align: center;
+        }
+        h1 {
+            margin: 0px;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .info-text {
+            text-align: left;
+            color: #444;
+            margin-bottom: 18px;
+            font-size: 15px;
+        }
+        .button {
+            text-decoration: none;
+            border: none;
+            color: white;
+            background-color: #002F7A;
+            padding: 10px 32px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 1px 1px 6px #555;
+            outline: none;
+            margin: 12px auto 0px auto;
+            display: inline-block;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .button:hover {
+            background: #00878f;
+        }
+        @media (max-width: 500px) {
+            .controller-card { max-width: 98vw; }
+        }
+    </style>
 </head>
 <body>
-	<center>
+    <div class="controller-card">
         <header>
-            <h1>HTML Uploader</h1>
+            <h1>File Uploader</h1>
         </header>
-        <div>
-            <p>The upload was successful.</p>
-           <a class="button" href="/">Back</a>
+        <div style="text-align: center;">
+            <p class="info-text">The upload was successful.</p>
+            <a class="button" href="/">Back</a>
         </div>
-	</center>
+    </div>
+    <script>
+        // Go back two pages after 2 seconds
+        setTimeout(function() {
+            window.history.go(-2);
+        }, 2000);
+    </script>
 </body>
 </html>
