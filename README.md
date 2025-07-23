@@ -1,7 +1,7 @@
 # toshiba_air_cond
 This project implements functions to decode Toshiba AB protocol from indoor units to wired controllers and provides a hardware design to communicate.
 
-In case you are **interested in a pcb board** just open an issue and contact me. If you are more into DIY, I also provide the gerbers and remember if you improve the design please share it, that's how open source works, if you do not want to share, this project is not for you.
+Gerbers are available but remember if you improve the design please share it, that's how open source works, if you do not want to share, this project is not for you.
 
 In particular, this project has been tested with remote control unit RBC-AMT32E and central unit RAV-SM406BTP-E (http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf)
 
@@ -13,12 +13,12 @@ You can find the service manual from central unit and wired controller here: htt
 - Operational.
 
 # Software installation
-Code is developed in Arduino for ESP8266 and in particular Wemos B1 mini board. Basically it as WebServer that serves a webpage and communicates with the client by means of WebSockets. Some nice features are OTA updates, WifiManager and others ...
+Code is developed in Arduino for ESP8266 and in particular for Wemos D1 mini board. Basically it is a WebServer that serves a webpage and communicates with the client by means of WebSockets. Some nice features are OTA updates, WifiManager and others ...
 
 
 ### Dependencies
 
-This project uses libraries and code by different authors, you can install them in Arduino IDE going to Tools->Library Manager
+This project uses libraries and code from different authors, you can install them in Arduino IDE going to Tools->Library Manager
 
 - [esp8266](https://github.com/esp8266/Arduino)
 - [espsoftwareserial](https://github.com/plerup/espsoftwareserial) by Peter Lerup
@@ -67,7 +67,7 @@ If you just want to upload individual files you can use http://air.local/edit.ht
 # Hardware installation
 You will need an esp8266, a circuit for adapting signals to esp8266, a USB power supply, a a couple of dupont (female) wires.
 - Take out the cover of your remote controller
-- Loose the screws of AB terminals
+- Loose the screws of AB terminals. **WARNING**: My PCB assumes A is positive and B is negative. If this is not your case you can damage the PCB. (https://github.com/issalig/toshiba_air_cond/discussions/40#discussioncomment-8149607)
 - Pass the wires through the ventilation holes of the cover.
 - Insert dupont wires on the terminals and screw them again
 - Close the cover
@@ -76,6 +76,9 @@ You will need an esp8266, a circuit for adapting signals to esp8266, a USB power
 - Power Wemos with usb cable and the led will start blinking (if you have already programmed it)
 
 Just switch it on/off while you are in bed. If you like it just send me a beer and/or improve the project!
+
+![image](https://github.com/issalig/toshiba_air_cond/blob/master/pcb/remote_back_pcb.jpg)
+![image](https://github.com/issalig/toshiba_air_cond/blob/master/pcb/mounted_board.jpg)
 
 # Data acquisition
 
@@ -112,8 +115,10 @@ IR led from optocouple drops 1.2v, and from signal we have a difference of 15.6V
 Ic=3.3, If=14
 CTR=Ic/If
 
+```
 Type     VZnom  IZT  for  rzjT    rzjk  at  IZK    IR  at  VR
 1N4743A  13     19        <10     <100      0.25   <5      9.9
+```
 
 Izt=19 mA -> 2.6/19=130ohm  P=VI 2.6*19 =52mW
 
@@ -134,7 +139,7 @@ Izt=19 mA -> 2.6/19=130ohm  P=VI 2.6*19 =52mW
              
 ```
 
-##Write
+## Write
 
 Write circuit performs similarly to read circuit. When OUT signal is 1, transistor and pullup resistor are 0, thus optocoupler is OFF and voltage is 15.6 (HIGH). When OUT signal is 0, transistor is off and pullup resistor sends 1 and activates optocoupler and zener diode gives 13V (LOW).
 Some systems recommend to set the Follower in the remote unit.
