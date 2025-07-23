@@ -7,9 +7,110 @@
 <html>
 <head>
     <title>Air conditioning</title>
-    <link href='main.css' rel='stylesheet' type='text/css'>
+    <!-- <link href='main.css' rel='stylesheet' type='text/css'> -->
+<!-- begin inline css -->
+<style>
+center {
+    width: 420px;
+    max-width: 100%;
+    margin: 0px auto;
+    font-family: 'Roboto', sans-serif;
+    color: #444;
+}
+
+header {
+    background-color: #002F7A;
+    color: white;
+    padding: 6px;
+    font-family: 'Roboto', sans-serif;
+    box-shadow: 1px 1px 5px #555555;
+    position: relative;
+}
+
+h1 {
+    margin: 0px;
+    font-family: 'Roboto', sans-serif;
+    font-size: 32;
+}
+
+center>div {
+    padding: 24px 10px 10px 10px;
+    box-shadow: 1px 1px 5px #555555;
+}
+
+table {
+    margin: 0px 24px 0px 12px;
+}
+
+td {
+    color: #555;
+    width: 100%;
+}
+
+tr {
+    width: 100%;
+}
+
+.button {
+    text-decoration: none;
+    border: none;
+    color: white;
+    background-color: #002F7A;
+    padding: 6px 24px;
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: 1px 1px 6px #555;
+    outline: none;
+    margin: 12px auto 0px auto;
+    display: inline-block;
+}
+
+.button:hover {
+    box-shadow: 1px 1px 3px #444;
+}
+
+input[type=range] {
+    -webkit-appearance: none;
+    outline: none;
+    width: 100%;
+    margin: 6px;
+}
+
+input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    border: 0px;
+    height: 15px;
+    width: 15px;
+    margin-top: -6px;
+    border-radius: 7.5px;
+}
+
+input.disabled[type=range]::-webkit-slider-thumb {
+    background: #999;
+}
+
+input.enabled[type=range]::-webkit-slider-thumb {
+    background: #002F7A;
+    cursor: pointer;
+    box-shadow: 1px 1px 2px #777, 0px 0px 1px #777;
+}
+
+input[type=range]::-webkit-slider-runnable-track {
+    width: inherit;
+    height: 4px;
+    background: #ccc;
+    border-radius: 1px;
+}
+
+input.enabled[type=range]::-webkit-slider-runnable-track {
+    cursor: pointer;
+}
+</style>
+<!-- end of inline css -->
+
 <!--    <link rel="icon" type="image/png" sizes="144x144"  href="/favicon-144x144.png"> -->
-    <link rel="icon" type="image/png" sizes="48x48" href="/favicon.ico">
+<!--    <link rel="icon" type="image/png" sizes="48x48" href="/favicon.ico"> -->
+    <link rel="shortcut icon" href="data:image/png;base64,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">
     <link rel="manifest" href="/manifest.json">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <meta name="theme-color" content="#00878f">
@@ -17,12 +118,849 @@
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 	<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3"></script> 
 <!--	<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0"></script> -->
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.27.0/moment.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
 <!--
 	  <script src = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.js"></script>  
 -->
 	
-    <script src="WebSocket.js" type="text/javascript"></script>
+    <!-- <script src="WebSocket.js" type="text/javascript"></script> -->
+    
+    <!-- begin inline js -->
+    <script type=text/javascript>
+//Description: Javascript functions
+//Project: https://github.com/issalig/toshiba_air_cond
+//Author: Ismael Salvador 
+//Date January 2022
+//
+//References
+//https://coolors.co/ffbe0b-fb5607-ff006e-8338ec-3a86ff
+//https://circuits4you.com/2019/01/25/esp8266-dht11-humidity-temperature-data-logging/
+//https://circuits4you.com/2019/01/11/esp8266-data-logging-with-real-time-graphs/
+//https://nagix.github.io/chartjs-plugin-datasource/samples/json-dataset.html
+//https://github.com/fablab-luenen/McLighting/blob/master/Arduino/McLighting/data/index.htm
+
+var power = false;
+var save = false;
+var debug_cmd = false;
+var chart;
+var ac_sensor_values=[];
+var ac_target_values=[];
+var dht_t_values=[25,27,30,25]; //dummy values
+var dht_h_values=[60,70,80,90]; //dummy values
+var timeStamp = [0,1,2,3];
+var chart_obj;
+
+///////////////////////
+//Websocket connections
+///////////////////////
+
+//small delay not to interrupt the load of files
+setTimeout(() => {
+  console.log('Waiting 0.6 sec')
+}, 600);
+ 
+
+var connection;
+
+  window.addEventListener('load', onLoad);
+  function initWebSocket() {
+    console.log('Trying to open a WebSocket connection...');
+    connection = new WebSocket('ws://'+location.hostname+':81/', ['arduino']);
+    connection.onopen    = onOpen;
+    connection.onclose   = onClose;
+    connection.onmessage = onMessage; // <-- add this line
+  }
+  function onOpen(event) {
+    console.log('Connection opened');
+        
+    connection.send('Connect ' + new Date());
+    document.getElementById('connection').textContent = "open";
+    
+   (function scheduleRequestStatus() {
+      //send json            
+	  var today = new Date();
+      var curr_time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
+        let data = {
+			id: "status",
+			value: curr_time
+		}
+		let json = JSON.stringify(data);
+		connection.send(json);
+      //end send json
+
+      setTimeout(scheduleRequestStatus, 2000); //ask for status 
+   })();
+
+   (function scheduleRequestTimeSeries() {	  
+		getTimeseries();
+      setTimeout(scheduleRequestTimeSeries, 60*1000); //ask for time series every minute
+   })();
+  }
+  function onClose(event) {    
+    console.log('WebSocket connection closed');
+    document.getElementById('connection').textContent = "closed";
+    console.log('Reconnecting ...');
+    setTimeout(initWebSocket, 2000);
+  }
+  function onMessage(event) {//data from server
+    console.log('Server: ', event.data);
+    processData(event.data);
+  }
+  
+   function onError(e) {
+    console.log('WebSocket Error ', e);
+    document.getElementById('connection').textContent = "error";
+};
+
+  function onLoad(event) {
+    initWebSocket();
+  }
+
+//function sendData()
+//{
+  //let ledNumber = document.getElementById('ledNumber');
+  //let ledStatus = document.querySelector('input[name="status"]:checked');
+ 
+  //let data = {
+     //command : "Set",
+     //id: ledNumber.value,
+     //status: ledStatus.value
+  //}
+  //let json = JSON.stringify(data);
+ 
+  //connection.send(json);
+//}
+ 
+//function getData()
+//{
+  //let data = {
+     //command : "Get"
+  //}
+  //let json = JSON.stringify(data);
+ 
+  //connection.send(json);
+//}
+
+
+////////////////////
+// Process petitions
+////////////////////
+
+function processData(data)
+{
+  let json = JSON.parse(data); 
+  console.log(json);
+
+  if (json.id=="status") parseStatus(json);
+  if (json.id=="timeseries") parseTimeSeries(json);
+  if (json.id=="debug") parseDebug(json);
+}
+
+
+
+function parseStatus(json)
+{
+  button_pressed_color ='#002F7A';
+  button_released_color='#99C0FF';
+
+  if (json.save=='1') save = true; else save=false;
+  if (json.power=='1') power = true; else power=false;
+  
+  document.getElementById('temp').textContent = json.temp;
+  document.getElementById('sensor_temp').textContent = json.sensor_temp;
+  document.getElementById('dht_temp').textContent = json.dht_temp;
+  document.getElementById('dht_hum').textContent = json.dht_hum;
+  document.getElementById('bmp_temp').textContent = json.bmp_temp;
+  document.getElementById('bmp_press').textContent = json.bmp_press;
+
+  //document.getElementById('sampling_text').value = json.sampling;  
+  document.getElementById('decode_errors').textContent = json.decode_errors;
+
+  document.getElementById('heap').textContent = json.heap;
+
+  debug_cmd=document.getElementById('check_cmd').checked;
+  
+  cmdlen=0;
+  if (debug_cmd){
+	if (json.last_cmd){ //if not null or empty
+		textlen = document.getElementById('last_cmd').textContent.length;
+		cmdlen = json.last_cmd.length;
+		//add last cmd that it is not the same
+		if (document.getElementById('last_cmd').textContent[textlen-4] != json.last_cmd[cmdlen-4]) { //-2
+			document.getElementById('last_cmd').innerHTML +=  json.last_cmd;
+			//document.getElementById('last_cmd_type').innerHTML +=  " " + json.last_cmd_type;
+		}
+    }
+  } else document.getElementById('last_cmd').innerHTML = json.last_cmd;
+
+  debug_rx=document.getElementById('check_rx').checked;
+
+  cmdlen=0;
+
+
+	if (debug_rx){
+if (json.rx_data){ //if not null or empty	
+		textlen = document.getElementById('rx_data').textContent.length; //rx_data
+		cmdlen = json.rx_data.length;
+		//add last rx_data that it is not the same
+		//if (document.getElementById('rx_data').textContent[textlen-4] != json.rx_data[cmdlen-4])  //-2
+		if (cmdlen > 1)
+			document.getElementById('rx_data').innerHTML += '<br>' + json.rx_data;
+    }
+  } else document.getElementById('rx_data').innerHTML = json.rx_data;
+
+	//if (json.rx_data)
+		//document.getElementById('rx_data').innerHTML += '<br>' + json.rx_data;
+
+  //document.getElementById('timer_time').textContent = json.timer_time;
+  document.getElementById('timer_pending').textContent = json.timer_pending;
+
+
+  //reset color
+  document.getElementById('fan_low').style.backgroundColor = button_released_color;
+  document.getElementById('fan_medium').style.backgroundColor = button_released_color;
+  document.getElementById('fan_high').style.backgroundColor = button_released_color;
+  document.getElementById('fan_auto').style.backgroundColor = button_released_color;
+ 
+  document.getElementById('mode_fan').style.backgroundColor = button_released_color;
+  document.getElementById('mode_dry').style.backgroundColor = button_released_color;
+  document.getElementById('mode_cool').style.backgroundColor = button_released_color;
+  document.getElementById('mode_heat').style.backgroundColor = button_released_color;
+  document.getElementById('mode_auto').style.backgroundColor = button_released_color;
+  
+  document.getElementById('preheat').style.backgroundColor = button_released_color;
+  
+  document.getElementById('power_on').style.backgroundColor = button_released_color;
+  document.getElementById('power_off').style.backgroundColor = button_released_color;
+
+  document.getElementById('save_button').style.backgroundColor = button_released_color;
+
+  document.getElementById('sw_timer_button').style.backgroundColor = button_released_color;
+  
+
+  //set color
+  if (json.fan == 'LOW') { document.getElementById('fan_low').style.backgroundColor = button_pressed_color;}
+  else if (json.fan == 'MED') { document.getElementById('fan_medium').style.backgroundColor = button_pressed_color; }
+  else if (json.fan == 'HIGH') { document.getElementById('fan_high').style.backgroundColor = button_pressed_color; }
+  else if (json.fan == 'AUTO') { document.getElementById('fan_auto').style.backgroundColor = button_pressed_color; }       
+  
+  if (json.mode == 'DRY') { document.getElementById('mode_dry').style.backgroundColor = button_pressed_color;}
+  else if (json.mode == 'COOL') { document.getElementById('mode_cool').style.backgroundColor = button_pressed_color; }
+  else if (json.mode == 'FAN') { document.getElementById('mode_fan').style.backgroundColor = button_pressed_color; }
+  else if (json.mode == 'HEAT') { document.getElementById('mode_heat').style.backgroundColor = button_pressed_color; }
+  else if (json.mode == 'AUTO') { document.getElementById('mode_auto').style.backgroundColor = button_pressed_color; }
+    
+  if (json.power == '1') { document.getElementById('power_on').style.backgroundColor = button_pressed_color;} 
+  else { document.getElementById('power_off').style.backgroundColor = button_pressed_color;} 
+  
+  if (json.save == '1') { document.getElementById('save_button').style.backgroundColor = button_pressed_color;}
+  
+  if (json.timer_enabled =='1')   { document.getElementById('sw_timer_button').style.backgroundColor = button_pressed_color;}
+  
+  if (json.preheat == '1') { document.getElementById('preheat').style.backgroundColor = button_pressed_color;} 
+  else { document.getElementById('preheat').style.backgroundColor = button_released_color;} 
+  
+  //document.getElementById('indoor_room_temp').textContent = json.indoor_room_temp;
+  //document.getElementById('indoor_ta').textContent = json.indoor_ta;
+  //document.getElementById('indoor_tcj').textContent = json.indoor_tcj;
+  //document.getElementById('indoor_tc').textContent = json.indoor_tc;
+  //document.getElementById('indoor_filter_time').textContent = json.indoor_filter_time;
+  document.getElementById('outdoor_te').textContent = json.outdoor_te;
+  //document.getElementById('outdoor_to').textContent = json.outdoor_to;
+  //document.getElementById('outdoor_td').textContent = json.outdoor_td;
+  //document.getElementById('outdoor_ts').textContent = json.outdoor_ts;
+  //document.getElementById('outdoor_ths').textContent = json.outdoor_ths;
+  document.getElementById('outdoor_current').textContent = json.outdoor_current;
+  //document.getElementById('outdoor_cumhour').textContent = json.outdoor_cumhour;
+  
+  document.getElementById('indoor_fan_speed').textContent = json.indoor_fan_speed;
+  //document.getElementById('indoor_fan_run_time').textContent = json.indoor_fan_run_time;
+  
+  //document.getElementById('outdoor_tl').textContent = json.outdoor_tl;
+  //document.getElementById('outdoor_comp_freq').textContent = json.outdoor_comp_freq;
+  //document.getElementById('outdoor_lower_fan_speed').textContent = json.outdoor_lower_fan_speed;
+  //document.getElementById('outdoor_upper_fan_speed').textContent = json.outdoor_upper_fan_speed;
+  
+  var d = new Date(parseInt(json.boot_time*1000));
+  document.getElementById('boot_time').innerHTML = "On "+ d.toLocaleTimeString() + " " + d.toLocaleDateString()
+  
+  document.getElementById('ip').textContent = json.ip;
+
+  
+}
+
+function power_on() {
+    let data = {
+       id : "power",
+       value : "on"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('power_on').style.backgroundColor = button_pressed_color;
+}
+
+function power_off() {
+    let data = {
+       id : "power",
+       value : "off"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('power_off').style.backgroundColor = button_pressed_color;
+}
+
+function save_toggle() {
+	var save_value;
+	if (save) save_value = "0"; else save_value = "1";	
+    let data = {
+       id : "save",
+       value : save_value
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+}
+
+function mode_fan() {
+    let data = {
+       id : "mode",
+       value : "fan"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('mode_fan').style.backgroundColor = button_pressed_color;
+}
+
+function mode_dry() {
+    let data = {
+       id : "mode",
+       value : "dry"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('mode_dry').style.backgroundColor = button_pressed_color;
+}
+
+function mode_cool() {
+    let data = {
+       id : "mode",
+       value : "cool"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('mode_cool').style.backgroundColor = button_pressed_color;
+}
+
+function mode_heat() {
+    let data = {
+       id : "mode",
+       value : "heat"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('mode_heat').style.backgroundColor = button_pressed_color;
+}
+
+function mode_auto() {
+    let data = {
+       id : "mode",
+       value : "auto"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('mode_auto').style.backgroundColor = button_pressed_color;
+}
+
+function fan_low() {
+    let data = {
+       id : "fan",
+       value : "low"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('fan_low').style.backgroundColor = button_pressed_color;
+}
+
+function fan_medium() {
+    let data = {
+       id : "fan",
+       value : "medium"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('fan_medium').style.backgroundColor = button_pressed_color;
+}
+
+function fan_high() {
+    let data = {
+       id : "fan",
+       value : "high"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('fan_high').style.backgroundColor = button_pressed_color;
+}
+
+function fan_auto() {
+    let data = {
+       id : "fan",
+       value : "auto"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('fan_auto').style.backgroundColor = button_pressed_color;
+}
+
+function temp_plus() {
+    let data = {
+       id : "temp",
+       temp : "1"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+}
+
+function temp_minus() {
+    let data = {
+       id : "temp",
+       temp : "0"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json); 
+}
+
+function timer_changed() {
+	document.getElementById('timer_time').textContent  = document.getElementById('timer_range').value;
+}
+
+function reset_sw_air_timer(){	
+    let data = {
+       id : "timer",
+       timer_mode : 2,
+       timer_time : "0"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('sw_timer_button').style.backgroundColor = button_released_color;
+}
+
+function set_sw_air_timer(){
+	
+	document.getElementById('timer_time').textContent  = document.getElementById('timer_range').value;
+	if (document.getElementById('timer_off').checked) val = 0; else val=1;
+	
+    let data = {
+       id : "timer",
+       timer_mode : val,
+       timer_time : document.getElementById('timer_range').value
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json); 
+}
+
+function timer_hw_cancel() {
+    let data = {
+       id : "timer_hw",
+       value : "cancel",
+       time: "1"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('timer_hw_repeat_off').style.backgroundColor = button_released_color;
+    document.getElementById('timer_hw_off').style.backgroundColor = button_released_color;
+    document.getElementById('timer_hw_on').style.backgroundColor = button_released_color;
+}
+
+function timer_hw_off() {
+    let data = {
+       id : "timer_hw",
+       value : "off",
+       time: "1"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('timer_hw_repeat_off').style.backgroundColor = button_released_color;
+    document.getElementById('timer_hw_off').style.backgroundColor = button_pressed_color;
+    document.getElementById('timer_hw_on').style.backgroundColor = button_released_color;
+}
+
+function timer_hw_repeat_off() {
+    let data = {
+       id : "timer_hw",
+       value : "repeat_off",
+       time: "1"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('timer_hw_repeat_off').style.backgroundColor = button_pressed_color;
+    document.getElementById('timer_hw_off').style.backgroundColor = button_released_color;
+    document.getElementById('timer_hw_on').style.backgroundColor = button_released_color;
+}
+
+function timer_hw_on() {
+    let data = {
+       id : "timer_hw",
+       value : "on",
+       time: "1"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    document.getElementById('timer_hw_repeat_off').style.backgroundColor = button_released_color;
+    document.getElementById('timer_hw_off').style.backgroundColor = button_released_color;
+    document.getElementById('timer_hw_on').style.backgroundColor = button_pressed_color;
+}
+
+//time series request
+function getTimeseries() {
+    let data = {
+       id : "timeseries",
+       value : "all"
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+}
+
+//time series request
+function getTimeseriesKeyExperimental(key) {
+    let data = {
+       id : "timeseriesexperimental",
+       value : key
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+}
+
+
+
+function set_sampling() {
+    let data = {
+       id : "sampling",
+       value : parseInt(document.getElementById('sampling_text').value)
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+}
+
+//https://coolors.co/9c12f3-47a8bd-f5e663-ffad69-9c3848
+//255, 173, 105
+//156, 56, 72
+//245, 230, 99
+//71, 168, 189 
+
+function showGraph()
+{
+    var ctx = document.getElementById("temp_chart").getContext('2d');
+var config={
+        type: 'line',
+        data: {
+            labels: [0],  //Bottom Labeling
+			//if not labels set xaxis to linear https://github.com/chartjs/Chart.js/issues/5494
+            datasets: [{
+                label: 'AC Sensor',
+                yAxisID: 'temperature',
+				fill: false,  //Try with true
+                backgroundColor: 'rgba(156, 56, 72, 1)', //Dot marker color
+                borderColor: 'rgba(156, 56, 72, 1)', //Graph Line Color
+                data: [0],
+            },/*{
+                label: 'AC Target',
+                yAxisID: 'temperature',
+				fill: false,  //Try with true
+                backgroundColor: 'rgba( 71, 168, 189 , 1)', //Dot marker color
+                borderColor: 'rgba( 71, 168, 189, 1)', //Graph Line Color
+                data: [0],			
+            },*/
+
+            {
+                label: 'Room Temperature',
+				yAxisID: 'temperature',
+                fill: false,  //Try with true
+                backgroundColor: 'rgba( 243, 156, 18 , 1)', //Dot marker color
+                borderColor: 'rgba( 243, 156, 18 , 1)', //Graph Line Color
+                data: [0],
+            },{
+                label: 'Room Humidity',
+                yAxisID: 'humidity',
+				fill: false,  //Try with true
+                backgroundColor: 'rgba(156, 18, 243 , 1)', //Dot marker color
+                borderColor: 'rgba(156, 18, 243 , 1)', //Graph Line Color
+                data: [0],
+	     },/*{
+                label: 'BMP Temperature',
+				yAxisID: 'temperature',
+                fill: false,  //Try with true
+                backgroundColor: 'rgba( 156, 243, 18 , 1)', //Dot marker color
+                borderColor: 'rgba( 156, 243, 18 , 1)', //Graph Line Color
+                data: [0],            
+            },*/{
+                label: 'BMP Pressure',
+				yAxisID: 'pressure',
+                fill: false,  //Try with true
+                backgroundColor: 'rgba( 243, 18, 243 , 1)', //Dot marker color
+                borderColor: 'rgba( 243, 18, 243 , 1)', //Graph Line Color
+                data: [0],
+            },
+            {
+                label: 'TExt',
+                yAxisID: 'temperature',
+				fill: false,  //Try with true
+                backgroundColor: 'rgba(156, 72, 56, 1)', //Dot marker color
+                borderColor: 'rgba(156, 72, 56, 1)', //Graph Line Color
+                data: [0],
+            },
+            
+            
+            ],
+        },
+        options: {
+            title: {
+                    display: true,
+                    text: "Graph"
+                },
+            maintainAspectRatio: false,
+            elements: {
+            line: {
+                    tension: 0.5 //Smoothening (Curved) of data lines
+                }
+            },
+            scales: {
+                    yAxes: [{
+						id: 'temperature',
+						gridLines: {
+							drawOnChartArea: false
+						},
+                        ticks: {
+                            //beginAtZero:true,    
+							//suggestedMin: 10,
+							//suggestedMax: 40
+							type: 'logarithmic',
+							min: 0,
+							max: 36
+                        },
+						scaleLabel: {
+							display: true,
+							labelString: 'Temperature ºC'
+						},
+                    },{
+						id: 'humidity',
+						gridLines: {
+							drawOnChartArea: false
+						},
+                        ticks: {
+                            //beginAtZero:true,
+							type: 'logarithmic',    
+							min: 35,
+							max: 80
+                        },
+						position: 'right',
+						scaleLabel: {
+							display: true,
+							labelString: 'Humidity %'
+						},
+					},{
+						id: 'pressure',
+						gridLines: {
+							drawOnChartArea: false
+						},
+                        ticks: {
+                            //beginAtZero:true,
+							type: 'logarithmic',    
+							min: 950, //mb
+							max: 1050
+                        },
+						position: 'right',
+						scaleLabel: {
+							display: true,
+							labelString: 'Pressure (mb)'
+						},
+					}],
+                    xAxes: [{
+						scaleLabel: {
+							display: true,
+							labelString: 'Time'
+						}
+					}],
+					/*xAxes: [{
+						scaleLabel: {
+							display: true,
+							labelString: 'Time'
+						},
+						distribution: 'linear',
+						type: 'time',
+						time: {
+							parser: 'MM/DD/YYYY HH:mm',
+							// round: 'day'
+							tooltipFormat: 'll HH:mm'
+						},
+						time: {
+							parser: 'MM/DD/YYYY HH:mm',
+							tooltipFormat: 'll HH:mm',
+							unit: 'day',
+							unitStepSize: 1,
+							displayFormats: {
+								'day': 'MM/DD/YYYY'}
+						}
+					}], */
+           },
+            animation: {
+                duration: 0,
+			}
+         }
+         }
+
+    chart_obj = new Chart(ctx, config);           
+}
+ 
+//check for time labeling
+//https://www.chartjs.org/samples/latest/scales/time/line.html
+
+function getMinNoZero(data){
+	min=9999999
+	datalen=data.length;
+	for(i=0;i<datalen;i++){
+		if ((data[i] < min) && (data[i] !=0 )){
+			min=data[i];
+		}
+	}
+	
+    if (min==9999999) min=0 //all zeroes
+    
+	return min;
+}
+
+//sometimes arduinojson sends unexpected big values, just filter them
+function getMaxWithLimits(data){
+	max=-1500
+	datalen=data.length;
+	for(i=0;i<datalen;i++){
+		if ((data[i] > max) && (data[i] < 1500)){
+			max=data[i];
+		}
+	}
+	
+    if (max==-1500) max=0
+    
+	return max;
+}
+
+function parseTimeSeries(json){
+	datalen=json.n;
+    console.log(datalen);
+	
+	if (!chart_obj) showGraph();
+    //https://stackoverflow.com/questions/49360165/chart-js-update-function-chart-labels-data-will-not-update-the-chart
+    //update chart
+    
+    if (json.val == "timestamp"){
+		 timeStamp=[]; 
+
+		for(i=0;i<datalen;i++){
+			timeStamp.push(moment(json.timestamp[i]*1000).format('HH:mm'));//(i);		
+		} 
+
+		chart_obj.data.labels=timeStamp;
+	}
+	
+	if (json.val == "ac_sensor_t")
+		chart_obj.data.datasets[0].data=json.ac_sensor_t;
+	if (json.val == "dht_t")
+		chart_obj.data.datasets[1].data=json.dht_t;
+	if (json.val == "dht_h")			
+		chart_obj.data.datasets[2].data=json.dht_h;
+	if (json.val == "bmp_p")    
+		chart_obj.data.datasets[3].data=json.bmp_p;
+	if (json.val == "te")    		
+		chart_obj.data.datasets[4].data=json.te;
+    //chart_obj.data.datasets[3].backgroundColor= 'rgba('+Math.floor()*255+','+Math.floor()*255+','+Math.floor()*255+', 1)';
+	//chart_obj.data.datasets[3].borderColor= chart_obj.data.datasets[3].backgroundColor;
+
+    //window.
+    chart_obj.update();
+    
+    //compute min/max
+	if (json.val == "dht_t"){
+		document.getElementById('dht_temp_min').textContent = getMinNoZero(json.dht_t);//Math.min(...json.dht_t);
+		document.getElementById('dht_temp_max').textContent = getMaxWithLimits(json.dht_t);//Math.max(...json.dht_t);
+    }
+    if (json.val == "dht_h"){        
+		document.getElementById('dht_hum_min').textContent  = getMinNoZero(json.dht_h);//Math.min(...json.dht_h);
+		document.getElementById('dht_hum_max').textContent  = getMaxWithLimits(json.dht_h);//Math.max(...json.dht_h);
+	}
+	if (json.val == "bmp_p"){
+		document.getElementById('bmp_pres_min').textContent = getMinNoZero(json.bmp_p);//Math.min(...json.bmp_p);
+		document.getElementById('bmp_pres_max').textContent = getMaxWithLimits(json.bmp_p);//Math.max(...json.bmp_p);
+	}
+}
+
+//On Page load show graphs
+window.onload = function() {
+    getTimeseries();
+	showGraph();
+};
+		
+	</script>
+	
 </head>
 
 <body>
@@ -72,6 +1010,7 @@
             <button id="mode_dry" class="button" style="background-color:#999" onclick="mode_dry();">Dry</button>
             <button id="mode_cool" class="button" style="background-color:#999" onclick="mode_cool();">Cool</button>
             <button id="mode_heat" class="button" style="background-color:#999" onclick="mode_heat();">Heat</button><br>
+            <button id="mode_auto" class="button" style="background-color:#999" onclick="mode_auto();">Auto</button><br>
             <button id="fan_low" class="button" style="background-color:#999" onclick="fan_low();">Low</button>
             <button id="fan_medium" class="button" style="background-color:#999" onclick="fan_medium();">Med</button>
             <button id="fan_high" class="button" style="background-color:#999" onclick="fan_high();">High</button>

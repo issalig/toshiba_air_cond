@@ -168,6 +168,7 @@ String air_to_json(air_status_t *air)
   }
 
   jsonDoc["last_cmd"] = air->buffer_cmd;
+  jsonDoc["last_cmd_type"] = 0;//air->last_cmd_type;
   jsonDoc["rx_data"] = air->buffer_rx;
 
   serializeJson(jsonDoc, response);
@@ -280,6 +281,11 @@ void processRequest( uint8_t *  payload) {
       air_set_mode(&air_status, MODE_FAN);
     } else if (jsonDoc["value"] == "heat") {
       air_set_mode(&air_status, MODE_HEAT);
+    } else if (jsonDoc["value"] == "auto") {      
+      byte data[] = {0x40, 0x00, 0x11, 0x03, 0x08, 0x42, 0x05, 0x1d};
+      air_send_data(&air_status, data, sizeof(data));
+      byte data2[] = {0x40, 0x00, 0x15, 0x02, 0x08, 0x42, 0x1d};      
+      air_send_data(&air_status, data2, sizeof(data2));
     }
   }
   else if (jsonDoc["id"] == "fan") {

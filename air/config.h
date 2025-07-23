@@ -1,21 +1,31 @@
-#ifndef CONFIG
-#define CONFIG
+#ifndef CONFIG_H
+#define CONFIG_H
 
 #define MAX_LOG_DATA 72 //store up to 72 readings in a circular buffer
 
-#define USE_BMP //if BMP sensor installed
-#define USE_DHT //in DHT sensor installed
-
-//#define USE_ASYNC
+//#define USE_BMP //if BMP sensor installed
+//#define USE_DHT //in DHT sensor installed
+#define USE_SCREEN //if OLED screen installed
+#define USE_MQTT // for Home Assistant integration
 
 //wifi credentials, no needed because now we use WiFiManager
-const char *w_ssid = "YOURWIFI";
-const char *w_passwd = "YOURPASSPWD";
+extern const char* w_ssid;
+extern const char* w_passwd;
 
-//Over the air credentials
-const char *OTAName = "air";           // A name and a password for the OTA service
-const char *OTAPassword = "esp8266";
+//Over the air (OTA) credentials
+extern const char* OTAName;
+extern const char* OTAPassword;
 
-const char* mdnsName = "air"; // Domain name for the mDNS responder. Just connect to air.local
+// Domain name for the mDNS responder. Just connect to air.local
+extern const char* mdnsName;
 
-#endif
+// Compile date and time
+extern const char compile_date[];
+
+// screen
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64//32 // OLED display height, in pixels
+#define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
+#define SCREEN_ADDRESS 0x3C// See datasheet for address if you are using a different one
+
+#endif //CONFIG_H
