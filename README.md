@@ -13,6 +13,7 @@ You can find the service manual from central unit and wired controller here: htt
 - Operational.
 
 **NEW VERSION 2.0 SUPPORTS VSCODE AND PLATFORMIO**
+
 **Instructions are not yet updated and based on legacy Arduino IDE fro V1.0**
 
 # Software installation
