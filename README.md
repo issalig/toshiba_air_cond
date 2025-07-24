@@ -31,9 +31,11 @@ This project uses libraries and code from different authors, you can install the
 - [ArduinoJson](https://github.com/bblanchon/ArduinoJson) by Benoit Blanchon
 
 ### Compilation
-Compile the code and upload it to the board. You will need to install the previous libraries and maybe some others. Once it is compiled it means you have all the dependencies installed.
+First things first. Compile the code and upload it to the board. You will need to install the previous libraries and maybe some others. Once it is compiled it means you have all the dependencies installed.
 
-### Install LittleFS sketch upload
+### Install LittleFS sketch upload (VSCODE)
+
+### Install LittleFS sketch upload (Arduino IDE)
 This project uses LittleFS filesystem to store the webpage files, .html, .js , ...
 In order to upload these files you need to install a plugin and follow the instructions:
 - Download the tool archive from (https://github.com/earlephilhower/arduino-esp8266littlefs-plugin/releases).
