@@ -199,8 +199,7 @@ var debug_cmd = false;
 var chart;
 var ac_sensor_values=[];
 var ac_target_values=[];
-var dht_t_values=[25,27,30,25]; //dummy values
-var dht_h_values=[60,70,80,90]; //dummy values
+
 var timeStamp = [0,1,2,3];
 var chart_obj;
 
@@ -246,7 +245,8 @@ function onOpen(event) {
    (function scheduleRequestStatus() {
       //send json            
 	  var today = new Date();
-      var curr_time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
+      var curr_time = today.toLocaleTimeString('default', { hour12: false });
+
         let data = {
 			id: "status",
 			value: curr_time
@@ -363,16 +363,15 @@ function parseStatus(json)
   if (json.save=='1') save = true; else save=false;
   if (json.power=='1') power = true; else power=false;
   
-  document.getElementById('temp').textContent = json.temp;
-  document.getElementById('sensor_temp').textContent = json.sensor_temp;
-  //document.getElementById('dht_temp').textContent = json.dht_temp;
-  //document.getElementById('dht_hum').textContent = json.dht_hum;
-  if (json.dht_temp !== undefined && document.getElementById('dht_temp')) {
-    document.getElementById('dht_hum').textContent = json.dht_hum;
+  document.getElementById('target_temperature').textContent = json.target_temperature;
+  document.getElementById('ac_sensor_temperature').textContent = json.ac_sensor_temperature;
+
+  if (json.sensor_pressure !== undefined && document.getElementById('sensor_pressure')) {
+    document.getElementById('sensor_pressure').textContent = json.sensor_pressure;
 }
  
-  if (json.dht_hum !== undefined && document.getElementById('dht_hum')) {
-    document.getElementById('dht_hum').textContent = json.dht_hum;
+  if (json.sensor_humidity !== undefined && document.getElementById('sensor_humidity')) {
+    document.getElementById('sensor_humidity').textContent = json.sensor_humidity;
 }
   
 
@@ -497,27 +496,37 @@ function parseStatus(json)
         }
     }
   
-  //document.getElementById('indoor_room_temp').textContent = json.indoor_room_temp;
-  //document.getElementById('indoor_ta').textContent = json.indoor_ta;
-  //document.getElementById('indoor_tcj').textContent = json.indoor_tcj;
-  //document.getElementById('indoor_tc').textContent = json.indoor_tc;
-  //document.getElementById('indoor_filter_time').textContent = json.indoor_filter_time;
+    //reset color for fan button
+document.getElementById('fan_speed_btn').style.backgroundColor = button_released_color;
+updateFanSpeedButton(json.fan);
+
+// Reset color for mode button
+document.getElementById('mode_btn').style.backgroundColor = button_released_color;
+updateModeButton(json.mode);
+
+    
+  document.getElementById('indoor_room_temp').textContent = json.indoor_room_temp;
+  document.getElementById('indoor_ta').textContent = json.indoor_ta;
+  document.getElementById('indoor_tcj').textContent = json.indoor_tcj;
+  document.getElementById('indoor_tc').textContent = json.indoor_tc;
+  document.getElementById('indoor_filter_time').textContent = json.indoor_filter_time;
   document.getElementById('outdoor_te').textContent = json.outdoor_te;
-  //document.getElementById('outdoor_to').textContent = json.outdoor_to;
-  //document.getElementById('outdoor_td').textContent = json.outdoor_td;
-  //document.getElementById('outdoor_ts').textContent = json.outdoor_ts;
-  //document.getElementById('outdoor_ths').textContent = json.outdoor_ths;
-  //document.getElementById('outdoor_current').textContent = json.outdoor_current;
-  //document.getElementById('outdoor_cumhour').textContent = json.outdoor_cumhour;
+  
+  document.getElementById('outdoor_to').textContent = json.outdoor_to;
+  document.getElementById('outdoor_td').textContent = json.outdoor_td;
+  document.getElementById('outdoor_ts').textContent = json.outdoor_ts;
+  document.getElementById('outdoor_ths').textContent = json.outdoor_ths;
+  document.getElementById('outdoor_current').textContent = json.outdoor_current;
+  document.getElementById('outdoor_cumhour').textContent = json.outdoor_cumhour;
   
   document.getElementById('indoor_fan_speed').textContent = json.indoor_fan_speed;
-  //document.getElementById('indoor_fan_run_time').textContent = json.indoor_fan_run_time;
+  document.getElementById('indoor_fan_run_time').textContent = json.indoor_fan_run_time;
   
-  //document.getElementById('outdoor_tl').textContent = json.outdoor_tl;
-  //document.getElementById('outdoor_comp_freq').textContent = json.outdoor_comp_freq;
-  //document.getElementById('outdoor_lower_fan_speed').textContent = json.outdoor_lower_fan_speed;
-  //document.getElementById('outdoor_upper_fan_speed').textContent = json.outdoor_upper_fan_speed;
-  
+  document.getElementById('outdoor_tl').textContent = json.outdoor_tl;
+  document.getElementById('outdoor_comp_freq').textContent = json.outdoor_comp_freq;
+  document.getElementById('outdoor_lower_fan_speed').textContent = json.outdoor_lower_fan_speed;
+  document.getElementById('outdoor_upper_fan_speed').textContent = json.outdoor_upper_fan_speed;
+                                                                       
   var d = new Date(parseInt(json.boot_time*1000));
   document.getElementById('boot_time').innerHTML = d.toLocaleTimeString() + " " + d.toLocaleDateString()
   
@@ -641,9 +650,6 @@ function parseMQTTResponse(json) {
             alert('Discovery messages reset. Device removed from Home Assistant.');
         }
     }
-
-        updateHVACControl(json);
-
 }
 
 
@@ -769,7 +775,9 @@ function sendRequestStatus(data) {
     setTimeout(() => {
         let statusData = {
             id: "status",
-            value: new Date().getHours() + ":" + new Date().getMinutes() + ":" + new Date().getSeconds()
+            //value: new Date().getHours() + ":" + new Date().getMinutes() + ":" + new Date().getSeconds()
+            value: new Date().toLocaleTimeString('default', { hour12: false })
+
         };
         let statusJson = JSON.stringify(statusData);
         connection.send(statusJson);
@@ -1075,6 +1083,113 @@ function setTimerMode(mode) {
     }
 }
 
+var fanSpeedStates = [
+    { value: "low", text: "Low", icon: "density_large" },
+    { value: "medium", text: "Med", icon: "density_medium" },
+    { value: "high", text: "High", icon: "density_small" },
+    { value: "auto", text: "Auto", icon: "hdr_auto" }
+];
+var currentFanSpeedIndex = 0;
+
+function cycleFanSpeed() {
+    // Move to next fan speed
+    currentFanSpeedIndex = (currentFanSpeedIndex + 1) % fanSpeedStates.length;
+    
+    var currentState = fanSpeedStates[currentFanSpeedIndex];
+    
+    // Update button appearance
+    document.getElementById('fan_speed_icon').textContent = currentState.icon;
+    document.getElementById('fan_speed_text').textContent = currentState.text;
+    document.getElementById('fan_speed_btn').style.backgroundColor = button_pressed_color;
+    
+    // Send the command
+    let data = {
+       id : "fan",
+       value : currentState.value
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    sendRequestStatus(data);
+}
+
+// Update the parseStatus function to handle the single fan button
+function updateFanSpeedButton(fanMode) {
+    // Find the current fan mode index
+    var index = fanSpeedStates.findIndex(state => 
+        state.value === fanMode.toLowerCase() || 
+        (fanMode === 'MED' && state.value === 'medium')
+    );
+    
+    if (index !== -1) {
+        currentFanSpeedIndex = index;
+        var currentState = fanSpeedStates[currentFanSpeedIndex];
+        
+        document.getElementById('fan_speed_icon').textContent = currentState.icon;
+        document.getElementById('fan_speed_text').textContent = currentState.text;
+        document.getElementById('fan_speed_btn').style.backgroundColor = button_pressed_color;
+    } else {
+        // Reset to default if unknown
+        document.getElementById('fan_speed_btn').style.backgroundColor = button_released_color;
+    }
+}
+
+
+var modeStates = [
+    { value: "fan", text: "Fan", icon: "mode_fan" },
+    { value: "dry", text: "Dry", icon: "opacity" },
+    { value: "cool", text: "Cool", icon: "ac_unit" },
+    { value: "heat", text: "Heat", icon: "sunny" },
+    { value: "auto", text: "Auto", icon: "autorenew" }
+];
+var currentModeIndex = 0;
+
+function cycleMode() {
+    // Move to next mode
+    currentModeIndex = (currentModeIndex + 1) % modeStates.length;
+    
+    var currentState = modeStates[currentModeIndex];
+    
+    // Update button appearance
+    document.getElementById('mode_icon').textContent = currentState.icon;
+    document.getElementById('mode_text').textContent = currentState.text;
+    document.getElementById('mode_btn').style.backgroundColor = button_pressed_color;
+    
+    // Send the command
+    let data = {
+       id : "mode",
+       value : currentState.value
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    sendRequestStatus(data);
+}
+
+// Update function to handle the single mode button
+function updateModeButton(mode) {
+    // Find the current mode index
+    var index = modeStates.findIndex(state => 
+        state.value === mode.toLowerCase()
+    );
+    
+    if (index !== -1) {
+        currentModeIndex = index;
+        var currentState = modeStates[currentModeIndex];
+        
+        document.getElementById('mode_icon').textContent = currentState.icon;
+        document.getElementById('mode_text').textContent = currentState.text;
+        document.getElementById('mode_btn').style.backgroundColor = button_pressed_color;
+    } else {
+        // Reset to default if unknown
+        document.getElementById('mode_btn').style.backgroundColor = button_released_color;
+    }
+}
+
 function toggleDebugControls() {
     const debugControls = document.getElementById('debug-controls');
     const debugIcon = document.querySelector('[onclick="toggleDebugControls()"]');
@@ -1236,7 +1351,7 @@ function set_sampling() {
 function showGraph()
 {
     
-    var ctx = document.getElementById("temp_chart").getContext('2d');
+    var ctx = document.getElementById("temperature_chart").getContext('2d');
     
     // Color palette - Chart.js 4.x compatible
     const colors = {
@@ -1260,8 +1375,8 @@ function showGraph()
                 backgroundColor: colors.danger,
                 borderColor: colors.danger,
                 borderWidth: 2,
-                pointRadius: 3,
-                pointHoverRadius: 5,
+                pointRadius: 0,//3,
+                pointHoverRadius: 4,//5,
                 pointBackgroundColor: colors.danger,
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
@@ -1274,8 +1389,8 @@ function showGraph()
                 backgroundColor: colors.primary,
                 borderColor: colors.primary,
                 borderWidth: 2,
-                pointRadius: 3,
-                pointHoverRadius: 5,
+                pointRadius: 0,//3,
+                pointHoverRadius: 4,//5,
                 pointBackgroundColor: colors.primary,
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
@@ -1288,22 +1403,22 @@ function showGraph()
                 backgroundColor: colors.secondary,
                 borderColor: colors.secondary,
                 borderWidth: 2,
-                pointRadius: 3,
-                pointHoverRadius: 5,
+                pointRadius: 0,//3,
+                pointHoverRadius: 4,//5,
                 pointBackgroundColor: colors.secondary,
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
                 tension: 0.4,
                 data: [],
             },{
-                label: 'BMP Pressure',
+                label: 'Pressure',
                 yAxisID: 'pressure',
                 fill: false,
                 backgroundColor: colors.purple,
                 borderColor: colors.purple,
                 borderWidth: 2,
-                pointRadius: 3,
-                pointHoverRadius: 5,
+                pointRadius: 0,//3,
+                pointHoverRadius: 4,//5,
                 pointBackgroundColor: colors.purple,
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
@@ -1316,8 +1431,8 @@ function showGraph()
                 backgroundColor: colors.accent,
                 borderColor: colors.accent,
                 borderWidth: 2,
-                pointRadius: 3,
-                pointHoverRadius: 5,
+                pointRadius: 0,//3,
+                pointHoverRadius: 4,//5,
                 pointBackgroundColor: colors.accent,
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
@@ -1537,7 +1652,7 @@ function toggleGraphControls() {
 function updateChartRanges() {
     if (!window.chart_obj) return;
     
-    console.log('Updating chart ranges...');
+    //console.log('Updating chart ranges...');
     
     // Get current data from all datasets
     const datasets = window.chart_obj.data.datasets;
@@ -1546,7 +1661,7 @@ function updateChartRanges() {
     let pressureValues = [];
     
     // Debug: log datasets info
-    console.log('Chart datasets:', datasets.length);
+    //console.log('Chart datasets:', datasets.length);
     
     // Collect all temperature values (datasets 0, 1, 4 - AC Sensor, Room Temp, External Temp)
     datasets.forEach((dataset, index) => {
@@ -1672,7 +1787,7 @@ function parseTimeSeries(json){
 
 		for(i=0;i<datalen;i++){
 			const date = new Date(json.timestamp[i] * 1000);
-			timeStamp.push(date.toLocaleTimeString('en-US', { 
+			timeStamp.push(date.toLocaleTimeString('default', { 
 				hour: '2-digit', 
 				minute: '2-digit',
 				hour12: false 
@@ -1682,20 +1797,20 @@ function parseTimeSeries(json){
 		chart_obj.data.labels=timeStamp;
 	}
 	
-    if (json.val == "ac_sensor_t") {
-        chart_obj.data.datasets[0].data=json.ac_sensor_t;
+    if (json.val == "ac_sensor_temperature") {
+        chart_obj.data.datasets[0].data=json.ac_sensor_temperature;
     }
-    if (json.val == "dht_t") {
-        chart_obj.data.datasets[1].data=json.dht_t;
+    if (json.val == "sensor_temperature") {
+        chart_obj.data.datasets[1].data=json.sensor_temperature;
     }
-    if (json.val == "dht_h") {        
-        chart_obj.data.datasets[2].data=json.dht_h;
+    if (json.val == "sensor_humidity") {        
+        chart_obj.data.datasets[2].data=json.sensor_humidity;
     }
-    if (json.val == "bmp_p") {   
-        chart_obj.data.datasets[3].data=json.bmp_p;
+    if (json.val == "sensor_pressure") {   
+        chart_obj.data.datasets[3].data=json.sensor_pressure;
     }
-    if (json.val == "te") {           
-        chart_obj.data.datasets[4].data=json.te;
+    if (json.val == "ac_external_temperature") {           
+        chart_obj.data.datasets[4].data=json.ac_external_temperature;
     }
 
     //chart_obj.data.datasets[3].backgroundColor= 'rgba('+Math.floor()*255+','+Math.floor()*255+','+Math.floor()*255+', 1)';
@@ -1708,26 +1823,24 @@ function parseTimeSeries(json){
     setTimeout(updateChartRanges, 100);
     
     //compute min/max
-    if (json.val == "dht_t"){
+    if (json.val == "sensor_temperature"){
         // Defensive: filter only valid numbers for min/max
-        let valid = (json.dht_t || []).filter(v => v !== null && typeof v === 'number' && v > -50 && v < 100);
+        let valid = (json.sensor_temperature || []).filter(v => v !== null && typeof v === 'number' && v > -50 && v < 100);
         let min = valid.length ? Math.min(...valid) : 0;
         let max = valid.length ? Math.max(...valid) : 0;
-        document.getElementById('dht_temp_min').textContent = min;
-        document.getElementById('dht_temp_max').textContent = max;      
+        document.getElementById('sensor_temperature_min').textContent = min.toFixed(1);
+        document.getElementById('sensor_temperature_max').textContent = max.toFixed(1);
     }
 
-    if (json.val == "dht_h"){        
-		document.getElementById('dht_hum_min').textContent  = getMinNoZero(json.dht_h);
-		document.getElementById('dht_hum_max').textContent  = getMaxWithLimits(json.dht_h);
+    if (json.val == "sensor_humidity"){        
+		document.getElementById('sensor_humidity_min').textContent  = getMinNoZero(json.sensor_humidity).toFixed(1);
+		document.getElementById('sensor_humidity_max').textContent  = getMaxWithLimits(json.sensor_humidity).toFixed(1);
 	}
-	if (json.val == "bmp_p"){
-		document.getElementById('bmp_pres_min').textContent = getMinNoZero(json.bmp_p);
-		document.getElementById('bmp_pres_max').textContent = getMaxWithLimits(json.bmp_p);
+	if (json.val == "sensor_pressure"){
+		document.getElementById('sensor_pressure_min').textContent = getMinNoZero(json.sensor_pressure).toFixed(1);
+		document.getElementById('sensor_pressure_max').textContent = getMaxWithLimits(json.sensor_pressure).toFixed(1);
 	}
 }
-
-
 
 //Update connection status with icon
 function updateConnectionStatus(status) {
@@ -1904,27 +2017,7 @@ function resetMQTTDiscovery() {
     }
 }
 
-// Update the HVAC control UI
-function updateHVACControl(json) {
-    // Target temperature
-    document.getElementById('hvac-target-temp').textContent = json.target_temp || '--';
-    // Current temperature
-    document.getElementById('hvac-current-temp').textContent = json.temp || '--';
 
-    // Mode and fan mode
-    document.getElementById('hvac-mode').textContent = 'Mode: ' + (json.mode || '--');
-    document.getElementById('hvac-fan-mode').textContent = 'Fan: ' + (json.fan || '--');
-
-    // Draw arc for current temperature (relative to min/max)
-    var minTemp = 16, maxTemp = 32;
-    var current = parseFloat(json.temp);
-    var percent = (current - minTemp) / (maxTemp - minTemp);
-    percent = Math.max(0, Math.min(1, percent));
-    var arc = document.getElementById('hvac-arc');
-    var circumference = 2 * Math.PI * 70;
-    arc.setAttribute('stroke-dasharray', circumference);
-    arc.setAttribute('stroke-dashoffset', circumference * (1 - percent));
-}
 
 function sendRawBytes() {
     const rawInput = document.getElementById('raw_bytes_input').value.trim();
@@ -2188,16 +2281,16 @@ window.onload = function() {
             <!-- Target temperature Display -->
             <div class="temp-display">
                 <span class="material-icons">thermostat</span>
-                <span id="temp">--</span>°C
+                <span id="target_temperature">--</span>°C
             </div>
             <div style="text-align:center; color:#888; margin-bottom:10px;">
-                <span>Room: <span id="sensor_temp">--</span>°C</span>
-                <!-- | <span>Humidity: <span id="dht_hum">--</span>%</span>  -->
+                <span>Room: <span id="ac_sensor_temperature">--</span>°C</span>
+                <!-- | <span>Humidity: <span id="sensor_humidity">--</span>%</span>  -->
             </div>
 
             <!-- Sensor display elements -->
             <div style="text-align:center; color:#888; margin-bottom:10px; font-size: 12px;">
-                <!-- <div>DHT: <span id="dht_temp">--</span>°C</div>  -->
+                <!-- <div>Sensor Temp: <span id="sensor_temperature">--</span>°C</div>  -->
 
                 <div>Ext Temp: <span id="outdoor_te">--</span>°C
                     | Fan: <span id="indoor_fan_speed">--</span> rpm</div>
@@ -2218,7 +2311,7 @@ window.onload = function() {
                     Save
                 </button>
             </div>
-            <div class="button-row">
+            <div class="button-row"  style="display: none;>
                 <button class="control-btn" id="mode_fan" onclick="mode_fan();">
                     <span class="material-symbols-outlined">mode_fan</span>
                     Fan
@@ -2241,7 +2334,7 @@ window.onload = function() {
                     Auto
                 </button>
             </div>
-            <div class="button-row">
+            <div class="button-row"  style="display: none;>
                 <button class="control-btn" id="fan_low" onclick="fan_low();">
                     <span class="material-symbols-outlined">density_large</span>
                     Low
@@ -2259,6 +2352,18 @@ window.onload = function() {
                     Auto
                 </button>
             </div>
+            <div class="button-row">
+                <button class="control-btn" id="mode_btn" onclick="cycleMode();">
+                    <span class="material-symbols-outlined" id="mode_icon">mode_fan</span>
+                    <span id="mode_text">Fan</span>
+                </button>
+            
+                <button class="control-btn" id="fan_speed_btn" onclick="cycleFanSpeed();">
+                    <span class="material-symbols-outlined" id="fan_speed_icon">density_large</span>
+                    <span id="fan_speed_text">Low</span>
+                </button>
+            </div>
+
             <div class="button-row">
                 <button class="control-btn" onclick="temp_minus();">
                     <span class="material-symbols-outlined">arrow_drop_down</span>
@@ -2374,7 +2479,7 @@ window.onload = function() {
                     <!-- Chart Container -->
                     <div class="chart-container"
                         style="position: relative; height: 300px; width: 100%; background: #fff; border-radius: 8px; padding: 8px; box-shadow: 0 2px 4px #002F7A22;">
-                        <canvas id="temp_chart" width="400" height="300"></canvas>
+                        <canvas id="temperature_chart" width="400" height="300"></canvas>
                     </div>
 
                     <!-- Chart Info Summary -->
@@ -2382,15 +2487,15 @@ window.onload = function() {
                         style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-around; margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 8px; font-size: 12px; color: #666;">
                         <div style="text-align: center;">
                             <div style="font-weight: bold; color: #002F7A;">Temp Range</div>
-                            <div><span id="dht_temp_min">--</span>°C / <span id="dht_temp_max">--</span>°C</div>
+                            <div><span id="sensor_temperature_min">--</span>°C / <span id="sensor_temperature_max">--</span>°C</div>
                         </div>
                         <div style="text-align: center;">
                             <div style="font-weight: bold; color: #002F7A;">Humidity Range</div>
-                            <div><span id="dht_hum_min">--</span>% / <span id="dht_hum_max">--</span>%</div>
+                            <div><span id="sensor_humidity_min">--</span>% / <span id="sensor_humidity_max">--</span>%</div>
                         </div>
                         <div style="text-align: center;">
                             <div style="font-weight: bold; color: #002F7A;">Pressure Range</div>
-                            <div><span id="bmp_pres_min">--</span> / <span id="bmp_pres_max">--</span>mb</div>
+                            <div><span id="sensor_pressure_min">--</span> / <span id="sensor_pressure_max">--</span>mb</div>
                         </div>
                     </div>
                 </div>
@@ -2421,6 +2526,84 @@ window.onload = function() {
                             </div>
                         </div>
                     </div>
+
+    <!-- Indoor Sensors Section -->
+    <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #e9ecef;">
+        <div style="font-weight: bold; color: #002F7A; margin-bottom: 6px; font-size: 13px;">Indoor Sensors</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
+            <div>
+                <span style="color: #666;">Room Temp:</span><br>
+                <span id="indoor_room_temp" style="color: #002F7A; font-weight: bold;">--</span>°C
+            </div>
+            <div>
+                <span style="color: #666;">TA:</span><br>
+                <span id="indoor_ta" style="color: #002F7A; font-weight: bold;">--</span>°C
+            </div>
+            <div>
+                <span style="color: #666;">TCJ:</span><br>
+                <span id="indoor_tcj" style="color: #002F7A; font-weight: bold;">--</span>°C
+            </div>
+            <div>
+                <span style="color: #666;">TC:</span><br>
+                <span id="indoor_tc" style="color: #002F7A; font-weight: bold;">--</span>°C
+            </div>
+            <div>
+                <span style="color: #666;">Filter Time:</span><br>
+                <span id="indoor_filter_time" style="color: #002F7A; font-weight: bold;">--</span>
+            </div>
+            <div>
+                <span style="color: #666;">Fan Run Time:</span><br>
+                <span id="indoor_fan_run_time" style="color: #002F7A; font-weight: bold;">--</span>
+            </div>
+        </div>
+    </div>
+
+        <!-- Outdoor Sensors Section -->
+    <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #e9ecef;">
+        <div style="font-weight: bold; color: #002F7A; margin-bottom: 6px; font-size: 13px;">Outdoor Sensors</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
+            <div>
+                <span style="color: #666;">TO:</span><br>
+                <span id="outdoor_to" style="color: #002F7A; font-weight: bold;">--</span>°C
+            </div>
+            <div>
+                <span style="color: #666;">TD:</span><br>
+                <span id="outdoor_td" style="color: #002F7A; font-weight: bold;">--</span>°C
+            </div>
+            <div>
+                <span style="color: #666;">TS:</span><br>
+                <span id="outdoor_ts" style="color: #002F7A; font-weight: bold;">--</span>°C
+            </div>
+            <div>
+                <span style="color: #666;">THS:</span><br>
+                <span id="outdoor_ths" style="color: #002F7A; font-weight: bold;">--</span>°C
+            </div>
+            <div>
+                <span style="color: #666;">TL:</span><br>
+                <span id="outdoor_tl" style="color: #002F7A; font-weight: bold;">--</span>°C
+            </div>
+            <div>
+                <span style="color: #666;">Current:</span><br>
+                <span id="outdoor_current" style="color: #002F7A; font-weight: bold;">--</span>A
+            </div>
+            <div>
+                <span style="color: #666;">Cumulative Hours:</span><br>
+                <span id="outdoor_cumhour" style="color: #002F7A; font-weight: bold;">--</span>h(x10)
+            </div>
+            <div>
+                <span style="color: #666;">Comp Freq:</span><br>
+                <span id="outdoor_comp_freq" style="color: #002F7A; font-weight: bold;">--</span>Hz
+            </div>
+            <div>
+                <span style="color: #666;">Fan Low Speed:</span><br>
+                <span id="outdoor_lower_fan_speed" style="color: #002F7A; font-weight: bold;">--</span>
+            </div>
+            <div>
+                <span style="color: #666;">Fan High Speed:</span><br>
+                <span id="outdoor_upper_fan_speed" style="color: #002F7A; font-weight: bold;">--</span>
+            </div>
+        </div>
+    </div>
 
                     <!-- Address Configuration Section -->
                     <div
