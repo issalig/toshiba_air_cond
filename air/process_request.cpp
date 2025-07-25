@@ -29,28 +29,27 @@ extern bool autonomous_mode;
 
 extern const int DHTPin;
 
-extern float ac_sensor[MAX_LOG_DATA];
+extern float ac_sensor_temperature[MAX_LOG_DATA];
 extern int ac_outdoor_te[MAX_LOG_DATA];
 
-#ifdef USE_DHT
-extern float dht_h[MAX_LOG_DATA];
-extern float dht_t[MAX_LOG_DATA];
-#endif
-
-#ifdef USE_BMP
-extern uint8_t bmp_status;
-extern float bmp_t[MAX_LOG_DATA];
-extern float bmp_p[MAX_LOG_DATA];
-#endif
-
+extern float sensor_temperature[MAX_LOG_DATA];
+extern float sensor_humidity[MAX_LOG_DATA];
+extern float sensor_pressure[MAX_LOG_DATA];
 extern unsigned long timestamps[MAX_LOG_DATA];
 extern int temp_idx;
+extern float sensor_temperature_current;
+extern float sensor_humidity_current;
+extern float sensor_pressure_current;
 
-#ifdef USE_DHT
-extern float dht_h_current, dht_t_current;
+
+#ifdef USE_AHT20
+extern float aht_t_current;
+extern bool humidity_status;
 #endif
-#ifdef USE_BMP
-extern float bmp_t_current, bmp_p_current;
+
+#ifdef USE_BMP280
+extern float bmp280_t_current;
+extern bool pressure_status;
 #endif
 
 // Define NTP Client to get time
@@ -117,8 +116,8 @@ String air_to_json(air_status_t *air)
   jsonDoc["heat"] = air->heat;
   jsonDoc["preheat"] = air->preheat;
   jsonDoc["cold"] = air->cold;
-  jsonDoc["temp"] = air->target_temp;
-  jsonDoc["sensor_temp"] = air->remote_sensor_temp;
+  jsonDoc["target_temperature"] = air->target_temp;
+  jsonDoc["ac_sensor_temperature"] = air->remote_sensor_temp;
   jsonDoc["fan"] = air->fan_str;
   jsonDoc["mode"] = air->mode_str;
   jsonDoc["power"] = air->power;
@@ -137,30 +136,29 @@ String air_to_json(air_status_t *air)
   jsonDoc["filter_alert"] = air->filter_alert;
 
   //indoor unit data
-  //jsonDoc["indoor_room_temp"] = air->indoor_room_temp;
+  jsonDoc["indoor_room_temp"] = air->indoor_room_temp;
   jsonDoc["indoor_ta"] = air->indoor_ta;
   jsonDoc["indoor_tcj"] = air->indoor_tcj;
   jsonDoc["indoor_tc"] = air->indoor_tc;
-  //jsonDoc["indoor_filter_time"] = air->indoor_filter_time;
-  //jsonDoc["indoor_fan_run_time"] = air->indoor_fan_run_time;
+  jsonDoc["indoor_filter_time"] = air->indoor_filter_time;
+  jsonDoc["indoor_fan_run_time"] = air->indoor_fan_run_time;
 
   //outdoor unit data
   jsonDoc["outdoor_te"] = air->outdoor_te;
   jsonDoc["outdoor_to"] = air->outdoor_to;
-  //jsonDoc["outdoor_td"] = air->outdoor_td;
-  //jsonDoc["outdoor_ts"] = air->outdoor_ts;
-  //jsonDoc["outdoor_ths"] = air->outdoor_ths;
+  jsonDoc["outdoor_td"] = air->outdoor_td;
+  jsonDoc["outdoor_ts"] = air->outdoor_ts;
+  jsonDoc["outdoor_ths"] = air->outdoor_ths;
   jsonDoc["outdoor_current"] = air->outdoor_current;
   jsonDoc["power_consumption"] = air->power_consumption;
-  //jsonDoc["outdoor_cumhour"] = air->outdoor_cumhour;
+  jsonDoc["outdoor_cumhour"] = air->outdoor_cumhour;
 
   jsonDoc["indoor_fan_speed"] = air->indoor_fan_speed;
-  //jsonDoc["indoor_fan_run_time"] = air->indoor_fan_run_time;
 
-  //jsonDoc["outdoor_tl"] = air->outdoor_tl;
-  //jsonDoc["outdoor_comp_freq"] = air->outdoor_comp_freq;
-  //jsonDoc["outdoor_lower_fan_speed"] = air->outdoor_lower_fan_speed;
-  //jsonDoc["outdoor_upper_fan_speed"] = air->outdoor_upper_fan_speed;
+  jsonDoc["outdoor_tl"] = air->outdoor_tl;
+  jsonDoc["outdoor_comp_freq"] = air->outdoor_comp_freq;
+  jsonDoc["outdoor_lower_fan_speed"] = air->outdoor_lower_fan_speed;
+  jsonDoc["outdoor_upper_fan_speed"] = air->outdoor_upper_fan_speed;
 
   jsonDoc["timer_mode"] = air->timer_mode_req;
   //jsonDoc["timer_enabled"] = timerAC.isEnabled();
@@ -170,16 +168,7 @@ String air_to_json(air_status_t *air)
   jsonDoc["timer_pending"] = my_timer_pending_time(&timerOnOff);
   jsonDoc["timer_time"] = my_timer_get_interval(&timerOnOff);
 
-
   jsonDoc["sampling"] = temp_interval;
-  #ifdef USE_DHT
-  jsonDoc["dht_temp"] = dht_t_current;//[(temp_idx - 1) % MAX_LOG_DATA];
-  jsonDoc["dht_hum"] = dht_h_current;//[(temp_idx - 1) % MAX_LOG_DATA];
-  #endif
-  #ifdef USE_BMP
-  jsonDoc["bmp_temp"] = bmp_t_current;//[(temp_idx - 1) % MAX_LOG_DATA];
-  jsonDoc["bmp_press"] = bmp_p_current;//[(temp_idx - 1) % MAX_LOG_DATA];
-  #endif
   jsonDoc["decode_errors"] = air->decode_errors;
 
   jsonDoc["heap"] = ESP.getFreeHeap();
@@ -188,6 +177,18 @@ String air_to_json(air_status_t *air)
 
   jsonDoc["mqtt"] = air->mqtt;
   jsonDoc["autonomous"] = autonomous_mode;
+
+  #ifdef USE_AHT20
+  jsonDoc["sensor_temperature"] = aht_t_current;
+  jsonDoc["sensor_humidity"] = sensor_humidity_current;
+  jsonDoc["aht20_status"] = humidity_status;
+  #endif
+  
+  #ifdef USE_BMP280
+  jsonDoc["sensor_temperature"] = bmp280_t_current;
+  jsonDoc["sensor_pressure"] = sensor_pressure_current;
+  jsonDoc["bmp280_status"] = pressure_status;
+  #endif
 
   int i;
   String str;
@@ -383,70 +384,7 @@ void processRequest( uint8_t *  payload) {
     my_timer_repeat(&timerTemperature);
     my_timer_start(&timerTemperature);
   }
-  //request timeseries values for graphic
-  else if (jsonDoc["id"] == "timeseriesOLD") {
-    String message;
 
-    JsonDocument docTimeSeries;
-    
-    docTimeSeries["id"] = "timeseries";
-    docTimeSeries["n"] = MAX_LOG_DATA;
-
-    JsonArray arrt = docTimeSeries["timestamp"].to<JsonArray>();
-    
-    /*arrt.add(timestamps[temp_idx]);
-      for (unsigned int i = (temp_idx + 1) % MAX_LOG_DATA; i != temp_idx; i = (i + 1) % MAX_LOG_DATA) {
-      arrt.add(timestamps[i]);
-      }*/
-    serialize_array_ul_int(timestamps, arrt, temp_idx);
-
-#ifdef USE_DHT
-    JsonArray arr = docTimeSeries["dht_t"].to<JsonArray>();
-    serialize_array_float(dht_t, arr, temp_idx);
-
-    JsonArray arr2 = docTimeSeries["dht_h"].to<JsonArray>();
-    serialize_array_float(dht_h, arr2, temp_idx);
-#endif //USE_DHT
-
-    JsonArray arr4 = docTimeSeries["ac_sensor_t"].to<JsonArray>();
-    serialize_array_float(ac_sensor, arr4, temp_idx);
-
-#ifdef USE_BMP
-    JsonArray arr6 = docTimeSeries["bmp_p"].to<JsonArray>();
-    serialize_array_float(bmp_p, arr6, temp_idx);
-#endif //USE_BMP
-
-    JsonArray arr7 = docTimeSeries["te"].to<JsonArray>();
-    serialize_array_int(ac_outdoor_te, arr7, temp_idx);
-
-    serializeJson(docTimeSeries, message);
-    webSocket.broadcastTXT(message);
-
-  } //end if timeseries
-  else if (jsonDoc["id"] == "timeseries_query") {
-    String message;
-    //StaticJsonDocument <200> doc; //16100
-    JsonDocument doc; 
-
-    doc["id"] = "timeseries_query";
-
-    //JsonArray arr = doc.createNestedArray("values");
-    JsonArray arr = doc["values"].to<JsonArray>();
-    arr.add("time_stamp");
-#ifdef USE_DHT
-    arr.add("dht_t");
-    arr.add("dht_h");
-#endif //USE_DHT
-    arr.add("ac_sensor_t");
-#ifdef USE_BMP    
-    arr.add("bmp_p");
-#endif //USE_BMP
-    arr.add("to");
-
-    serializeJson(doc, message);
-    webSocket.broadcastTXT(message);
-
-  }
   else if (jsonDoc["id"] == "timeseries") {
     //send data but not in a whole BIG json
     String message = "";
@@ -454,30 +392,25 @@ void processRequest( uint8_t *  payload) {
     message = timeseries_to_json("timeseries", "timestamp", timestamps, 2, temp_idx);
     webSocket.broadcastTXT(message);
 
-    /*
-      uint8_t m[WEBSOCKETS_MAX_HEADER_SIZE+2000];
-      int l = message.length();
-      strncpy((char*)m[WEBSOCKETS_MAX_HEADER_SIZE],message.c_str(),l);
+    // if there is an alternative temperature sensor
+    #if defined(USE_AHT20) || defined(USE_BMP280)
+    message = timeseries_to_json("timeseries", "sensor_temperature", sensor_temperature, 0, temp_idx);
+    webSocket.broadcastTXT(message);
+    #endif
 
-      //bool broadcastTXT(uint8_t * payload, size_t length = 0, bool headerToPayload = false);
-      webSocket.broadcastTXT(m,(l - WEBSOCKETS_MAX_HEADER_SIZE),true);
-    */
+    #ifdef USE_AHT20
+    message = timeseries_to_json("timeseries", "sensor_humidity", sensor_humidity, 0, temp_idx);
+    webSocket.broadcastTXT(message);
+    #endif
+    #ifdef USE_BMP280
+    message = timeseries_to_json("timeseries", "sensor_pressure", sensor_pressure, 0, temp_idx);
+    webSocket.broadcastTXT(message);
+    #endif
 
-#ifdef USE_DHT
-    message = timeseries_to_json("timeseries", "dht_t", dht_t, 0, temp_idx);
+    message = timeseries_to_json("timeseries", "ac_external_temperature", ac_outdoor_te, 1, temp_idx);
     webSocket.broadcastTXT(message);
 
-    message = timeseries_to_json("timeseries", "dht_h", dht_h, 0, temp_idx);
-    webSocket.broadcastTXT(message);
-#endif
-#ifdef USE_BMP
-    message = timeseries_to_json("timeseries", "bmp_p", bmp_p, 0, temp_idx);
-    webSocket.broadcastTXT(message);
-#endif
-    message = timeseries_to_json("timeseries", "te", ac_outdoor_te, 1, temp_idx);
-    webSocket.broadcastTXT(message);
-
-    message = timeseries_to_json("timeseries", "ac_sensor_t", ac_sensor, 0, temp_idx);
+    message = timeseries_to_json("timeseries", "ac_sensor_temperature", ac_sensor_temperature, 0, temp_idx);
     webSocket.broadcastTXT(message);
 
   } //end if timeseries

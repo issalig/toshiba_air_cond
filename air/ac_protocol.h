@@ -64,7 +64,7 @@ of this license document, but changing it is not allowed.
 
 //pg 18 http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf
 //indoor unit data
-//#define INDOOR_ROOM           0x00 //Room Temp (Control Temp) (°C) 
+#define INDOOR_ROOM           0x00 //Room Temp (Control Temp) (°C) 
 //#define INDOOR_ROOM           0x01 //Room temperature (remote controller)
 #define INDOOR_TA               0x02 //Indoor unit intake air temperature (TA)
 #define INDOOR_TCJ              0x03 //Indoor unit heat exchanger (coil) temperature (TCJ) TCJ Coil Liquid Temp (°C)
@@ -178,7 +178,6 @@ typedef struct {
 
   SoftwareSerial serial;
 } air_status_t;
-
 
 void air_set_temp(air_status_t *air, uint8_t temp);
 void air_set_power_on(air_status_t *air);

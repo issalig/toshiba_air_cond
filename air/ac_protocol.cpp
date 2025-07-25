@@ -455,7 +455,7 @@ void air_decode_command(byte * data, air_status_t *s) {
       s->sensor_val = data[9] * 256 + data[10]; //answer does not report query id, so we should assign it to the last queried sensor
       //INDOOR_ROOM, INDOOR_TA, INDOOR_TCJ, INDOOR_TC, FILTER_TIME, OUTDOOR_TE, OUTDOOR_TO, OUTDOOR_TD, OUTDOOR_TS, OUTDOOR_THS, OUTDOOR_CURRENT, OUTDOOR_HOURS
       switch (s->sensor_id) {
-        //case INDOOR_ROOM: s->indoor_room_temp = s->sensor_val; break;
+        case INDOOR_ROOM: s->remote_sensor_temp = s->sensor_val; break;
         case INDOOR_TA:   s->indoor_ta = s->sensor_val;  break;
         case INDOOR_TCJ:  s->indoor_tcj = s->sensor_val;  break;
         case INDOOR_TC:   s->indoor_tc = s->sensor_val;  break;

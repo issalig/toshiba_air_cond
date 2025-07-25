@@ -3,10 +3,11 @@
 
 #define MAX_LOG_DATA 72 //store up to 72 readings in a circular buffer
 
-//#define USE_BMP //if BMP sensor installed
-//#define USE_DHT //in DHT sensor installed
 #define USE_SCREEN //if OLED screen installed
 #define USE_MQTT // for Home Assistant integration
+
+#define USE_AHT20     // Enable AHT20 temperature & humidity sensor
+#define USE_BMP280    // Enable BMP280 temperature & pressure sensor (replaces BMP085)
 
 //wifi credentials, no needed because now we use WiFiManager
 extern const char* w_ssid;

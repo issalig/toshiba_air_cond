@@ -9,14 +9,15 @@
   Instructions:
                 HW
                 R/W circuit (see readme.md)
-                DHT is connected to D3 (optional)
-                BMP180 connected to D1 (SCL) D2 (SDA) (optional)
                 Oled screen connected to D1 (SCL) D2 (SDA) (optional)
+                AHT20 + BMP280 connected to D1 (SCL) D2 (SDA) (optional)
+
                 Software serial rx on D7, tx on D8
                 Wemos mini D1
 
                 SW
-                Upload data directory with ESP8266SketchDataUpload and flash it with USB for the first time. Then, when installed you can use OTA updates.
+                The recommended editor is VSCode with PlatformIO, but you can use Arduino IDE too.
+                Upload data directory with ESP8266SketchDataUpload and flash it with USB for the first time. Then, when installed you can use OTA updates.                
                 If you want to use MQTT, set the MQTT_HOST, MQTT_PORT, MQTT_USER and MQTT_PASSWORD
                 Web server is available at http://air.local and OTA password is set in config.h
 
@@ -52,6 +53,8 @@
 */
 
 #include "config.h" // check it for settings
+#include "upload_html.h"
+
 
 #include "LittleFS.h"
 #include <ESP8266WiFi.h>
@@ -124,52 +127,67 @@ WebSocketsServer webSocket(81);    // create a websocket server on port 81
 File fsUploadFile;                                    // a File variable to temporarily store the received file
 
 
-#ifdef USE_DHT
-#include "DHT.h"
-const int DHTPin = D3;
-#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
-DHT dht(DHTPin, DHTTYPE);
-#include <Wire.h>
-#endif 
+// Add these includes after your existing sensor includes
+#ifdef USE_AHT20
+#include <Adafruit_AHTX0.h>
+Adafruit_AHTX0 aht;
+#endif
 
-#ifdef USE_BMP
-#include <Adafruit_BMP085.h>
-Adafruit_BMP085 bmp;
-#endif //USE_BMP
+#ifdef USE_BMP280
+#include <Adafruit_BMP280.h>
+Adafruit_BMP280 bmp280;
+#endif
+
+// Add current sensor reading variables
+#ifdef USE_AHT20
+float aht_t_current = -999.0;
+#endif
+
+#ifdef USE_BMP280
+float bmp280_t_current = -999.0;
+#endif
+
+// Add sensor status variables
+#ifdef USE_AHT20
+bool humidity_status = false;
+#endif
+
+#ifdef USE_BMP280
+bool pressure_status = false;
+#endif
 
 uint8_t bmp_status = 0;
 
-#ifdef USE_DHT
-float dht_h[MAX_LOG_DATA];
-float dht_t[MAX_LOG_DATA];
-#endif
-float ac_sensor[MAX_LOG_DATA];
-//float ac_target[MAX_LOG_DATA];
+// Arrays for storing sensor data
+float ac_sensor_temperature[MAX_LOG_DATA];
 int ac_outdoor_te[MAX_LOG_DATA];
-#ifdef USE_BMP
-float bmp_t[MAX_LOG_DATA];
-float bmp_p[MAX_LOG_DATA];
-#endif
-unsigned long timestamps[MAX_LOG_DATA];
-int temp_idx = 0;
-#ifdef USE_DHT
-float dht_h_current, dht_t_current = 0;
-#endif
-#ifdef USE_BMP
-float bmp_t_current, bmp_p_current = 0;
-#endif 
+float sensor_temperature[MAX_LOG_DATA]; // Centralized temperature from best available sensor
+float sensor_humidity[MAX_LOG_DATA];    // Centralized humidity (available regardless of sensor type)
+float sensor_pressure[MAX_LOG_DATA];    // Centralized pressure
+unsigned long timestamps[MAX_LOG_DATA]; // Timestamps for sensor readings
+int temp_idx = 0; // Index for circular temperature arrays
+
+// Current readings (for real-time data)
+float sensor_temperature_current = -999.0;  // Current temperature from best sensor
+float sensor_humidity_current = -999.0;     // Current humidity from best sensor
+float sensor_pressure_current = -999.0;     // Current pressure from best sensor
+
 
 // sensors ids
-byte sensor_ids[] = {//INDOOR_ROOM,
+byte sensor_ids[] = {
+  INDOOR_ROOM,
   INDOOR_FAN_SPEED,
   INDOOR_TA, INDOOR_TCJ, INDOOR_TC,
-  //INDOOR_FILTER_TIME,
-  // INDOOR_FAN_RUN_TIME,
+  INDOOR_FILTER_TIME,
+  INDOOR_FAN_RUN_TIME,
   OUTDOOR_TE, OUTDOOR_TO,
   OUTDOOR_TD, OUTDOOR_TS, OUTDOOR_THS,
-  OUTDOOR_CURRENT
-  //OUTDOOR_HOURS, OUTDOOR_TL, OUTDOOR_COMP_FREQ,
-  //OUTDOOR_LOWER_FAN_SPEED, OUTDOOR_UPPER_FAN_SPEED
+  OUTDOOR_CURRENT,
+  OUTDOOR_HOURS, 
+  OUTDOOR_TL, 
+  OUTDOOR_COMP_FREQ,
+  OUTDOOR_LOWER_FAN_SPEED, 
+  OUTDOOR_UPPER_FAN_SPEED
 };
 
 // Define NTP Client to get time
@@ -318,34 +336,7 @@ void showIPDisplay() {
   delay(2000); // Show IP for 2 seconds before normal operation
 }
 
-void startDisplay00() {
-  // Clear the buffer
-  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS))
-    print_log(F("SSD1306 allocation failed"));
-  else {
-    display.clearDisplay();
 
-    display.setTextSize(2);               // Normal 1:1 pixel scale
-    display.setTextColor(SSD1306_WHITE);  // Draw white text
-    display.setCursor(50, 0);             // Start at top-left corner
-    display.println(F("AIR"));
-
-    display.setTextSize(1);               // Normal 1:1 pixel scale
-    display.setCursor(20, 80);            // Start at top-left corner
-    display.println("Starting ...");
-
-    display.display();
-  }
-}
-
-void showIPDisplay00() {
-
-  display.setTextSize(1);                 // Normal 1:1 pixel scale
-  display.setTextColor(SSD1306_WHITE);    // Draw white text
-  display.setCursor(20, 80);              // Start at top-left corner
-  display.println(air_status.ip);
-
-}
 #endif
 
 void startTime() {
@@ -375,51 +366,111 @@ void startTemperature() {
   my_timer_repeat(&timerTemperature);
   my_timer_start(&timerTemperature); 
 
-  //clear arrays
-#ifdef USE_DHT
-  memset(dht_h, 0, MAX_LOG_DATA * sizeof(float));
-  memset(dht_t, 0, MAX_LOG_DATA * sizeof(float));
-#endif
-  memset(ac_sensor, 0, MAX_LOG_DATA * sizeof(float));
+
+  // Clear centralized arrays
+  memset(ac_sensor_temperature, 0, MAX_LOG_DATA * sizeof(float));
   memset(ac_outdoor_te, 0, MAX_LOG_DATA * sizeof(float));
-#ifdef USE_BMP
-  memset(bmp_p, 0, MAX_LOG_DATA * sizeof(float));
-  memset(bmp_t, 0, MAX_LOG_DATA * sizeof(float));
-#endif //USE_BMP
+  memset(sensor_temperature, 0, MAX_LOG_DATA * sizeof(float));
+  memset(sensor_humidity, 0, MAX_LOG_DATA * sizeof(float));
+  memset(sensor_pressure, 0, MAX_LOG_DATA * sizeof(float));
   memset(timestamps, 0, MAX_LOG_DATA * sizeof(unsigned long));
 
-#ifdef USE_DHT
-  dht.begin();
-  dht_h[0] = dht.readHumidity();
-  yield(); // allow other tasks to run
-  dht_t[0] = dht.readTemperature();
+  // Initialize sensors and get initial readings
+  float initial_temp = -999.0;
+  float initial_humidity = -999.0;
+  float initial_pressure = -999.0;
+  String temp_source = "None";
+  String humidity_source = "None";
+  String pressure_source = "None";
 
-  // Check if DHT readings are valid
-  if (isnan(dht_h[0]) || isnan(dht_t[0])) {
-      print_log("Could not find a valid DHT sensor, check wiring!\n");
-      dht_h[0] = -999.0;  // Set error values
-      dht_t[0] = -999.0;
+#ifdef USE_AHT20
+  if (!aht.begin()) {
+    print_log("Could not find a valid AHT20 sensor, check wiring!\n");
+    humidity_status = false;
   } else {
-      print_logf("DHT initialized - temp %.1f hum %.1f\n", dht_t[0], dht_h[0]);
+    humidity_status = true;
+    sensors_event_t humidity, temp;
+    aht.getEvent(&humidity, &temp);
+    aht_t_current = temp.temperature;
+    sensor_humidity_current = humidity.relative_humidity;
+    
+    if (initial_temp <= -999.0) {
+      initial_temp = aht_t_current;
+      temp_source = "AHT20";
+    }
+    if (initial_humidity <= -999.0) {
+      initial_humidity = sensor_humidity_current;
+      humidity_source = "AHT20";
+    }
+    
+    print_logf("AHT20 initialized - temp %.1f hum %.1f\n", aht_t_current, sensor_humidity_current);
   }
 #endif
 
-#ifdef USE_BMP
-  if (!bmp.begin()) {
-    print_log("Could not find a valid BMP085 sensor, check wiring!\n");
-    bmp_status = 0;
+#ifdef USE_BMP280
+  if (!bmp280.begin()) {
+    print_log("Could not find a valid BMP280 sensor, check wiring!\n");
+    pressure_status = false;
   } else {
-    bmp_t[0] = bmp.readTemperature();
-    bmp_p[0] = bmp.readPressure();
-    bmp_status = 1;
+    pressure_status = true;
+    bmp280.setSampling(Adafruit_BMP280::MODE_NORMAL,
+                      Adafruit_BMP280::SAMPLING_X2,
+                      Adafruit_BMP280::SAMPLING_X16,
+                      Adafruit_BMP280::FILTER_X16,
+                      Adafruit_BMP280::STANDBY_MS_500);
+    
+    bmp280_t_current = bmp280.readTemperature();
+    sensor_pressure_current = bmp280.readPressure() / 100.0F;
+    
+    // Use BMP280 temperature if no other sensor available
+    if (initial_temp <= -999.0) {
+      initial_temp = bmp280_t_current;
+      temp_source = "BMP280";
+    }
+    // BMP280 is primary pressure source
+    initial_pressure = sensor_pressure_current;
+    pressure_source = "BMP280";
+    
+    print_logf("BMP280 initialized - temp %.1f press %.1f hPa\n", bmp280_t_current, sensor_pressure_current);
   }
-#endif //USE_BMP
+#endif
 
+
+
+  // Set centralized readings
+  if (initial_temp > -999.0) {
+    sensor_temperature[0] = initial_temp;
+    sensor_temperature_current = initial_temp;
+    print_logf("Using %s as temperature source: %.1f°C\n", temp_source.c_str(), initial_temp);
+  } else {
+    sensor_temperature[0] = air_status.remote_sensor_temp;
+    sensor_temperature_current = air_status.remote_sensor_temp;
+    print_logf("Using AC sensor as temperature fallback: %.1f°C\n", air_status.remote_sensor_temp);
+  }
+
+  if (initial_humidity > -999.0) {
+    sensor_humidity[0] = initial_humidity;
+    sensor_humidity_current = initial_humidity;
+    print_logf("Using %s as humidity source: %.1f%%\n", humidity_source.c_str(), initial_humidity);
+  } else {
+    sensor_humidity[0] = -999.0;
+    sensor_humidity_current = -999.0;
+  }
+
+  if (initial_pressure > -999.0) {
+    sensor_pressure[0] = initial_pressure;
+    sensor_pressure_current = initial_pressure;
+    print_logf("Using %s as pressure source: %.1f hPa\n", pressure_source.c_str(), initial_pressure);
+  } else {
+    sensor_pressure[0] = -999.0;
+    sensor_pressure_current = -999.0;
+  }
+
+////////////////
   air_send_ping(&air_status); // send ping to air conditioning
+  ac_sensor_temperature[0] = air_status.remote_sensor_temp; // sensor_temp is room temperature
 
-  ac_sensor[0] = air_status.remote_sensor_temp; // sensor_temp is room temperature
-
-  air_query_sensor(&air_status, OUTDOOR_TE);
+  air_query_sensor(&air_status, OUTDOOR_TE); // query outdoor temperature sensor
   ac_outdoor_te[0] = air_status.outdoor_te;
 
   timestamps[0] = 0; //timeClient.getEpochTime();
@@ -506,253 +557,73 @@ void handleTimer() {
   }
 }
 
-//we will call this every sampling time
+//for temp logging every temp_interval (30 mins by default)
 void handleTemperature() {
-  //if (timerTemperature.isTime()) {
   if (my_timer_is_time(&timerTemperature)) {
     air_send_ping(&air_status);
 
-#ifdef USE_DHT
-    print_log("[TEMP] Reading sensors\n");
-    // Reading temperature or humidity takes about 250 milliseconds!
-    dht_h[temp_idx] = dht.readHumidity();
-    yield(); // allow other tasks to run
-    dht_t[temp_idx] = dht.readTemperature();
+    float best_temp = -999.0;
+    float best_humidity = -999.0;
+    float best_pressure = -999.0;
 
-  // Check if DHT readings are valid
-    if (isnan(dht_h[temp_idx])) {
-        print_logf("[DHT] SENSOR ERROR %.1f\n", dht_h[temp_idx]);
-
-        dht_h[temp_idx] = -999.0;  // Set error values
+#ifdef USE_AHT20
+    if (humidity_status) {
+        sensors_event_t humidity, temp;
+        if (aht.getEvent(&humidity, &temp)) {
+            aht_t_current = temp.temperature;
+            sensor_humidity_current = humidity.relative_humidity;
+            
+            best_temp = aht_t_current;      // AHT20 is primary temperature source
+            best_humidity = sensor_humidity_current;  // AHT20 is primary humidity source
+            
+            print_logf("AHT20 %d temp %.1f hum %.1f\n", temp_idx, aht_t_current, sensor_humidity_current);
+        } else {
+            print_log("[AHT20] Failed to read sensor");
+            aht_t_current = -999.0;
+            sensor_humidity_current = -999.0;
+        }
     }
-    else if (isnan(dht_t[temp_idx])) {
-        print_logf("[DHT] SENSOR ERROR %.1f\n", dht_t[temp_idx]);
-        dht_h[temp_idx] = -999.0;  // Set error values      
-    } else {
-        print_logf("DHT %d temp %.1f hum %.1f\n", temp_idx, dht_t[temp_idx], dht_h[temp_idx]);
-    }
-
- print_logf("DHT %d temp %.1f hum %.1f\n", temp_idx, dht_t[temp_idx], dht_h[temp_idx]);
+    yield();
 #endif
 
-#ifdef USE_BMP
-    if (!bmp_status) //try again
-      bmp_status = bmp.begin();
-
-    if (bmp_status) {
-      bmp_t[temp_idx] = bmp.readTemperature();
-      bmp_p[temp_idx] = bmp.readPressure() / 100; //in mb
-      print_logf("BMP %d temp %.1f press %.1f\n",  temp_idx, bmp_t[temp_idx], bmp_p[temp_idx]);
-    } else {
-        // Set to clear error values when not available
-        bmp_t[temp_idx] = -999.0;  // Clear error indicator
-        bmp_p[temp_idx] = -999.0;  // Clear error indicator
-        print_logf("BMP %d temp %.1f press %.1f (SENSOR ERROR)\n", temp_idx, bmp_t[temp_idx], bmp_p[temp_idx]);
+#ifdef USE_BMP280
+    if (pressure_status) {
+        bmp280_t_current = bmp280.readTemperature();
+        sensor_pressure_current = bmp280.readPressure() / 100.0F;
+        
+        // Use BMP280 temperature only if AHT20 failed
+        if (best_temp <= -999.0) {
+            best_temp = bmp280_t_current;
+        }
+        best_pressure = sensor_pressure_current; // BMP280 is primary pressure source
+        
+        print_logf("BMP280 %d temp %.1f press %.1f hPa\n", temp_idx, bmp280_t_current, sensor_pressure_current);
     }
-#endif //USE_BMP
+    yield();
+#endif
 
-    //ac_target[temp_idx] = air_status.target_temp * air_status.power; //0 if powered off
-    ac_sensor[temp_idx] = air_status.remote_sensor_temp;
+    ac_sensor_temperature[temp_idx] = air_status.remote_sensor_temp;
+
+    // Store centralized readings
+    sensor_temperature[temp_idx] = (best_temp > -999.0) ? best_temp : air_status.remote_sensor_temp;
+    sensor_humidity[temp_idx] = best_humidity;
+    sensor_pressure[temp_idx] = best_pressure;
 
     air_query_sensor(&air_status, OUTDOOR_TE);
+    //parse serial
+    air_parse_serial(&air_status);
+
     ac_outdoor_te[temp_idx] = air_status.outdoor_te;
 
     timeClient.update();
     timestamps[temp_idx] = timeClient.getEpochTime();
-
     temp_idx = (temp_idx + 1) % MAX_LOG_DATA;
 
-    //should we send here temperature from external thermometer in case there is no remote?
-    
     #ifdef USE_SCREEN
     showDisplay();
     #endif
   }
 }
-
-#ifdef USE_SCREEN
-void showDisplay00(void) {
-  int xoff = -10;
-
-  static unsigned long lastDisplayUpdate = 0;
-  if (millis() - lastDisplayUpdate < 1000) return; // Limit display updates
-  lastDisplayUpdate = millis();
-
-  display.clearDisplay();
-
-  if (air_status.power != 0) {
-    display.setTextSize(4);
-    display.setCursor(0, 0);
-    display.setTextColor(SSD1306_WHITE);
-    display.println(air_status.target_temp, DEC);
-
-    display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
-    display.setCursor(64 + xoff, 0);
-    display.println(air_status.mode);//_str);
-
-    display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
-    display.setCursor(96 + xoff, 0);
-    display.println(air_status.fan_str);
-  }
-
-  if (air_status.timer_enabled) {
-    display.setTextSize(1);
-    display.setCursor(96 + xoff, 12);
-    display.setTextColor(SSD1306_WHITE);
-    display.println(air_status.timer_time_req);
-    display.setTextSize(1);
-    display.setCursor(96 + 20 + xoff, 12);
-    display.setTextColor(SSD1306_WHITE);
-    display.println(air_status.timer_mode_req);
-  }
-
-  display.setTextSize(1);
-  display.setCursor(64 + xoff, 12);
-  display.setTextColor(SSD1306_WHITE);
-  display.printf("%.1f", air_status.remote_sensor_temp);
-
-#ifdef USE_DHT
-  int idx = (temp_idx > 0)? temp_idx-1:0;
-  display.setTextSize(1);
-  display.setCursor(64 + xoff, 24);
-  display.setTextColor(SSD1306_WHITE);
-  display.printf("%.1f", dht_t[idx]);
-
-  display.setTextSize(1);
-  display.setCursor(64 + xoff+ 28, 24);
-  display.setTextColor(SSD1306_WHITE);
-  display.printf("%.1f", dht_h[idx]);
-#endif //USE_DHT
-
-  //display.setTextColor(SSD1306_BLACK, SSD1306_WHITE); // Draw 'inverse' text
-  //display.println(3.141592);
-
-  /*
-  display.setTextSize(1);             // Normal 1:1 pixel scale
-  display.setTextColor(SSD1306_WHITE);        // Draw white text
-  display.setCursor(30, 24);            // Start at top-left corner
-  display.println(air_status.ip[4]);
-  */
-
-  display.display();
-}
-#endif
-
-#ifdef USE_SCREEN
-void showDisplay01(void) {
-  static unsigned long lastDisplayUpdate = 0;
-
-  if (millis() - lastDisplayUpdate < 1000) return; // Limit display updates
-  lastDisplayUpdate = millis();
-
-  //Turn off display when AC is OFF
-  if (air_status.power == 0) {
-    display.clearDisplay();
-    display.display();
-    return;
-  }
-
-  display.clearDisplay();
-
-  // Top section - AC Status (lines 0-31)
-  if (air_status.power != 0) {
-    // Large target temperature
-    display.setTextSize(3);
-    display.setCursor(3, 3);
-    display.setTextColor(SSD1306_WHITE);
-    display.printf("%d", air_status.target_temp);
-    
-    // Mode indicator
-    display.setTextSize(2);
-    display.setCursor(60, 0);
-    display.printf("%s", air_status.mode_str);
-    
-    // Fan speed
-    display.setTextSize(1);
-    display.setCursor(60, 16);
-    display.printf("%s", air_status.fan_str);
-    
-    // Current AC sensor temperature
-    display.setCursor(90, 16);
-    display.printf("%.1f", air_status.remote_sensor_temp);
-  } 
-
-  // Separator line
-  display.drawLine(0, 31, 127, 31, SSD1306_WHITE);
-
-  // Bottom section - Environmental data (lines 32-63)
-  #if defined(USE_DHT) || defined(USE_BMP)
-  int idx = (temp_idx > 0) ? temp_idx - 1 : 0;
-  #endif
-
-  // Room temperature and humidity (DHT sensor)
-  #ifdef USE_DHT
-  display.setTextSize(1);
-  display.setCursor(0, 34);
-  if (dht_t[idx] > -999) {
-    display.printf("Room: %.1f C %.0f%%", dht_t[idx], dht_h[idx]);
-  } else {
-    display.printf("Room: -- C --%% (DHT Error)");
-  }
-  #endif
-
-  // Outdoor temperature
-  display.setTextSize(1);
-  display.setCursor(0, 39);
-  if (air_status.outdoor_te > -999) {
-    display.printf("Out: %d C", air_status.outdoor_te);
-  } else {
-    display.printf("Out: -- C");
-  }
-
-  // Pressure (if BMP sensor available)
-  #ifdef USE_BMP
-  display.setCursor(70, 44);
-  if (bmp_p[idx] > -999) {
-    display.printf("%.0fmb", bmp_p[idx]);
-  } else {
-    display.printf("--mb");
-  }
-  #endif
-
-  // Connection status indicators
-  display.setTextSize(1);
-  display.setCursor(0, 57);
-  
-  // WiFi status
-  if (WiFi.status() == WL_CONNECTED) {
-    display.print("WiFi");
-  }
-  
-  // MQTT status
-  #ifdef USE_MQTT
-  if (mqtt_enabled && getMQTTStatus()) {
-    display.print(" MQTT");
-  } 
-  #endif
-
-  // Timer info (if enabled)
-  if (air_status.timer_enabled) {
-    display.setTextSize(1);
-    display.setCursor(0, 57);
-    display.printf("TM %d %s", air_status.timer_time_req, 
-                   air_status.timer_mode_req == TIMER_SW_OFF ? "OFF" : "ON");
-  }
-
-  // IP address (last octet only to save space)
-  String ip = air_status.ip;
-  int lastDot = ip.lastIndexOf('.');
-  if (lastDot > 0) {
-    display.setCursor(100, 57);
-    display.print(ip.substring(lastDot + 1));
-  }
-
-  display.display();
-}
-#endif
-
 
 #ifdef USE_SCREEN
 void showDisplay(void) {
@@ -806,20 +677,18 @@ void showDisplay(void) {
   display.drawLine(0, 31, 127, 31, SSD1306_WHITE);
 
   // Middle section - Environmental data (lines 32-50)
-  #if defined(USE_DHT) || defined(USE_BMP)
   int idx = (temp_idx > 0) ? temp_idx - 1 : 0;
-  #endif
 
-  // Room temperature and humidity (DHT sensor)
-  #ifdef USE_DHT
+  // Room temperature and humidity from centralized arrays
   display.setTextSize(1);
   display.setCursor(0, 34);
-  if (dht_t[idx] > -999) {
-    display.printf("Room: %.1f C %.0f%%", dht_t[idx], dht_h[idx]);
+  if (sensor_temperature[idx] > -999 && sensor_humidity[idx] > -999) {
+    display.printf("Room: %.1f C %.0f%%", sensor_temperature[idx], sensor_humidity[idx]);
+  } else if (sensor_temperature[idx] > -999) {
+    display.printf("Room: %.1f C --%% ", sensor_temperature[idx]);
   } else {
-    display.printf("Room: -- C --%% (DHT Error)");
+    display.printf("Room: -- C --%% (No sensor)");
   }
-  #endif
 
   // Outdoor temperature
   display.setTextSize(1);
@@ -830,15 +699,13 @@ void showDisplay(void) {
     display.printf("Out: -- C");
   }
 
-  // Pressure (if BMP sensor available)
-  #ifdef USE_BMP
+  // Pressure from centralized array
   display.setCursor(70, 44);
-  if (bmp_p[idx] > -999) {
-    display.printf("%.0fmb", bmp_p[idx]);
+  if (sensor_pressure[idx] > -999) {
+    display.printf("%.0fmb", sensor_pressure[idx]);
   } else {
     display.printf("--mb");
   }
-  #endif
 
   // Bottom rotating information line (line 57)
   display.setTextSize(1);
@@ -861,27 +728,39 @@ void showDisplay(void) {
       #endif
       break;
       
-    case 1: // IP Address
-      display.print("IP: ");
-      display.print(air_status.ip);
+    case 1: 
+    
+      if (!autonomous_mode) {
+        //Indoor sensors, ta, tcj, tc
+        //outdoor sensors, te, to, td, ts, ths
+        display.printf("TA: %d C TCJ: %d C TC: %d C",
+                     air_status.indoor_ta, air_status.indoor_tcj, air_status.indoor_tc);
+      }
+      // Show outdoor temperatures
+      else {
+        display.printf("TE: %d C TO: %d C TD: %d C TS: %d C THS: %d C",
+                     air_status.outdoor_te, air_status.outdoor_to,
+                     air_status.outdoor_td, air_status.outdoor_ts,
+                     air_status.outdoor_ths);
+        }
       break;
       
-    case 2: // Timer info or Memory
+    case 2: // Timer info or IP
       if (air_status.timer_enabled) {
         display.printf("Timer %d %s", air_status.timer_time_req, 
                        air_status.timer_mode_req == TIMER_SW_OFF ? "OFF" : "ON");
       } else {
-        // Show free memory when no timer
-        display.printf("Free: %d KB", ESP.getFreeHeap() / 1024);
+        display.print("IP: ");
+        display.print(air_status.ip);
       }
       break;
       
-    case 3: // Autonomous mode or Power consumption
+    case 3: // Autonomous mode or outdoor current
       if (autonomous_mode) {
-        display.printf("AUTONOMOUS %x02 %x02", air_status.master, air_status.remote);
+        display.printf("Master %x02 Remote %x02", air_status.master, air_status.remote);
       } else {
-        // Show power consumption
-        display.printf("Power: %.1f kW", air_status.power_consumption);
+        // Show current and RPM
+        display.printf("Current: %d A RPM: %d", air_status.outdoor_current, air_status.indoor_fan_speed);
       }
       break;
   }
@@ -889,6 +768,7 @@ void showDisplay(void) {
   display.display();
 }
 #endif
+
 
 void handleSaveFile() {
   //if (timerSaveFile.isTime()) {
@@ -899,49 +779,61 @@ void handleSaveFile() {
   }
 }
 
+
 void getTemperatureCurrent() {
-#ifdef USE_DHT
-  // Reading temperature or humidity takes about 250 milliseconds!
-  dht_h_current = dht.readHumidity();
-  yield(); // allow other tasks to run
-  dht_t_current = dht.readTemperature();
+  float best_temp = -999.0;
+  float best_humidity = -999.0;
+  float best_pressure = -999.0;
 
-  // Check if DHT readings are valid
-  if (isnan(dht_h_current)) {
-      print_logf("[DHT] SENSOR ERROR %.1f\n", dht_h_current);
-      dht_h_current = -999.0;  // Set error values
+#ifdef USE_AHT20
+  if (humidity_status) {
+    sensors_event_t humidity, temp;
+    if (aht.getEvent(&humidity, &temp)) {
+      aht_t_current = temp.temperature;
+      sensor_humidity_current = humidity.relative_humidity;
+      
+      best_temp = aht_t_current;
+      best_humidity = sensor_humidity_current;
+      
+      print_logf("[AHT20] temp %.1f hum %.1f\n", aht_t_current, sensor_humidity_current);
+    } else {
+      aht_t_current = -999.0;
+      sensor_humidity_current = -999.0;
+    }
   }
-  else if(isnan(dht_t_current)) {      
-      print_logf("[DHT] SENSOR ERROR %.1f\n", dht_t_current);
-      dht_t_current = -999.0;
-  } else {
-      print_logf("[DHT] temp %.1f hum %.1f\n", dht_t_current, dht_h_current);
+  yield();
+#endif
+
+#ifdef USE_BMP280
+  if (pressure_status) {
+    bmp280_t_current = bmp280.readTemperature();
+    sensor_pressure_current = bmp280.readPressure() / 100.0F;
+    
+    // Use BMP280 temperature only if AHT20 failed
+    if (best_temp <= -999.0) {
+        best_temp = bmp280_t_current;
+    }
+    best_pressure = sensor_pressure_current;
+    
+    print_logf("[BMP280] temp %.1f press %.1f hPa\n", bmp280_t_current, sensor_pressure_current);
   }
-#endif //USE_DHT
+  yield();
+#endif
 
-#ifdef USE_BMP
-  if (!bmp_status) //try again
-    bmp_status = bmp.begin();
+  // Update centralized current readings
+  sensor_temperature_current = (best_temp > -999.0) ? best_temp : air_status.remote_sensor_temp;
+  sensor_humidity_current = best_humidity;
+  sensor_pressure_current = best_pressure;
 
-  if (bmp_status) {
-    bmp_t_current = bmp.readTemperature();
-    bmp_p_current = bmp.readPressure() / 100; //in mb
-  }
-
-  print_logf("[BMP] temp %.1f press %.1f\n", bmp_t_current, bmp_p_current);
-#endif //USE_BMP
-
-  //ac_target[temp_idx] = air_status.target_temp * air_status.power; //0 if powered off
-  ac_sensor[temp_idx] = air_status.remote_sensor_temp;
-
-  //outdoor temp
+  ac_sensor_temperature[temp_idx] = air_status.remote_sensor_temp;
   air_query_sensor(&air_status, OUTDOOR_TE);
   ac_outdoor_te[temp_idx] = air_status.outdoor_te;
 
-  timeClient.update();
-  timestamps[temp_idx] = timeClient.getEpochTime();
+  // FIX this. I do not want to create a new entry but report this on status
 
-  temp_idx = (temp_idx + 1) % MAX_LOG_DATA;
+  //timeClient.update();
+  //timestamps[temp_idx] = timeClient.getEpochTime();
+  //temp_idx = (temp_idx + 1) % MAX_LOG_DATA;
 }
 
 //get current status, temperature and sensors. not intended for logging
@@ -958,7 +850,7 @@ void handleStatus() {
     yield(); // Allow ESP8266 to handle WiFi stack
 
     //air_explore_all_sensors(&air_status); //it takes a lot of time, use it just to discover sensors
-    air_status.power_consumption += air_status.outdoor_current * 10 / (3600 / temp_interval); //30 readings per hour
+    //air_status.power_consumption += air_status.outdoor_current * 10 / (3600 / temp_interval); //30 readings per hour
 
   }
 }
@@ -981,23 +873,30 @@ void handleAutonomousMode() {
       air_send_ping(&air_status);
       print_log(F("[AUTONOMOUS] Ping sent"));
     } else {
-      // Send temperature message using external sensor if available
+      // Send temperature message using best available external sensor
       float temp_to_send = air_status.remote_sensor_temp; // Default fallback
+      String sensor_used = "AC sensor";
       
-      #ifdef USE_DHT
-      // Use current DHT temperature if available and valid
-      if (dht_t_current > -999.0) {
-        temp_to_send = dht_t_current;
-        print_logf("[AUTONOMOUS] Using DHT temperature: %.1f°C", temp_to_send);
-      } else {
-        print_log(F("[AUTONOMOUS] DHT not available, using AC sensor"));
-      }
-      #else
-      print_log(F("[AUTONOMOUS] No external sensor, using AC sensor"));
+      #ifdef USE_AHT20
+      // Prioritize AHT20 (most accurate)
+      if (aht_t_current > -999.0) {
+        temp_to_send = aht_t_current;
+        sensor_used = "AHT20";
+      } else
       #endif
+      #ifdef USE_BMP280
+      // Then BMP280
+      if (bmp280_t_current > -999.0) {
+        temp_to_send = bmp280_t_current;
+        sensor_used = "BMP280";
+      } else
+      #endif
+      {
+        sensor_used = "AC sensor (fallback)";
+      }
       
       air_send_remote_temp(&air_status, temp_to_send);
-      print_logf("[AUTONOMOUS] Temperature sent: %.1f°C", temp_to_send);
+      print_logf("[AUTONOMOUS] Temperature sent: %.1f°C from %s", temp_to_send, sensor_used.c_str());
     }
     
     // Alternate between ping and temperature
@@ -1127,6 +1026,16 @@ void startServer() { // Start a HTTP server with a file read handler and an uplo
   server.on("/edit.html",  HTTP_POST, []() {  // If a POST request is sent to the /edit.html address,
     server.send(200, "text/plain", "");
   }, handleFileUpload);                       // go to 'handleFileUpload'
+
+  // Serve built-in editor
+  server.on("/upload.html", HTTP_GET, []() {
+        server.send_P(200, "text/html", upload_html);
+  });
+
+  server.on("/upload.html", HTTP_POST, []() {  
+    server.send(200, "text/plain", "Upload successful!");
+  }, handleFileUpload);                       
+
 
   server.onNotFound(handleNotFound);          // if someone requests any other file or page, go to function 'handleNotFound'
   // and check if the file exists

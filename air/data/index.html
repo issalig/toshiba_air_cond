@@ -251,6 +251,8 @@ function onOpen(event) {
 			id: "status",
 			value: curr_time
 		}
+
+        console.log("Requesting STATUS at " + curr_time);
 		let json = JSON.stringify(data);
 		connection.send(json);
       //end send json

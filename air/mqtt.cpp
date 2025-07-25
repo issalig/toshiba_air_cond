@@ -35,7 +35,8 @@ String fan_mode_topic     = "homeassistant/ac/status/fan_mode";
 String fan_mode_command_topic = "homeassistant/ac/set/fan_mode";
 String temp_command_topic = "homeassistant/ac/set/temperature";
 
-String climate_conf_topic = "homeassistant/ac/config";
+//String climate_conf_topic = "homeassistant/ac/config";
+String climate_conf_topic = "homeassistant/climate/toshiba_ac/config";
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
@@ -412,6 +413,54 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 
     //     retain: false
     //     qos: 1
+// climate:
+//   - name: "Toshiba Air Conditioner"
+//     unique_id: "toshiba_air_conditioner"
+    
+//     # Device information
+//     device:
+//       identifiers:
+//         - "toshiba_ac"
+//       name: "Toshiba AC"
+//       model: "ESP8266"
+//       manufacturer: "Custom"
+    
+//     # Supported modes
+//     modes:
+//       - "off"
+//       - "fan_only"
+//       - "cool"
+//       - "dry"
+//       - "heat"
+//       - "auto"
+    
+//     # Supported fan modes
+//     fan_modes:
+//       - "low"
+//       - "medium"
+//       - "high"
+//       - "auto"
+    
+//     # MQTT Topics
+//     temperature_command_topic: "homeassistant/ac/set/temperature"
+//     temperature_state_topic: "homeassistant/ac/status/temperature"
+//     mode_command_topic: "homeassistant/ac/set/mode"
+//     mode_state_topic: "homeassistant/ac/status/mode"
+//     fan_mode_command_topic: "homeassistant/ac/set/fan_mode"
+//     fan_mode_state_topic: "homeassistant/ac/status/fan_mode"
+//     current_temperature_topic: "homeassistant/ac/status/current_temperature"
+    
+//     # Temperature settings
+//     min_temp: 16
+//     max_temp: 30
+//     temp_step: 1.0
+//     temperature_unit: "C"
+//     precision: 0.5
+    
+//     # MQTT settings
+//     retain: false
+//     qos: 1
+
 
     void sendMQTTDiscovery()
     {
@@ -422,7 +471,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
       {
         for (int i = 0; i < 3; i++)
         {
-          if (mqttClient.publish(topic, payload.c_str(), true))
+          if (mqttClient.publish(topic, payload.c_str(), true))  //retain true
           {
             return true;
           }
