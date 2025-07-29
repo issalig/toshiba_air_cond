@@ -504,6 +504,9 @@ updateFanSpeedButton(json.fan);
 document.getElementById('mode_btn').style.backgroundColor = button_released_color;
 updateModeButton(json.mode);
 
+// Reset color for power button
+document.getElementById('power_btn').style.backgroundColor = button_released_color;
+updatePowerButton(json.power);
     
   document.getElementById('indoor_room_temp').textContent = json.indoor_room_temp;
   document.getElementById('indoor_ta').textContent = json.indoor_ta;
@@ -1190,6 +1193,56 @@ function updateModeButton(mode) {
     }
 }
 
+var powerStates = [
+    { value: "off", text: "OFF", icon: "power_off" },
+    { value: "on", text: "ON", icon: "power_settings_new" }
+];
+var currentPowerIndex = 0; // Start with OFF
+
+function cyclePower() {
+    // Move to next power state
+    currentPowerIndex = (currentPowerIndex + 1) % powerStates.length;
+    
+    var currentState = powerStates[currentPowerIndex];
+    
+    // Update button appearance
+    document.getElementById('power_icon').textContent = currentState.icon;
+    document.getElementById('power_text').textContent = currentState.text;
+    document.getElementById('power_btn').style.backgroundColor = button_pressed_color;
+    
+    // Send the command
+    let data = {
+       id : "power",
+       value : currentState.value
+    }
+    let json = JSON.stringify(data);
+ 
+    connection.send(json);
+    console.log('Send: ' + json);
+    
+    sendRequestStatus(data);
+}
+
+// Update function to handle the single power button
+function updatePowerButton(power) {
+    // Find the current power state index
+    var index = powerStates.findIndex(state => 
+        (power == '1' && state.value === 'on') || (power == '0' && state.value === 'off')
+    );
+    
+    if (index !== -1) {
+        currentPowerIndex = index;
+        var currentState = powerStates[currentPowerIndex];
+        
+        document.getElementById('power_icon').textContent = currentState.icon;
+        document.getElementById('power_text').textContent = currentState.text;
+        document.getElementById('power_btn').style.backgroundColor = button_pressed_color;
+    } else {
+        // Reset to default if unknown
+        document.getElementById('power_btn').style.backgroundColor = button_released_color;
+    }
+}
+
 function toggleDebugControls() {
     const debugControls = document.getElementById('debug-controls');
     const debugIcon = document.querySelector('[onclick="toggleDebugControls()"]');
@@ -1380,7 +1433,7 @@ function showGraph()
                 pointBackgroundColor: colors.danger,
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
-                tension: 0.4,
+                tension: 0.2,
                 data: [],
             },{
                 label: 'Room Temperature',
@@ -1394,7 +1447,7 @@ function showGraph()
                 pointBackgroundColor: colors.primary,
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
-                tension: 0.4,
+                tension: 0.2,
                 data: [],
             },{
                 label: 'Room Humidity',
@@ -1408,7 +1461,7 @@ function showGraph()
                 pointBackgroundColor: colors.secondary,
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
-                tension: 0.4,
+                tension: 0.2,
                 data: [],
             },{
                 label: 'Pressure',
@@ -1422,7 +1475,7 @@ function showGraph()
                 pointBackgroundColor: colors.purple,
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
-                tension: 0.4,
+                tension: 0.2,
                 data: [],
             },{
                 label: 'External Temp',
@@ -1436,7 +1489,7 @@ function showGraph()
                 pointBackgroundColor: colors.accent,
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
-                tension: 0.4,
+                tension: 0.2,
                 data: [],
             }],
         },
@@ -2311,7 +2364,17 @@ window.onload = function() {
                     Save
                 </button>
             </div>
-            <div class="button-row"  style="display: none;>
+            <div class="button-row" style="display: none;">
+                <button class="control-btn" id="power_btn" onclick="cyclePower();">
+                    <span class="material-icons" id="power_icon">power_off</span>
+                    <span id="power_text">OFF</span>
+                </button>
+                <button class="control-btn" id="save_button" onclick="save_toggle();">
+                    <span class="material-icons">energy_savings_leaf</span>
+                    Save
+                </button>
+            </div>
+            <div class="button-row">
                 <button class="control-btn" id="mode_fan" onclick="mode_fan();">
                     <span class="material-symbols-outlined">mode_fan</span>
                     Fan
@@ -2334,7 +2397,7 @@ window.onload = function() {
                     Auto
                 </button>
             </div>
-            <div class="button-row"  style="display: none;>
+            <div class="button-row">
                 <button class="control-btn" id="fan_low" onclick="fan_low();">
                     <span class="material-symbols-outlined">density_large</span>
                     Low
@@ -2352,7 +2415,7 @@ window.onload = function() {
                     Auto
                 </button>
             </div>
-            <div class="button-row">
+            <div class="button-row" style="display: none;">
                 <button class="control-btn" id="mode_btn" onclick="cycleMode();">
                     <span class="material-symbols-outlined" id="mode_icon">mode_fan</span>
                     <span id="mode_text">Fan</span>
