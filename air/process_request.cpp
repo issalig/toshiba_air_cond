@@ -16,7 +16,12 @@ of this license document, but changing it is not allowed.
 #include "print_log.h"
 
 extern air_status_t air_status;
+#ifdef USE_ASYNC
+extern AsyncWebSocket webSocket;
+#else
 extern WebSocketsServer webSocket;
+#endif
+
 
 extern MySimpleTimer timerOnOff;
 //File fsUploadFile;                                    // a File variable to temporarily store the received file
@@ -26,6 +31,8 @@ extern int temp_interval;
 
 extern MySimpleTimer timerAutonomous;
 extern bool autonomous_mode;
+
+extern MySimpleTimer timerMQTT;
 
 extern const int DHTPin;
 
@@ -69,6 +76,8 @@ extern const char compile_date[];
 #include "mqtt.h"
 #endif
 
+extern bool simulation_mode;
+void initSimulationMode(); 
 
 /*__________________________________________________________HELPER_FUNCTIONS__________________________________________________________*/
 
@@ -78,7 +87,7 @@ void serialize_array_float(float *ptr, JsonArray &arr, int idx) {
   if (idx > MAX_LOG_DATA) idx = 0;
 
   for (i = 0; i < MAX_LOG_DATA; i++) {
-    //Serial.printf("%.2f ", ptr[(idx+i)%MAX_LOG_DATA]);
+    //adds from the oldest to the newest    
     arr.add(ptr[(idx + i) % MAX_LOG_DATA]);
   }
 }
@@ -88,7 +97,7 @@ void serialize_array_ul_int(unsigned long *ptr, JsonArray &arr, int idx) {
   if (idx > MAX_LOG_DATA) idx = 0;
 
   for (i = 0; i < MAX_LOG_DATA; i++) {
-    //Serial.printf("%.2f ", ptr[(idx+i)%MAX_LOG_DATA]);
+    //adds from the oldest to the newest    
     arr.add(ptr[(idx + i) % MAX_LOG_DATA]);
   }
 }
@@ -98,6 +107,7 @@ void serialize_array_int(int *ptr, JsonArray &arr, int idx) {
   if (idx > MAX_LOG_DATA) idx = 0;
 
   for (i = 0; i < MAX_LOG_DATA; i++) {
+    //adds from the oldest to the newest
     arr.add(ptr[(idx + i) % MAX_LOG_DATA]);
   }
 }
@@ -112,6 +122,7 @@ String air_to_json(air_status_t *air)
   JsonDocument jsonDoc;
 
   jsonDoc["id"] = "status";
+  jsonDoc["simulation_mode"] = simulation_mode; 
   jsonDoc["save"] = air->save;
   jsonDoc["heat"] = air->heat;
   jsonDoc["preheat"] = air->preheat;
@@ -224,6 +235,9 @@ String string_to_json(String t)
   return response;
 }
 
+#define JSON_FLOAT 0
+#define JSON_INT 1
+#define JSON_UL_INT 2
 
 String timeseries_to_json(String id, String val, void *data, int data_type, int temp_idx) {
   JsonDocument jsonDoc;
@@ -239,13 +253,13 @@ String timeseries_to_json(String id, String val, void *data, int data_type, int 
   JsonArray jsonArr = jsonDoc[val].to<JsonArray>();
 
   switch (data_type) {
-    case 0:
+    case JSON_FLOAT://0:
       serialize_array_float((float*)data, jsonArr, temp_idx);
       break;
-    case 1:
+    case JSON_INT: //1:
       serialize_array_int((int*)data, jsonArr, temp_idx);
       break;
-    case 2:
+    case JSON_UL_INT: //2:
       serialize_array_ul_int((unsigned long*)data, jsonArr, temp_idx);
       break;
     default:
@@ -260,6 +274,590 @@ String timeseries_to_json(String id, String val, void *data, int data_type, int 
 }
 
 void processRequest( uint8_t *  payload) {
+  //decode json
+  JsonDocument jsonDoc;
+
+  DeserializationError error = deserializeJson(jsonDoc, payload);
+  if (error) {
+    Serial.printf("[JSON] Could not deserialize JSON %s\n", payload);
+    return;
+  }
+
+  if (jsonDoc["id"] == "power") {            // power
+    if (jsonDoc["value"] == "on") {
+      if (simulation_mode) {
+        air_status.power = true;
+        Serial.println("[SIMULATION MODE] Power ON");
+      } else {
+        air_set_power_on(&air_status);
+      }
+    } else if (jsonDoc["value"] == "off") {
+      if (simulation_mode) {
+        air_status.power = false;
+        Serial.println("[SIMULATION MODE] Power OFF");
+      } else {
+        air_set_power_off(&air_status);
+      }
+    }
+
+  } else if (jsonDoc["id"] == "temp") {
+    int val = atoi(jsonDoc["temp"]);
+
+    if (val == 1) {
+      val = air_status.target_temp + 1;
+      if (val > 30) val = 30;
+      if (val < 18) val = 18;
+    } else if (val == 0) {
+      val = air_status.target_temp - 1;
+      if (val > 30) val = 30;
+      if (val < 18) val = 18;
+    } else {
+      if (val > 30) val = 30;
+      if (val < 18) val = 18;
+    }
+    
+    if (simulation_mode) {
+      air_status.target_temp = val;
+      Serial.printf("[SIMULATION MODE] Temperature set to %d°C\n", val);
+    } else {
+      air_set_temp(&air_status, val);
+    }
+  }
+  else if (jsonDoc["id"] == "timer") {
+    int timer_val = atoi(jsonDoc["timer_time"]); //time is a string :)
+    int timer_mode = jsonDoc["timer_mode"]; // timer_mode is an integer
+    // TIMER_SW_OFF   0
+    // TIMER_SW_ON    1
+    // TIMER_SW_RESET 2
+
+    if (timer_mode == TIMER_SW_RESET) {
+      my_timer_disable(&timerOnOff);
+      air_status.timer_mode_req = timer_mode;
+      air_status.timer_time_req = 0;
+      if (simulation_mode) {
+        Serial.printf("[SIMULATION MODE] Timer reset (mode %d)\n", (int)air_status.timer_mode_req);
+      }
+    }
+    else {
+      my_timer_set_interval(&timerOnOff, timer_val);
+      my_timer_start(&timerOnOff);
+      air_status.timer_mode_req = timer_mode;
+      air_status.timer_time_req = timer_val;
+      if (simulation_mode) {
+        Serial.printf("[SIMULATION MODE] Timer set: %d seconds, mode: %d\n", timer_val, (int)air_status.timer_mode_req);
+      }
+    }
+  }
+  else if (jsonDoc["id"] == "mode") {
+    if (simulation_mode) {
+      if (jsonDoc["value"] == "cool") {
+        air_status.mode = MODE_COOL;
+        strcpy(air_status.mode_str, "COOL");
+        Serial.println("[SIMULATION MODE] Mode set to COOL");
+      } else if (jsonDoc["value"] == "dry") {
+        air_status.mode = MODE_DRY;
+        strcpy(air_status.mode_str, "DRY");
+        Serial.println("[SIMULATION MODE] Mode set to DRY");
+      } else if (jsonDoc["value"] == "fan") {
+        air_status.mode = MODE_FAN;
+        strcpy(air_status.mode_str, "FAN");
+        Serial.println("[SIMULATION MODE] Mode set to FAN");
+      } else if (jsonDoc["value"] == "heat") {
+        air_status.mode = MODE_HEAT;
+        strcpy(air_status.mode_str, "HEAT");
+        Serial.println("[SIMULATION MODE] Mode set to HEAT");
+      } else if (jsonDoc["value"] == "auto") {
+        air_status.mode = MODE_AUTO;
+        strcpy(air_status.mode_str, "AUTO");
+        Serial.println("[SIMULATION MODE] Mode set to AUTO");
+      }
+    } else {
+      // Normal mode - send commands to AC
+      if (jsonDoc["value"] == "cool") {
+        air_set_mode(&air_status, MODE_COOL);
+      } else if (jsonDoc["value"] == "dry") {
+        air_set_mode(&air_status, MODE_DRY);
+      } else if (jsonDoc["value"] == "fan") {
+        air_set_mode(&air_status, MODE_FAN);
+      } else if (jsonDoc["value"] == "heat") {
+        air_set_mode(&air_status, MODE_HEAT);
+      } else if (jsonDoc["value"] == "auto") {      
+        byte data[] = {0x40, 0x00, 0x11, 0x03, 0x08, 0x42, 0x05, 0x1d};
+        air_send_data(&air_status, data, sizeof(data));
+        byte data2[] = {0x40, 0x00, 0x15, 0x02, 0x08, 0x42, 0x1d};      
+        air_send_data(&air_status, data2, sizeof(data2));
+      }
+    }
+  }
+  else if (jsonDoc["id"] == "fan") {
+    if (simulation_mode) {
+      if (jsonDoc["value"] == "low") {
+        air_status.fan = FAN_LOW;
+        strcpy(air_status.fan_str, "LOW");
+        Serial.println("[SIMULATION MODE] Fan set to LOW");
+      } else if (jsonDoc["value"] == "medium") {
+        air_status.fan = FAN_MEDIUM;
+        strcpy(air_status.fan_str, "MED");
+        Serial.println("[SIMULATION MODE] Fan set to MEDIUM");
+      } else if (jsonDoc["value"] == "high") {
+        air_status.fan = FAN_HIGH;
+        strcpy(air_status.fan_str, "HIGH");
+        Serial.println("[SIMULATION MODE] Fan set to HIGH");
+      } else if (jsonDoc["value"] == "auto") {
+        air_status.fan = FAN_AUTO;
+        strcpy(air_status.fan_str, "AUTO");
+        Serial.println("[SIMULATION MODE] Fan set to AUTO");
+      }
+    } else {
+      if (jsonDoc["value"] == "low") {
+        air_set_fan(&air_status, FAN_LOW);
+      } else if (jsonDoc["value"] == "medium") {
+        air_set_fan(&air_status, FAN_MEDIUM);
+      } else if (jsonDoc["value"] == "high") {
+        air_set_fan(&air_status, FAN_HIGH);
+      } else if (jsonDoc["value"] == "auto") {
+        air_set_fan(&air_status, FAN_AUTO);
+      }
+    }
+  }
+  else if (jsonDoc["id"] == "save") {
+    if (simulation_mode) {
+      if (jsonDoc["value"] == "1") {
+        air_status.save = true;
+        Serial.println("[SIMULATION MODE] Save mode ON");
+      } else if (jsonDoc["value"] == "0") {
+        air_status.save = false;
+        Serial.println("[SIMULATION MODE] Save mode OFF");
+      }
+    } else {
+      if (jsonDoc["value"] == "1") {
+        air_set_save_on(&air_status);
+      } else if (jsonDoc["value"] == "0") {
+        air_set_save_off(&air_status);
+      }
+    }
+  }
+  //sets hw timer
+  else if (jsonDoc["id"] == "timer_hw") {
+    int val = atoi(jsonDoc["time"]);
+    if (simulation_mode) {
+      Serial.printf("[SIMULATION MODE] Hardware timer command ignored in simulation mode\n");
+    } else {
+      if (jsonDoc["value"] == "cancel") {
+        air_set_timer(&air_status, TIMER_HW_CANCEL, val);
+      } else if (jsonDoc["value"] == "off") {
+        air_set_timer(&air_status, TIMER_HW_OFF, val);
+      } else if (jsonDoc["value"] == "repeat_off") {
+        air_set_timer(&air_status, TIMER_HW_REPEAT_OFF, val);
+      } else if (jsonDoc["value"] == "on") {
+        air_set_timer(&air_status, TIMER_HW_ON, val);
+      }
+    }
+  }
+  
+  // Add simulation mode control
+  else if (jsonDoc["id"] == "simulation_mode") {
+    if (jsonDoc["value"] == "enable") {
+      simulation_mode = true;
+      Serial.println("[SIMULATION MODE] Simulation mode ENABLED");
+       
+      initSimulationMode();
+
+      // Send confirmation response
+      JsonDocument responseDoc;
+      responseDoc["id"] = "simulation_mode";
+      responseDoc["status"] = "enabled";
+      responseDoc["message"] = "Simulation mode activated - AC simulation enabled";
+      
+      String response;
+      serializeJson(responseDoc, response);
+      webSocket.broadcastTXT(response);
+      
+    } else if (jsonDoc["value"] == "disable") {
+      simulation_mode = false;
+      Serial.println("[SIMULATION MODE] Simulation mode DISABLED");
+      
+      // Send confirmation response
+      JsonDocument responseDoc;
+      responseDoc["id"] = "simulation_mode";
+      responseDoc["status"] = "disabled";
+      responseDoc["message"] = "Simulation mode deactivated - Normal AC operation";
+      
+      String response;
+      serializeJson(responseDoc, response);
+      webSocket.broadcastTXT(response);
+    }
+  }
+  
+  //status sends current values
+  else if (jsonDoc["id"] == "status") {
+    String message;
+    message = air_to_json(&air_status);
+    webSocket.broadcastTXT(message);
+    //reset serial buffers
+    air_status.buffer_cmd = String("");
+    air_status.buffer_rx = String("");
+  }
+  //sets sampling period for data logging
+  else if (jsonDoc["id"] == "sampling") {
+    temp_interval = jsonDoc["value"];
+    my_timer_set_unit(&timerTemperature, 1000);
+    my_timer_set_interval(&timerTemperature, temp_interval);
+    my_timer_repeat(&timerTemperature);
+    my_timer_start(&timerTemperature);
+  }
+
+  else if (jsonDoc["id"] == "timeseries") {
+    //send data but not in a whole BIG json
+    String message = "";
+
+    message = timeseries_to_json("timeseries", "timestamp", timestamps, JSON_UL_INT, temp_idx);
+    webSocket.broadcastTXT(message);
+
+    // if there is an alternative temperature sensor
+    #if defined(USE_AHT20) || defined(USE_BMP280)
+    message = timeseries_to_json("timeseries", "sensor_temperature", sensor_temperature, JSON_FLOAT, temp_idx);
+    webSocket.broadcastTXT(message);
+    #endif
+
+    #ifdef USE_AHT20
+    message = timeseries_to_json("timeseries", "sensor_humidity", sensor_humidity, JSON_FLOAT, temp_idx);
+    webSocket.broadcastTXT(message);
+    #endif
+    #ifdef USE_BMP280
+    message = timeseries_to_json("timeseries", "sensor_pressure", sensor_pressure, JSON_FLOAT, temp_idx);
+    webSocket.broadcastTXT(message);
+    #endif
+
+    message = timeseries_to_json("timeseries", "ac_external_temperature", ac_outdoor_te, JSON_INT, temp_idx);
+    webSocket.broadcastTXT(message);
+
+    message = timeseries_to_json("timeseries", "ac_sensor_temperature", ac_sensor_temperature, JSON_FLOAT, temp_idx);
+    webSocket.broadcastTXT(message);
+
+  } //end if timeseries
+
+#ifdef USE_MQTT
+    else if (jsonDoc["id"] == "mqtt_config") {
+      // Handle MQTT configuration
+      String server = jsonDoc["server"];
+      int port = jsonDoc["port"];
+      String username = jsonDoc["username"];
+      String password = jsonDoc["password"];
+      String device_name = jsonDoc["device_name"];
+      
+      Serial.printf("MQTT Config received: %s:%d, user:%s, device:%s\n", 
+                    server.c_str(), port, username.c_str(), device_name.c_str());
+      
+      // Configure MQTT with new settings
+      configureMQTT(server.c_str(), port, username.c_str(), password.c_str(), device_name.c_str());
+      
+      // Send response
+      JsonDocument responseDoc;
+      responseDoc["id"] = "mqtt_config";
+      responseDoc["status"] = "saved";
+      responseDoc["message"] = "MQTT configuration updated successfully";
+      
+      String response;
+      serializeJson(responseDoc, response);
+      webSocket.broadcastTXT(response);
+    }
+    else if (jsonDoc["id"] == "mqtt_test") {
+      // Handle MQTT connection test
+      Serial.println("Testing MQTT connection...");
+      
+      // Test MQTT connection
+      bool testResult = testMQTTConnection();
+      
+      // Send response
+      JsonDocument responseDoc;
+      responseDoc["id"] = "mqtt_test";
+      if (testResult) {
+        responseDoc["status"] = "connected";
+        responseDoc["message"] = "MQTT connection successful";
+      } else {
+        responseDoc["status"] = "failed";
+        responseDoc["message"] = "MQTT connection failed";
+      }
+      
+      String response;
+      serializeJson(responseDoc, response);
+      webSocket.broadcastTXT(response);
+    }
+    else if (jsonDoc["id"] == "mqtt_get_config") {
+      // Handle request for current MQTT configuration
+      Serial.println("Sending current MQTT configuration...");
+      
+      JsonDocument responseDoc;
+      responseDoc["id"] = "status";
+      
+      // Add MQTT configuration to the response
+      JsonObject mqttConfig = responseDoc["mqtt_config"].to<JsonObject>();
+      mqttConfig["server"] = getMQTTServer();
+      mqttConfig["port"] = getMQTTPort();
+      mqttConfig["username"] = getMQTTUser();
+      mqttConfig["password"] = getMQTTPassword();
+      mqttConfig["device_name"] = getMQTTDeviceName();
+      
+      String response;
+      serializeJson(responseDoc, response);
+      webSocket.broadcastTXT(response);
+    }
+    else if (jsonDoc["id"] == "mqtt_discovery") {
+      String value = jsonDoc["value"];
+      
+      if (value == "send") {
+        // Send MQTT discovery messages
+        Serial.println("Sending MQTT discovery messages...");
+        sendMQTTDiscovery();
+        
+        JsonDocument responseDoc;
+        responseDoc["id"] = "mqtt_discovery";
+        responseDoc["status"] = "sent";
+        responseDoc["message"] = "Discovery messages sent to Home Assistant";
+        
+        String response;
+        serializeJson(responseDoc, response);
+        webSocket.broadcastTXT(response);
+        
+      } else if (value == "reset") {
+        // Reset/remove MQTT discovery
+        Serial.println("Resetting MQTT discovery...");
+        resetMQTTDiscovery();
+        
+        JsonDocument responseDoc;
+        responseDoc["id"] = "mqtt_discovery";
+        responseDoc["status"] = "reset";
+        responseDoc["message"] = "Discovery messages reset";
+        
+        String response;
+        serializeJson(responseDoc, response);
+        webSocket.broadcastTXT(response);
+      }
+    }
+#endif //USE_MQTT
+
+  //handle raw bytes command
+  else if (jsonDoc["id"] == "raw_bytes") {
+    if (simulation_mode) {
+      Serial.println("[SIMULATION MODE] Raw bytes command ignored in simulation mode");
+      
+      // Send response indicating simulation mode
+      JsonDocument responseDoc;
+      responseDoc["id"] = "raw_bytes";
+      responseDoc["status"] = "ignored";
+      responseDoc["message"] = "Raw bytes ignored in simulation mode";
+      
+      String response;
+      serializeJson(responseDoc, response);
+      webSocket.broadcastTXT(response);
+    } else {
+      Serial.println("Processing raw bytes command...");
+      
+      // Get the bytes array from JSON
+      JsonArray bytesArray = jsonDoc["bytes"];
+      if (bytesArray.size() == 0) {
+        Serial.println("Error: No bytes provided");
+        return;
+      }
+      
+      // Convert JSON array to byte array
+      byte rawData[bytesArray.size()];
+      for (size_t i = 0; i < bytesArray.size(); i++) {
+        rawData[i] = bytesArray[i];
+      }
+      
+      // Print debug info
+      Serial.printf("Sending %d raw bytes: ", bytesArray.size());
+      for (size_t i = 0; i < bytesArray.size(); i++) {
+        Serial.printf("%02X ", rawData[i]);
+      }
+      Serial.println();
+      
+      // Send the raw data using air_send_data
+      air_send_data(&air_status, rawData, bytesArray.size());
+      
+      // Send confirmation response
+      JsonDocument responseDoc;
+      responseDoc["id"] = "raw_bytes";
+      responseDoc["status"] = "sent";
+      responseDoc["bytes_count"] = bytesArray.size();
+      
+      String response;
+      serializeJson(responseDoc, response);
+      webSocket.broadcastTXT(response);
+    }
+  }
+
+  // handle autonomous mode
+  else if (jsonDoc["id"] == "autonomous") {
+    if (jsonDoc["value"] == "start") {
+      autonomous_mode = true;
+      my_timer_start(&timerAutonomous);
+      Serial.println("[AUTO] Autonomous mode started");
+      
+      // Send confirmation response
+      JsonDocument responseDoc;
+      responseDoc["id"] = "autonomous";
+      responseDoc["status"] = "started";
+      responseDoc["message"] = "Autonomous mode activated";
+      
+      String response;
+      serializeJson(responseDoc, response);
+      webSocket.broadcastTXT(response);
+      
+    } else if (jsonDoc["value"] == "stop") {
+      autonomous_mode = false;
+      my_timer_disable(&timerAutonomous);
+      Serial.println("[AUTO] Autonomous mode stopped");
+      
+      // Send confirmation response
+      JsonDocument responseDoc;
+      responseDoc["id"] = "autonomous";
+      responseDoc["status"] = "stopped";
+      responseDoc["message"] = "Autonomous mode deactivated";
+      
+      String response;
+      serializeJson(responseDoc, response);
+      webSocket.broadcastTXT(response);
+    }
+  }
+  // handle address synchronization and reset
+  else if (jsonDoc["id"] == "sync_addresses") {
+    // Copy observed addresses to active addresses
+    if (air_status.observed_master != 0xFF) {
+      air_status.master = air_status.observed_master;
+    }
+    // Use the first observed remote if available
+    if (air_status.observed_remotes_count > 0) {
+      air_status.remote = air_status.observed_remotes[0];
+    }
+    
+    print_logf("Address sync: Master=0x%02X, Remote=0x%02X", 
+               air_status.master, air_status.remote);
+    
+    // Send confirmation response
+    JsonDocument responseDoc;
+    responseDoc["id"] = "sync_addresses";
+    responseDoc["status"] = "success";
+    responseDoc["message"] = "Addresses synchronized";
+    responseDoc["master"] = air_status.master;
+    responseDoc["remote"] = air_status.remote;
+    
+    // Also send all observed remotes
+    JsonArray observedRemotesArr = responseDoc["observed_remotes"].to<JsonArray>();
+    for (uint8_t i = 0; i < air_status.observed_remotes_count; i++) {
+      observedRemotesArr.add(air_status.observed_remotes[i]);
+    }
+
+    String response;
+    serializeJson(responseDoc, response);
+    webSocket.broadcastTXT(response);
+  }
+  
+  else if (jsonDoc["id"] == "reset_addresses") {
+    // Reset to default addresses
+    air_status.master = MASTER;   // 0x00
+    air_status.remote = REMOTE;   // 0x40
+    
+    print_logf("Address reset: Master=0x%02X, Remote=0x%02X", 
+               air_status.master, air_status.remote);
+    
+    // Send confirmation response
+    JsonDocument responseDoc;
+    responseDoc["id"] = "reset_addresses";
+    responseDoc["status"] = "success";
+    responseDoc["message"] = "Addresses reset to default";
+    responseDoc["master"] = air_status.master;
+    responseDoc["remote"] = air_status.remote;
+    
+    String response;
+    serializeJson(responseDoc, response);
+    webSocket.broadcastTXT(response);
+  }
+  
+  else if (jsonDoc["id"] == "set_addresses") {
+    // Set manual addresses
+    bool changed = false;
+    
+    if (jsonDoc["master"].is<int>()) {
+      air_status.master = jsonDoc["master"];
+      changed = true;
+    }
+    if (jsonDoc["remote"].is<int>()) {
+      air_status.remote = jsonDoc["remote"];
+      changed = true;
+    }
+    
+    if (changed) {
+      print_logf("Manual address set: Master=0x%02X, Remote=0x%02X", 
+                 air_status.master, air_status.remote);
+      
+      // Send confirmation response
+      JsonDocument responseDoc;
+      responseDoc["id"] = "set_addresses";
+      responseDoc["status"] = "success";
+      responseDoc["message"] = "Addresses set manually";
+      responseDoc["master"] = air_status.master;
+      responseDoc["remote"] = air_status.remote;
+      
+      String response;
+      serializeJson(responseDoc, response);
+      webSocket.broadcastTXT(response);
+    }
+  }
+  else if (jsonDoc["id"] == "reset_observed_remotes") {
+    // Reset observed remotes
+    reset_observed_remotes(&air_status);
+    
+    print_logf("Observed remotes reset");
+    
+    // Send confirmation response
+    JsonDocument responseDoc;
+    responseDoc["id"] = "reset_observed_remotes";
+    responseDoc["status"] = "success";
+    responseDoc["message"] = "Observed remotes cleared";
+    responseDoc["observed_remotes_count"] = 0;
+    
+    // Empty array
+    responseDoc["observed_remotes"].to<JsonArray>();
+    
+    String response;
+    serializeJson(responseDoc, response);
+    webSocket.broadcastTXT(response);
+  }
+  else if (jsonDoc["id"] == "restart") {
+    Serial.println("[SYSTEM] Restart requested via web UI");
+    webSocket.broadcastTXT("{\"id\":\"restart\",\"status\":\"restarting\"}");
+    delay(500);
+    ESP.restart();
+  }
+
+  #ifdef USE_MQTT
+
+  bool shouldPublishMQTT = false;
+
+  //should publish is true if json id is power, temp, mode, fan
+  if (jsonDoc["id"] == "power" || jsonDoc["id"] == "temp" || 
+      jsonDoc["id"] == "mode" || jsonDoc["id"] == "fan" || 
+      jsonDoc["id"] == "save" || jsonDoc["id"] == "timer" ||
+      jsonDoc["id"] == "timer_hw" || jsonDoc["id"] == "autonomous") {
+    shouldPublishMQTT = true;
+  }
+
+  if (shouldPublishMQTT) {
+    // Force immediate MQTT update by temporarily manipulating timer
+    timerMQTT._start = 0; // Force timer to be ready
+    handleMQTT(); // This will now execute the MQTT publish immediately
+    yield();
+
+    Serial.println("[WEB] AC command processed - MQTT status published to Home Assistant");
+  }
+  #endif
+
+}
+
+void processRequestNOTestMode( uint8_t *  payload) {
   //decode json
   JsonDocument jsonDoc;
 
@@ -389,28 +987,28 @@ void processRequest( uint8_t *  payload) {
     //send data but not in a whole BIG json
     String message = "";
 
-    message = timeseries_to_json("timeseries", "timestamp", timestamps, 2, temp_idx);
+    message = timeseries_to_json("timeseries", "timestamp", timestamps, JSON_UL_INT, temp_idx);
     webSocket.broadcastTXT(message);
 
     // if there is an alternative temperature sensor
     #if defined(USE_AHT20) || defined(USE_BMP280)
-    message = timeseries_to_json("timeseries", "sensor_temperature", sensor_temperature, 0, temp_idx);
+    message = timeseries_to_json("timeseries", "sensor_temperature", sensor_temperature, JSON_FLOAT, temp_idx);
     webSocket.broadcastTXT(message);
     #endif
 
     #ifdef USE_AHT20
-    message = timeseries_to_json("timeseries", "sensor_humidity", sensor_humidity, 0, temp_idx);
+    message = timeseries_to_json("timeseries", "sensor_humidity", sensor_humidity, JSON_FLOAT, temp_idx);
     webSocket.broadcastTXT(message);
     #endif
     #ifdef USE_BMP280
-    message = timeseries_to_json("timeseries", "sensor_pressure", sensor_pressure, 0, temp_idx);
+    message = timeseries_to_json("timeseries", "sensor_pressure", sensor_pressure, JSON_FLOAT, temp_idx);
     webSocket.broadcastTXT(message);
     #endif
 
-    message = timeseries_to_json("timeseries", "ac_external_temperature", ac_outdoor_te, 1, temp_idx);
+    message = timeseries_to_json("timeseries", "ac_external_temperature", ac_outdoor_te, JSON_INT, temp_idx);
     webSocket.broadcastTXT(message);
 
-    message = timeseries_to_json("timeseries", "ac_sensor_temperature", ac_sensor_temperature, 0, temp_idx);
+    message = timeseries_to_json("timeseries", "ac_sensor_temperature", ac_sensor_temperature, JSON_FLOAT, temp_idx);
     webSocket.broadcastTXT(message);
 
   } //end if timeseries
@@ -598,7 +1196,7 @@ void processRequest( uint8_t *  payload) {
       air_status.remote = air_status.observed_remotes[0];
     }
     
-    print_logf("Address sync: Master=0x%02X, Remote=0x%02X\n", 
+    print_logf("Address sync: Master=0x%02X, Remote=0x%02X", 
                air_status.master, air_status.remote);
     
     // Send confirmation response
@@ -625,7 +1223,7 @@ void processRequest( uint8_t *  payload) {
     air_status.master = MASTER;   // 0x00
     air_status.remote = REMOTE;   // 0x40
     
-    print_logf("Address reset: Master=0x%02X, Remote=0x%02X\n", 
+    print_logf("Address reset: Master=0x%02X, Remote=0x%02X", 
                air_status.master, air_status.remote);
     
     // Send confirmation response
@@ -655,7 +1253,7 @@ void processRequest( uint8_t *  payload) {
     }
     
     if (changed) {
-      print_logf("Manual address set: Master=0x%02X, Remote=0x%02X\n", 
+      print_logf("Manual address set: Master=0x%02X, Remote=0x%02X", 
                  air_status.master, air_status.remote);
       
       // Send confirmation response
@@ -675,7 +1273,7 @@ void processRequest( uint8_t *  payload) {
     // Reset observed remotes
     reset_observed_remotes(&air_status);
     
-    print_logf("Observed remotes reset\n");
+    print_logf("Observed remotes reset");
     
     // Send confirmation response
     JsonDocument responseDoc;
@@ -691,13 +1289,21 @@ void processRequest( uint8_t *  payload) {
     serializeJson(responseDoc, response);
     webSocket.broadcastTXT(response);
   }
+  else if (jsonDoc["id"] == "restart") {
+    Serial.println("[SYSTEM] Restart requested via web UI");
+    webSocket.broadcastTXT("{\"id\":\"restart\",\"status\":\"restarting\"}");
+    delay(500);
+    ESP.restart();
+  }
 }
 
 void notifyWebSocketClients() {
     String message;
-    Serial.println(message);
+    //update status
+    air_parse_serial(&air_status);
     message = air_to_json(&air_status);
     webSocket.broadcastTXT(message);
+    //webSocketBroadcast(message); 
     //reset serial buffers
     air_status.buffer_cmd = String("");
     air_status.buffer_rx = String("");

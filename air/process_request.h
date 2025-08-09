@@ -3,10 +3,14 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include <WebSocketsServer.h>
 #include "ac_protocol.h"
 #include "my_timer.h"
-#include <WebSocketsServer.h>    // For WebSocketsServer
+#ifdef USE_ASYNC
+#include <ESPAsyncWebServer.h>
+#else
+#include <WebSocketsServer.h>
+#endif
+#include "config.h"             // For air_status_t and other configurations
 #include <ArduinoJson.h>         // For JsonDocument
 #include <Arduino.h>             // For String, Serial, etc.
 #include <ESP8266WiFi.h>         // For WiFiUDP

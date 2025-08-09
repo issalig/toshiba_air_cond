@@ -1,7 +1,12 @@
 #include "print_log.h"
 
 // External variables (defined in main file)
+#ifdef USE_ASYNC
+//extern AsyncWebServer server;
+extern AsyncWebSocket webSocket;
+#else
 extern WebSocketsServer webSocket;
+#endif
 
 void print_log(const String& msg) {
     //print serial

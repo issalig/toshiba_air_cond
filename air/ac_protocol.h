@@ -114,7 +114,7 @@ typedef struct {
   uint8_t heat;
   uint8_t cold;
   uint8_t target_temp;            //target temperature
-  float remote_sensor_temp;              //indoor temperature
+  float remote_sensor_temp;       //indoor temperature
   uint8_t fan;
   char fan_str[5];
   uint8_t mode; // 

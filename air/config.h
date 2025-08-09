@@ -1,8 +1,13 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#define RESET_MODE_PIN D4  //button to enter into wifi configuration
+
+
 #define MAX_LOG_DATA 72 //store up to 72 readings in a circular buffer
 
+//#define USE_ASYNC // Use AsyncWebServer
+#define USE_OTA
 #define USE_SCREEN //if OLED screen installed
 #define USE_MQTT // for Home Assistant integration
 
@@ -28,5 +33,15 @@ extern const char compile_date[];
 #define SCREEN_HEIGHT 64//32 // OLED display height, in pixels
 #define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
 #define SCREEN_ADDRESS 0x3C// See datasheet for address if you are using a different one
+
+
+//#define USE_TELEGRAM
+
+#ifdef USE_TELEGRAM
+// Telegram Bot configuration - Replace with your values
+extern const char* telegram_bot_token;
+extern const char* telegram_chat_id;
+#endif
+
 
 #endif //CONFIG_H

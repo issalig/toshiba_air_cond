@@ -53,16 +53,16 @@
 */
 
 #include "config.h" // check it for settings
-#include "upload_html.h"
-
+#include "upload_html.h" //hardcoded html upload
+#include "display.h"
 
 #include "LittleFS.h"
 #include <ESP8266WiFi.h>
 
-#ifdef USE_ASYNC //for ESP32
-#include <ESPAsync_WiFiManager.h_>
-#include <ESPAsyncTCP.h_>
-#include <ESPAsyncWebServer.h_>
+#ifdef USE_ASYNC // AsyncWebServer
+#include <WiFiManager.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 #else //use links2004 websocketserver
 #include <WiFiManager.h>
 #include <ESP8266WebServer.h>
@@ -71,14 +71,10 @@
 
 #include <SPI.h>
 
-#ifdef USE_SCREEN
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+#ifdef USE_OTA
+#include <ArduinoOTA.h>
 #endif
 
-#include <ArduinoOTA.h>
 #include <ESP8266mDNS.h>
 #include <FS.h>
 #include <ArduinoJson.h>  //by Benoit Blanchon
@@ -89,6 +85,9 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #include "my_timer.h"
 #include "process_request.h"
 #include "print_log.h"  // print log functions
+#ifdef USE_TELEGRAM
+#include "telegram_bot.h" // Telegram bot functions
+#endif
 
 #ifdef USE_MQTT
 #include "mqtt.h"
@@ -124,10 +123,9 @@ ESP8266WebServer server(80);       // create a web server on port 80
 WebSocketsServer webSocket(81);    // create a websocket server on port 81
 #endif
 
-File fsUploadFile;                                    // a File variable to temporarily store the received file
+File fsUploadFile;                 // a File variable to temporarily store the received file
 
 
-// Add these includes after your existing sensor includes
 #ifdef USE_AHT20
 #include <Adafruit_AHTX0.h>
 Adafruit_AHTX0 aht;
@@ -138,25 +136,16 @@ Adafruit_AHTX0 aht;
 Adafruit_BMP280 bmp280;
 #endif
 
-// Add current sensor reading variables
 #ifdef USE_AHT20
 float aht_t_current = -999.0;
-#endif
-
-#ifdef USE_BMP280
-float bmp280_t_current = -999.0;
-#endif
-
-// Add sensor status variables
-#ifdef USE_AHT20
 bool humidity_status = false;
 #endif
 
 #ifdef USE_BMP280
+float bmp280_t_current = -999.0;
 bool pressure_status = false;
 #endif
 
-uint8_t bmp_status = 0;
 
 // Arrays for storing sensor data
 float ac_sensor_temperature[MAX_LOG_DATA];
@@ -203,14 +192,15 @@ MySimpleTimer timerReadSerial;
 MySimpleTimer timerSaveFile;
 MySimpleTimer timerMQTT; 
 MySimpleTimer timerAutonomous;
-bool autonomous_mode = false;
+//MySimpleTimer timerTelegram;
 
-int temp_interval = 1800; //in secs, 30 mins
+bool autonomous_mode = false; // use autonomous mode if there is no wired remote
+bool simulation_mode = true; // Set to true to enable simulation mode without AC unit
 
-#define RESET_MODE_PIN D4  //button to enter into wifi configuration
 
-bool mqtt_enabled = true;
+int temp_interval = 1800; //in secs, 30 mins for temperature readings
 
+//bool mqtt_enabled = true;
 
 
 
@@ -225,30 +215,30 @@ void setup() {
   my_timer_init(&timerSaveFile);
   my_timer_init(&timerMQTT);
   my_timer_init(&timerAutonomous);
+  #ifdef USE_TELEGRAM
+  my_timer_init(&timerTelegram);
+  #endif
 
   Serial.begin(9600);        // Start the Serial communication to send messages to the computer
-  //  gdbstub_init();
   delay(10);
-  Serial.println("\r\n");
   print_log("Air conditioning starts!");
+
   #ifdef USE_SCREEN
   startDisplay();
   #endif  
-  //startWiFi();                 // Start a Wi-Fi access point, and try to connect to some given access points. Then wait for either an AP or STA connection
   startWifiManager();          // Use wifimanager to connect
   //is_reset_button();
+  #ifdef USE_OTA
   startOTA();                  // Start the OTA service
-  startLittleFS();               // Start the LittleFS and list all contents
+  #endif
+
+  startLittleFS();             // Start the LittleFS and list all contents
   startWebSocket();            // Start a WebSocket server
   startMDNS();                 // Start the mDNS responder
   startServer();               // Start a HTTP server with a file read handler and an upload handler
 
   init_air_serial(&air_status);// Start air conditioning structure and software serial
-
   air_status.ip = WiFi.localIP().toString();
-  #ifdef USE_SCREEN
-  //showIPDisplay();
-  #endif
 
   startReadSerial();           // Start timer for serial readings (1s)
   startStatus();               // Start timer for status print (10s)
@@ -256,88 +246,26 @@ void setup() {
   startTemperature();          // Start timer for temperature readings (120s)
 
   #ifdef USE_MQTT
-  if (mqtt_enabled && WiFi.status() == WL_CONNECTED) {
+  if (WiFi.status() == WL_CONNECTED) {
     loadMQTTConfigFromFile();
     startMQTT();
     startMQTTTimer();
   } else {
-    print_log("MQTT disabled or WiFi not connected");
+    print_log("[MQTT] WiFi not connected");
   }
   #endif //USE_MQTT
-}
 
-#ifdef USE_SCREEN
-// https://javl.github.io/image2cpp/
-// 48x48px
-const unsigned char ac_icon_bitmap [] PROGMEM = {
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-0x00, 0x00, 0x00, 0x00, 0x3f, 0xff, 0xff, 0xff, 0xff, 0xfc, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xfe, 
-0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf0, 0x3f, 0xff, 
-0xff, 0xff, 0xff, 0xc0, 0x07, 0xff, 0xff, 0xff, 0xff, 0x0c, 0xe1, 0xff, 0x80, 0x0f, 0xfe, 0x60, 
-0x78, 0xff, 0x80, 0x0f, 0xfc, 0xc0, 0x3e, 0x7f, 0x80, 0x0f, 0xf9, 0x80, 0x3f, 0x3f, 0x80, 0x0f, 
-0xf3, 0x80, 0x7f, 0x9f, 0x80, 0x0f, 0xe7, 0x80, 0x7f, 0x9f, 0x80, 0x0f, 0xe7, 0xc0, 0x7f, 0xcf, 
-0x80, 0x0f, 0xef, 0xc1, 0xff, 0xcf, 0x80, 0x0f, 0xcf, 0xe4, 0x7f, 0xef, 0x80, 0x0f, 0xcf, 0xf8, 
-0x3f, 0xe7, 0x80, 0x0f, 0xcf, 0xf0, 0x31, 0xe7, 0x80, 0x0f, 0xcf, 0xf0, 0x00, 0x67, 0x80, 0x0f, 
-0xcf, 0xf0, 0x20, 0x27, 0x80, 0x0f, 0xcc, 0x08, 0x20, 0x27, 0x80, 0x0f, 0xc8, 0x04, 0xc0, 0x2f, 
-0x80, 0x0f, 0xe8, 0x03, 0xc0, 0x4f, 0x80, 0x0f, 0xe0, 0x03, 0xe0, 0x4f, 0x80, 0x0f, 0xe4, 0x03, 
-0xe0, 0x1f, 0x80, 0x0f, 0xf2, 0x07, 0xf0, 0x9f, 0x80, 0x0f, 0xf9, 0x07, 0xf9, 0x3f, 0x80, 0x0f, 
-0xfc, 0x8f, 0xfe, 0x7f, 0x80, 0x0f, 0xfe, 0x7f, 0xf8, 0xff, 0x80, 0x0f, 0xff, 0x0f, 0xe1, 0xff, 
-0x80, 0x0f, 0xff, 0x80, 0x07, 0xff, 0xff, 0xff, 0xff, 0xf0, 0x1f, 0xff, 0xff, 0xff, 0xff, 0xff, 
-0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xfe, 
-0x3f, 0xff, 0xff, 0xff, 0xff, 0xfc, 0x01, 0xf0, 0x00, 0x00, 0x0f, 0x80, 0x00, 0x00, 0x00, 0x00, 
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
+  #ifdef USE_TELEGRAM
+    startTelegram();
+  #endif
 
-void startDisplay() {
-  // Clear the buffer
-  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS))
-    print_log(F("SSD1306 allocation failed"));
-  else {
-    showSplashScreen();
+  if (simulation_mode) {
+    initSimulationMode();
   }
+
 }
 
-void showSplashScreen() {
-  display.clearDisplay();
-
-  // Draw the 48x48 bitmap centered on screen
-  // 128 - 48 = 80/2 = 40 for proper horizontal centering
-  display.drawBitmap(40, 0, ac_icon_bitmap, 48, 48, SSD1306_WHITE);
-  
-  // Add title text below or overlay
-  display.setTextColor(SSD1306_WHITE);
-  display.setTextSize(1);
-  display.setCursor(34, 50);
-  display.println(F("Starting..."));
-  
-  display.display();
-
-  //delay(1000);
-}
-
-void showIPDisplay() {
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.println(F("Connected!"));
-  
-  display.setCursor(0, 20);
-  display.println(F("IP Address:"));
-  display.setCursor(0, 35);
-  display.println(air_status.ip);
-  
-  display.setCursor(0, 50);
-  display.println(F("Ready to control"));
-  
-  display.display();
-  delay(2000); // Show IP for 2 seconds before normal operation
-}
-
-
-#endif
+// start functions
 
 void startTime() {
   long int boot_time;
@@ -353,19 +281,10 @@ void startTime() {
 }
 
 void startTemperature() {
-  /*
-  timerTemperature.setUnit(1000);
-  timerTemperature.setInterval(temp_interval);
-  timerTemperature.repeat();
-  timerTemperature.start();
-  */
-
-  //new c api for timer
   my_timer_set_unit(&timerTemperature, 1000); // 1000ms
   my_timer_set_interval(&timerTemperature, temp_interval); //update every XX s
   my_timer_repeat(&timerTemperature);
   my_timer_start(&timerTemperature); 
-
 
   // Clear centralized arrays
   memset(ac_sensor_temperature, 0, MAX_LOG_DATA * sizeof(float));
@@ -385,7 +304,7 @@ void startTemperature() {
 
 #ifdef USE_AHT20
   if (!aht.begin()) {
-    print_log("Could not find a valid AHT20 sensor, check wiring!\n");
+    print_log("Could not find a valid AHT20 sensor, check wiring!");
     humidity_status = false;
   } else {
     humidity_status = true;
@@ -403,13 +322,13 @@ void startTemperature() {
       humidity_source = "AHT20";
     }
     
-    print_logf("AHT20 initialized - temp %.1f hum %.1f\n", aht_t_current, sensor_humidity_current);
+    print_logf("[AHT20] Initialized - temp %.1f hum %.1f", aht_t_current, sensor_humidity_current);
   }
 #endif
 
 #ifdef USE_BMP280
   if (!bmp280.begin()) {
-    print_log("Could not find a valid BMP280 sensor, check wiring!\n");
+    print_log("[BMP280] Could not find a valid sensor, check wiring!");
     pressure_status = false;
   } else {
     pressure_status = true;
@@ -431,7 +350,7 @@ void startTemperature() {
     initial_pressure = sensor_pressure_current;
     pressure_source = "BMP280";
     
-    print_logf("BMP280 initialized - temp %.1f press %.1f hPa\n", bmp280_t_current, sensor_pressure_current);
+    print_logf("[BMP280] Initialized - temp %.1f press %.1f hPa", bmp280_t_current, sensor_pressure_current);
   }
 #endif
 
@@ -441,17 +360,17 @@ void startTemperature() {
   if (initial_temp > -999.0) {
     sensor_temperature[0] = initial_temp;
     sensor_temperature_current = initial_temp;
-    print_logf("Using %s as temperature source: %.1f°C\n", temp_source.c_str(), initial_temp);
+    print_logf("[SENSOR] Using %s as temperature source: %.1f°C", temp_source.c_str(), initial_temp);
   } else {
     sensor_temperature[0] = air_status.remote_sensor_temp;
     sensor_temperature_current = air_status.remote_sensor_temp;
-    print_logf("Using AC sensor as temperature fallback: %.1f°C\n", air_status.remote_sensor_temp);
+    print_logf("[SENSOR] Using AC sensor as temperature fallback: %.1f°C", air_status.remote_sensor_temp);
   }
 
   if (initial_humidity > -999.0) {
     sensor_humidity[0] = initial_humidity;
     sensor_humidity_current = initial_humidity;
-    print_logf("Using %s as humidity source: %.1f%%\n", humidity_source.c_str(), initial_humidity);
+    print_logf("[SENSOR] Using %s as humidity source: %.1f%%", humidity_source.c_str(), initial_humidity);
   } else {
     sensor_humidity[0] = -999.0;
     sensor_humidity_current = -999.0;
@@ -460,31 +379,33 @@ void startTemperature() {
   if (initial_pressure > -999.0) {
     sensor_pressure[0] = initial_pressure;
     sensor_pressure_current = initial_pressure;
-    print_logf("Using %s as pressure source: %.1f hPa\n", pressure_source.c_str(), initial_pressure);
+    print_logf("[SENSOR] Using %s as pressure source: %.1f hPa", pressure_source.c_str(), initial_pressure);
   } else {
     sensor_pressure[0] = -999.0;
     sensor_pressure_current = -999.0;
   }
 
 ////////////////
-  air_send_ping(&air_status); // send ping to air conditioning
-  ac_sensor_temperature[0] = air_status.remote_sensor_temp; // sensor_temp is room temperature
 
+  // ask to air conditioning for sensors and call air_parse_serial after to get the date
+
+  air_send_ping(&air_status); // send ping to air conditioning
+  air_parse_serial(&air_status) ;
+  ac_sensor_temperature[0] = air_status.remote_sensor_temp; // sensor_temp is room temperature
   air_query_sensor(&air_status, OUTDOOR_TE); // query outdoor temperature sensor
+  air_parse_serial(&air_status) ;
   ac_outdoor_te[0] = air_status.outdoor_te;
 
-  timestamps[0] = 0; //timeClient.getEpochTime();
+  timeClient.update();
+  timestamps[0] = timeClient.getEpochTime();
+
+
+    
+  //timestamps[temp_idx] = timeClient.getEpochTime();
+  temp_idx = (temp_idx + 1) % MAX_LOG_DATA;
 }
 
 void startStatus() {
-  /*
-  timerStatus.setUnit(1000); // 1000ms
-  timerStatus.setInterval(120); //update every XX s
-  timerStatus.repeat();
-  timerStatus.start();
-  */
-
-  //new c api for timer
   my_timer_set_unit(&timerStatus, 1000); // 1000ms
   my_timer_set_interval(&timerStatus, 120); //update every XX s
   my_timer_repeat(&timerStatus);
@@ -494,12 +415,6 @@ void startStatus() {
 }
 
 void startReadSerial() {
-  //timerReadSerial.setUnit(1000);
-  //timerReadSerial.setInterval(1);
-  //timerReadSerial.repeat();
-  //timerReadSerial.start();
-
-  //new c api for timer
   my_timer_set_unit(&timerReadSerial, 1000); // 1000ms
   my_timer_set_interval(&timerReadSerial, 1); //update every 1 s
   my_timer_repeat(&timerReadSerial);
@@ -508,12 +423,6 @@ void startReadSerial() {
 
 //save status every hour
 void startSaveFile() {
-  // timerSaveFile.setUnit(1000);
-  // timerSaveFile.setInterval(60);
-  // timerSaveFile.repeat();
-  // timerSaveFile.start();
-
-  // new c api for timer
   my_timer_set_unit(&timerSaveFile, 1000); // 1000ms
   my_timer_set_interval(&timerSaveFile, 60); //update every 60 s
   my_timer_repeat(&timerSaveFile);
@@ -521,46 +430,45 @@ void startSaveFile() {
 }
 
 void startAutonomous() {
-  // timerAutonomous.setUnit(1000);
-  // timerAutonomous.setInterval(8);
-  // timerAutonomous.repeat();
-  // timerAutonomous.start();
-
-  // new c api for timer
   my_timer_set_unit(&timerAutonomous, 1000); // 1000ms
   my_timer_set_interval(&timerAutonomous, 8); //update every 8 s
   my_timer_repeat(&timerAutonomous);
   my_timer_start(&timerAutonomous);  
 }
 
-//check power each minute
-//void startCheckPowerConsumption() {
-//  timerCheckPowerConsumption.setUnit(1000);
-//  timerCheckPowerConsumption.setInterval(60);
-//  timerCheckPowerConsumption.repeat();
-//  timerCheckPowerConsumption.start();
-//}
-
 //software air conditioning timer
-void handleTimer() {
+void handleTimerOnOff() {
   //if (timerAC.isTime()) {
   if (my_timer_is_time(&timerOnOff)) {
+    Serial.println("[HANDLE] handleTimerOnOff");
     if (air_status.timer_mode_req == TIMER_SW_OFF) {
       //set power off
       print_log("[TIMER_SW] Power OFF");
-      air_set_power_off(&air_status);
+      if (simulation_mode) {
+        air_status.power = false;
+      } else {
+        air_set_power_off(&air_status);
+      }
     } else if (air_status.timer_mode_req == TIMER_SW_ON) {
       //set power on
       print_log("[TIMER_SW] Power ON");
-      air_set_power_on(&air_status);
+      if (simulation_mode) {
+        air_status.power = true;
+      } else {
+        air_set_power_on(&air_status);
+      }
     }
+    yield();
   }
 }
 
 //for temp logging every temp_interval (30 mins by default)
 void handleTemperature() {
   if (my_timer_is_time(&timerTemperature)) {
-    air_send_ping(&air_status);
+     Serial.println("[HANDLE] handleTemperature");
+    if (!simulation_mode) {
+      air_send_ping(&air_status);
+    }
 
     float best_temp = -999.0;
     float best_humidity = -999.0;
@@ -576,7 +484,7 @@ void handleTemperature() {
             best_temp = aht_t_current;      // AHT20 is primary temperature source
             best_humidity = sensor_humidity_current;  // AHT20 is primary humidity source
             
-            print_logf("AHT20 %d temp %.1f hum %.1f\n", temp_idx, aht_t_current, sensor_humidity_current);
+            print_logf("[AHT20] %d temp %.1f hum %.1f", temp_idx, aht_t_current, sensor_humidity_current);
         } else {
             print_log("[AHT20] Failed to read sensor");
             aht_t_current = -999.0;
@@ -597,7 +505,7 @@ void handleTemperature() {
         }
         best_pressure = sensor_pressure_current; // BMP280 is primary pressure source
         
-        print_logf("BMP280 %d temp %.1f press %.1f hPa\n", temp_idx, bmp280_t_current, sensor_pressure_current);
+        print_logf("[BMP280] %d temp %.1f press %.1f hPa", temp_idx, bmp280_t_current, sensor_pressure_current);
     }
     yield();
 #endif
@@ -609,9 +517,11 @@ void handleTemperature() {
     sensor_humidity[temp_idx] = best_humidity;
     sensor_pressure[temp_idx] = best_pressure;
 
-    air_query_sensor(&air_status, OUTDOOR_TE);
-    //parse serial
-    air_parse_serial(&air_status);
+    if (!simulation_mode) {
+      air_query_sensor(&air_status, OUTDOOR_TE);
+      air_parse_serial(&air_status);
+    }
+
 
     ac_outdoor_te[temp_idx] = air_status.outdoor_te;
 
@@ -622,157 +532,15 @@ void handleTemperature() {
     #ifdef USE_SCREEN
     showDisplay();
     #endif
+    yield();
   }
 }
-
-#ifdef USE_SCREEN
-void showDisplay(void) {
-  static unsigned long lastDisplayUpdate = 0;
-  static unsigned long lastInfoRotation = 0;
-  static int infoIndex = 0;
-  const unsigned long INFO_ROTATION_INTERVAL = 3000; // 3 seconds per info
-
-  if (millis() - lastDisplayUpdate < 1000) return; // Limit display updates
-  lastDisplayUpdate = millis();
-
-  // Rotate information every 3 seconds
-  if (millis() - lastInfoRotation > INFO_ROTATION_INTERVAL) {
-    infoIndex = (infoIndex + 1) % 4; // 4 different info screens
-    lastInfoRotation = millis();
-  }
-
-  //Turn off display when AC is OFF
-  if (air_status.power == 0) {
-    display.clearDisplay();
-    display.display();
-    return;
-  }
-
-  display.clearDisplay();
-
-  // Top section - AC Status (lines 0-31)
-  if (air_status.power != 0) {
-    // Large target temperature
-    display.setTextSize(3);
-    display.setCursor(3, 3);
-    display.setTextColor(SSD1306_WHITE);
-    display.printf("%d", air_status.target_temp);
-    
-    // Mode indicator
-    display.setTextSize(2);
-    display.setCursor(60, 0);
-    display.printf("%s", air_status.mode_str);
-    
-    // Fan speed
-    display.setTextSize(1);
-    display.setCursor(60, 16);
-    display.printf("%s", air_status.fan_str);
-    
-    // Current AC sensor temperature
-    display.setCursor(90, 16);
-    display.printf("%.1f", air_status.remote_sensor_temp);
-  } 
-
-  // Separator line
-  display.drawLine(0, 31, 127, 31, SSD1306_WHITE);
-
-  // Middle section - Environmental data (lines 32-50)
-  int idx = (temp_idx > 0) ? temp_idx - 1 : 0;
-
-  // Room temperature and humidity from centralized arrays
-  display.setTextSize(1);
-  display.setCursor(0, 34);
-  if (sensor_temperature[idx] > -999 && sensor_humidity[idx] > -999) {
-    display.printf("Room: %.1f C %.0f%%", sensor_temperature[idx], sensor_humidity[idx]);
-  } else if (sensor_temperature[idx] > -999) {
-    display.printf("Room: %.1f C --%% ", sensor_temperature[idx]);
-  } else {
-    display.printf("Room: -- C --%% (No sensor)");
-  }
-
-  // Outdoor temperature
-  display.setTextSize(1);
-  display.setCursor(0, 44);
-  if (air_status.outdoor_te > -999) {
-    display.printf("Out: %d C", air_status.outdoor_te);
-  } else {
-    display.printf("Out: -- C");
-  }
-
-  // Pressure from centralized array
-  display.setCursor(70, 44);
-  if (sensor_pressure[idx] > -999) {
-    display.printf("%.0fmb", sensor_pressure[idx]);
-  } else {
-    display.printf("--mb");
-  }
-
-  // Bottom rotating information line (line 57)
-  display.setTextSize(1);
-  display.setCursor(0, 57);
-  
-  switch (infoIndex) {
-    case 0: // Connection status
-      if (WiFi.status() == WL_CONNECTED) {
-        display.print("WiFi");
-      } else {
-        display.print("No WiFi");
-      }
-      
-      #ifdef USE_MQTT
-      if (mqtt_enabled && getMQTTStatus()) {
-        display.print(" MQTT");
-      } else if (mqtt_enabled) {
-        display.print(" MQTT-ERR");
-      }
-      #endif
-      break;
-      
-    case 1: 
-    
-      if (!autonomous_mode) {
-        //Indoor sensors, ta, tcj, tc
-        //outdoor sensors, te, to, td, ts, ths
-        display.printf("TA: %d C TCJ: %d C TC: %d C",
-                     air_status.indoor_ta, air_status.indoor_tcj, air_status.indoor_tc);
-      }
-      // Show outdoor temperatures
-      else {
-        display.printf("TE: %d C TO: %d C TD: %d C TS: %d C THS: %d C",
-                     air_status.outdoor_te, air_status.outdoor_to,
-                     air_status.outdoor_td, air_status.outdoor_ts,
-                     air_status.outdoor_ths);
-        }
-      break;
-      
-    case 2: // Timer info or IP
-      if (air_status.timer_enabled) {
-        display.printf("Timer %d %s", air_status.timer_time_req, 
-                       air_status.timer_mode_req == TIMER_SW_OFF ? "OFF" : "ON");
-      } else {
-        display.print("IP: ");
-        display.print(air_status.ip);
-      }
-      break;
-      
-    case 3: // Autonomous mode or outdoor current
-      if (autonomous_mode) {
-        display.printf("Master %x02 Remote %x02", air_status.master, air_status.remote);
-      } else {
-        // Show current and RPM
-        display.printf("Current: %d A RPM: %d", air_status.outdoor_current, air_status.indoor_fan_speed);
-      }
-      break;
-  }
-
-  display.display();
-}
-#endif
 
 
 void handleSaveFile() {
   //if (timerSaveFile.isTime()) {
   if (my_timer_is_time(&timerSaveFile)) {
+    Serial.println("[HANDLE] handleSaveFile");
     String txt = air_to_json(&air_status);
     save_file("/status.json", txt);
     print_log("Saving status.json");
@@ -795,7 +563,7 @@ void getTemperatureCurrent() {
       best_temp = aht_t_current;
       best_humidity = sensor_humidity_current;
       
-      print_logf("[AHT20] temp %.1f hum %.1f\n", aht_t_current, sensor_humidity_current);
+      print_logf("[AHT20] temp %.1f hum %.1f", aht_t_current, sensor_humidity_current);
     } else {
       aht_t_current = -999.0;
       sensor_humidity_current = -999.0;
@@ -815,7 +583,7 @@ void getTemperatureCurrent() {
     }
     best_pressure = sensor_pressure_current;
     
-    print_logf("[BMP280] temp %.1f press %.1f hPa\n", bmp280_t_current, sensor_pressure_current);
+    print_logf("[BMP280] temp %.1f press %.1f hPa", bmp280_t_current, sensor_pressure_current);
   }
   yield();
 #endif
@@ -840,32 +608,38 @@ void getTemperatureCurrent() {
 void handleStatus() {
   //if (timerStatus.isTime()) {
   if (my_timer_is_time(&timerStatus)) {
+    Serial.println("[HANDLE] handleStatus");
     getTemperatureCurrent();
     yield(); // Allow ESP8266 to handle WiFi stack
         
-    air_query_sensors(&air_status, sensor_ids, sizeof(sensor_ids));
-    yield(); // Allow ESP8266 to handle WiFi stack
+    if (simulation_mode) {
+      // In test mode, skip querying sensors from AC unit
+      Serial.println("[TEST MODE] Skipping AC sensor queries");
+    } else {
+      air_query_sensors(&air_status, sensor_ids, sizeof(sensor_ids));
+      yield();
+    }
 
     air_print_status(&air_status);
     yield(); // Allow ESP8266 to handle WiFi stack
-
-    //air_explore_all_sensors(&air_status); //it takes a lot of time, use it just to discover sensors
-    //air_status.power_consumption += air_status.outdoor_current * 10 / (3600 / temp_interval); //30 readings per hour
-
   }
 }
 
 void handleReadSerial() {
-  //int val;
-  //if (timerReadSerial.isTime()) {
   if (my_timer_is_time(&timerReadSerial)) {
-    //val = 
-    air_parse_serial(&air_status);
+    Serial.println("[HANDLE] handleReadSerial");
+    if (simulation_mode) {
+      runSimulationMode(); // Simulate AC behavior in test mode
+    } else {
+      air_parse_serial(&air_status); // Normal AC operation
+    }
+    yield();
   }
 }
 
 void handleAutonomousMode() {
   if (my_timer_is_time(&timerAutonomous) && autonomous_mode) {
+    Serial.println("[HANDLE] handleAutonomousMode");
     static bool send_ping = true;
     
     if (send_ping) {
@@ -901,34 +675,43 @@ void handleAutonomousMode() {
     
     // Alternate between ping and temperature
     send_ping = !send_ping;
+    yield();
   }
 }
 
 /*__________________________________________________________LOOP__________________________________________________________*/
 
 void loop() {
-  handleTimer();                              // Set all handlers
-  yield();
-  handleTemperature();
-  yield();
-  handleStatus();
-  yield();
-  handleReadSerial();
-  yield();
-#ifdef USE_MQTT
-  if (mqtt_enabled) {
-    handleMQTT();
-  }
-  yield();
-#endif //USE_MQTT
+  handleTimerOnOff();//yield(); //now yield is done inside the handlers
+  handleTemperature();//yield();
+  handleStatus();//yield();
+  handleReadSerial();//yield();
+  #ifdef USE_MQTT
+  handleMQTT();//yield();
+  #endif
 
-  webSocket.loop();                           // constantly check for websocket events
-  server.handleClient();                      // run the server
+  #ifdef USE_ASYNC
+  // AsyncWebSocket is handled automatically by the server
+  #else
+  webSocket.loop();//yield();
+  #endif
 
-  ArduinoOTA.handle();                        // listen for OTA events
-  MDNS.update();
+  server.handleClient();//yield();
+  #ifdef USE_OTA
+  ArduinoOTA.handle();//yield();
+  #endif
+
+  MDNS.update(); yield();
+  
   #ifdef USE_SCREEN
-  showDisplay();
+  showDisplay();//yield();
+  #endif
+  
+  handleSaveFile();yield();
+  handleAutonomousMode();//yield();
+
+  #ifdef USE_TELEGRAM
+  handleTelegramMessages();//yield();
   #endif
 }
 
@@ -949,20 +732,21 @@ void startWiFi() { //fixed IP
   }
 
   // show IP
-  Serial.println("Connection stablished.");
-  Serial.print("IP address:\t");
+  Serial.println("[WIFI] Connection stablished.");
+  Serial.print("[WIFI] IP address:\t");
   Serial.println(WiFi.localIP());
 }
 
+#ifdef USE_OTA
 void startOTA() { // Start the OTA service
   ArduinoOTA.setHostname(OTAName);
   ArduinoOTA.setPassword(OTAPassword);
 
   ArduinoOTA.onStart([]() {
-    Serial.println("Start OTA");
+    Serial.println("[OTA] Start");
   });
   ArduinoOTA.onEnd([]() {
-    Serial.println("\r\nEnd OTA");
+    Serial.println("\r\n[OTA] End");
   });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
     Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
@@ -976,12 +760,13 @@ void startOTA() { // Start the OTA service
     else if (error == OTA_END_ERROR) Serial.println("End Failed");
   });
   ArduinoOTA.begin();
-  Serial.println("OTA ready\r\n");
+  Serial.println("[OTA] Ready");
 }
+#endif
 
 void startLittleFS() { // Start the LittleFS and list all contents
   LittleFS.begin();                             // Start the SPI Flash File System (LittleFS)
-  Serial.println("LittleFS started. Contents:");
+  Serial.println("[LITTLEFS] Started. Contents:");
   {
     Dir dir = LittleFS.openDir("/");
     while (dir.next()) {                      // List the file system contents
@@ -997,20 +782,33 @@ void startWebSocket() { // Start a WebSocket server
 #ifdef USE_ASYNC
   webSocket.onEvent(onWsAsyncEvent);
   server.addHandler(&webSocket);
+  Serial.println("AsyncWebSocket server started.");
 #else //use links2004
   webSocket.begin();                          // start the websocket server
   webSocket.onEvent(onWsEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
+  webSocket.enableHeartbeat(3000, 2000, 2); // short time (3000) to allow fast reception
+  Serial.println("[WEBSOCKET] Server started.");
 #endif
-  Serial.println("WebSocket server started.");
+}
+
+void stopWebSocket() {
+#ifdef USE_ASYNC
+  webSocket.closeAll();  // Close all client connections
+  Serial.println("AsyncWebSocket handler removed.");
+#else
+  // For links2004 WebSocket server
+  webSocket.disconnect();  // Disconnect all clients
+  webSocket.close();       // Close the WebSocket server
+  Serial.println("WebSocket server stopped.");
+#endif
 }
 
 void startMDNS() { // Start the mDNS responder
   MDNS.begin(mdnsName);                        // start the multicast domain name server
-  Serial.print("mDNS responder started: http://");
+  Serial.print("[MDNS] Responder started: http://");
   Serial.print(mdnsName);
   Serial.println(".local");
 }
-
 
 void startServer() { // Start a HTTP server with a file read handler and an upload handler
 #ifdef USE_ASYNC
@@ -1042,10 +840,8 @@ void startServer() { // Start a HTTP server with a file read handler and an uplo
 
 #endif
 
-
-
   server.begin();                             // start the HTTP server
-  Serial.println("HTTP server started.");
+  Serial.println("[HTTP] Server started.");
 }
 
 void startWifiManager() {
@@ -1066,17 +862,16 @@ void startWifiManager() {
 
   //fetches ssid and pass and tries to connect
   //if it does not connect it starts an access point with the specified name
-  //here  "AutoConnectAP"
   //and goes into a blocking loop awaiting configuration
-  if (!wm.autoConnect("aircondAP")) {
-    Serial.println("failed to connect and hit timeout");
+  if (!wm.autoConnect("airAP")) {
+    Serial.println("[WIFI] Failed to connect and hit timeout");
     //reset and try again, or maybe put it to deep sleep
     ESP.restart();
     delay(1000);
   }
 
   //if you get here you have connected to the WiFi
-  Serial.println("connected...yeey :)");
+  Serial.println("[WIFI] Connected :)");
   ticker.detach();
   //keep LED off
   digitalWrite(LED, HIGH);
@@ -1085,7 +880,7 @@ void startWifiManager() {
 
 //gets called when WiFiManager enters configuration mode
 void configModeCallback (WiFiManager *myWiFiManager) {
-  Serial.println("Entered config mode");
+  Serial.println("[WIFI] Entered config mode");
   Serial.println(WiFi.softAPIP());
   //if you used auto generated SSID, print it
   Serial.println(myWiFiManager->getConfigPortalSSID());
@@ -1113,17 +908,17 @@ bool handleFileRead(String path) { // send the right file to the client (if it e
       path += ".gz";                                         // Use the compressed verion
     File file = LittleFS.open(path, "r");                    // Open the file
     if (!file) {
-      Serial.println("file open failed" + path);
+      Serial.println("[FILE] Open failed" + path);
       ret = false;
     } else {
       size_t sent = server.streamFile(file, contentType);    // Send it to the client
       (void)sent; // not to be used, but prevents compiler warning
       file.close();                                          // Close the file again
-      Serial.println(String("\tSent file: ") + path);
+      Serial.println(String("[FILE] Sent file: ") + path);
       ret = true;
     }
   } else
-    Serial.println(String("\tFile Not Found: ") + path);   // If the file doesn't exist, return false
+    Serial.println(String("[FILE] File Not Found: ") + path);   // If the file doesn't exist, return false
   ret = false;
 
   return ret;
@@ -1140,7 +935,7 @@ void handleFileUpload() { // upload a new file to the LittleFS
       if (LittleFS.exists(pathWithGz))                     // version of that file must be deleted (if it exists)
         LittleFS.remove(pathWithGz);
     }
-    Serial.print("handleFileUpload Name: "); Serial.println(path);
+    Serial.print("[FILE] handleFileUpload Name: "); Serial.println(path);
     fsUploadFile = LittleFS.open(path, "w");            // Open the file for writing in LittleFS (create if it doesn't exist)
     path = String();
   } else if (upload.status == UPLOAD_FILE_WRITE) {
@@ -1149,7 +944,7 @@ void handleFileUpload() { // upload a new file to the LittleFS
   } else if (upload.status == UPLOAD_FILE_END) {
     if (fsUploadFile) {                                   // If the file was successfully created
       fsUploadFile.close();                               // Close the file again
-      Serial.print("handleFileUpload Size: "); Serial.println(upload.totalSize);
+      Serial.print("[FILE] handleFileUpload Size: "); Serial.println(upload.totalSize);
       server.sendHeader("Location", "/success.html");     // Redirect the client to the success page
       server.send(303);
     } else {
@@ -1158,9 +953,12 @@ void handleFileUpload() { // upload a new file to the LittleFS
   }
 }
 
-/*
-    websocket callback
-*/
+// websocket callback
+#ifdef USE_ASYNC
+//void onWsAsyncEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+  //to be completed 
+//}
+#else
 void onWsEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
@@ -1173,9 +971,8 @@ void onWsEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
       break;
     case WStype_TEXT:                     // if new text data is received
       Serial.printf("[WS (%u)] Length %d Received: %s\n", num, length, payload);
-      //pendingWSRequest
-      processRequest(payload);
-            break;
+      processRequest(payload); //TODO: might be better to set a var here call processRequest in loop
+      break;
     case WStype_BIN:
     case WStype_PING:
     case WStype_PONG:
@@ -1191,13 +988,13 @@ void onWsEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
       break;
   }
 }
-
+#endif
 
 int save_file(String name, String text) {
   File file = LittleFS.open(name, "w");
 
   if (!file) {
-    Serial.println("Error opening file for writing");
+    Serial.println("[FILE] Error opening file for writing");
     return (0);
   }
 
@@ -1208,6 +1005,110 @@ int save_file(String name, String text) {
 }
 
 
+// Function to initialize simulagtion mode air status
+void initSimulationMode() {
+  if (!simulation_mode) return;
+  
+  Serial.println("[SIMULATION MODE] Initializing air conditioning simulator");
+  
+  // Initialize air_status with realistic test values
+  air_status.power = true;
+  air_status.mode = MODE_COOL;
+  strcpy(air_status.mode_str,"COOL"); 
+  air_status.target_temp = 22;
+  air_status.fan = FAN_AUTO;
+  strcpy(air_status.fan_str,"AUTO");
+  air_status.remote_sensor_temp = 23.5;
+  air_status.outdoor_te = 25.0;
+  air_status.outdoor_to = 26.0;
+  air_status.indoor_ta = 23.0;
+  air_status.indoor_tcj = 22.0;
+  air_status.indoor_tc = 21.5;
+  air_status.outdoor_current = 0.0;
+  air_status.outdoor_comp_freq = 0;
+  air_status.timer_mode_req = TIMER_SW_OFF;
+  air_status.timer_time_req = 0;    
+  air_status.save = false;
+  air_status.heat = false;
+  air_status.preheat = false;
+  air_status.cold = false;
+}
+
+void runSimulationMode() {
+  if (!simulation_mode) return;
+  
+  // Simulate temperature changes based on AC operation
+  static unsigned long lastTempUpdate = 0;
+  unsigned long currentTime = millis();
+  
+  if (currentTime - lastTempUpdate > 30000) { // Update every 30 seconds
+    if (air_status.power) {
+      float targetTemp = air_status.target_temp;
+      float currentTemp = air_status.remote_sensor_temp;
+      float tempDiff = targetTemp - currentTemp;
+      
+      // Simulate gradual temperature change
+      if (abs(tempDiff) > 0.1) {
+        if (tempDiff > 0) {
+          air_status.remote_sensor_temp += 0.2; // Heating
+          air_status.outdoor_current = 2.5;
+        } else {
+          air_status.remote_sensor_temp -= 0.2; // Cooling
+          air_status.outdoor_current = 3.2;
+        }
+      } else {
+        air_status.outdoor_current = 1.0; // Standby power
+      }
+      
+      // Simulate fan RPM based on fan setting and temperature difference
+      int baseFanRpm = 0;
+      switch (air_status.fan) {
+        case FAN_LOW:
+          baseFanRpm = 300;
+          break;
+        case FAN_MEDIUM:
+          baseFanRpm = 500;
+          break;
+        case FAN_HIGH:
+          baseFanRpm = 800;
+          break;
+        case FAN_AUTO:
+          // Auto mode adjusts based on temperature difference
+          if (abs(tempDiff) > 2.0) {
+            baseFanRpm = 700; // High speed when big temp difference
+          } else if (abs(tempDiff) > 1.0) {
+            baseFanRpm = 450; // Medium speed for moderate difference
+          } else {
+            baseFanRpm = 250; // Low speed when close to target
+          }
+          break;
+        default:
+          baseFanRpm = 400;
+          break;
+      }
+      
+      // Add some variation to make it more realistic (±10%)
+      int variation = random(-baseFanRpm/10, baseFanRpm/10);
+      air_status.indoor_fan_speed = baseFanRpm + variation;
+      
+      // Ensure minimum speed when AC is running
+      if (air_status.indoor_fan_speed < 200) {
+        air_status.indoor_fan_speed = 200;
+      }
+      
+      // Update other temperatures
+      air_status.indoor_ta = air_status.remote_sensor_temp - 0.5;
+      air_status.indoor_tcj = air_status.target_temp - 1.0;
+      air_status.indoor_tc = air_status.target_temp - 1.5;
+      
+    } else {
+      air_status.outdoor_current = 0.0; // AC is off
+      air_status.indoor_fan_speed = 0;  // Fan stopped when AC is off
+    }
+    
+    lastTempUpdate = currentTime;
+  }
+}
 /*__________________________________________________________HELPER_FUNCTIONS__________________________________________________________*/
 
 String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
@@ -1235,4 +1136,15 @@ String getContentType(String filename) { // determine the filetype of a given fi
 void tick()
 {
   digitalWrite(LED, !digitalRead(LED));     // toggle state
+}
+
+
+////////////////////////////////////////////
+
+void webSocketBroadcast(String message) {
+#ifdef USE_ASYNC
+    webSocket.textAll(message);
+#else
+    webSocket.broadcastTXT(message);
+#endif
 }

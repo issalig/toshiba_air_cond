@@ -70,7 +70,7 @@ int check_crc(const byte *data, size_t len) {
 
 
 void air_print_status(air_status_t *s) {
-  Serial.print("\n");
+  Serial.print("[STATUS]");
   Serial.print(" Power: "); Serial.print(s->power);
   Serial.print(" Mode: "); Serial.print(s->mode_str);
   Serial.print(" Fan: "); Serial.print(s->fan_str);
@@ -82,15 +82,15 @@ void air_print_status(air_status_t *s) {
   Serial.print(" Errors: "); Serial.print(s->decode_errors);
   //Serial.print(" INDOOR_ROOM:  "); Serial.print(s->indoor_room_temp);
   Serial.print(" INDOOR_TA: "); Serial.print(s->indoor_ta);
-  Serial.print(" INDOOR_TCJ:"); Serial.print(s->indoor_tcj);
+  Serial.print(" INDOOR_TCJ: "); Serial.print(s->indoor_tcj);
   Serial.print(" INDOOR_TC: "); Serial.print(s->indoor_tc);
   //Serial.print(" INDOOR_FILTER_TIME:  "); Serial.print(s->indoor_filter_time);
-  Serial.print(" OUTDOOR_TE:"); Serial.print(s->outdoor_te);
-  Serial.print(" OUTDOOR_TO:"); Serial.print(s->outdoor_to);
+  Serial.print(" OUTDOOR_TE: "); Serial.print(s->outdoor_te);
+  Serial.print(" OUTDOOR_TO: "); Serial.print(s->outdoor_to);
   //Serial.print(" OUTDOOR_TD:   "); Serial.print(s->outdoor_td);
   //Serial.print(" OUTDOOR_TS:   "); Serial.print(s->outdoor_ts);
   //Serial.print(" OUTDOOR_THS:  "); Serial.print(s->outdoor_ths);
-  Serial.print(" OUTDOOR_CURRENT:  "); Serial.print(s->outdoor_current);
+  Serial.print(" OUTDOOR_CURRENT: "); Serial.print(s->outdoor_current);
   //Serial.print(" OUTDOOR_HOURS:    "); Serial.print(s->outdoor_cumhour);
 
   Serial.print(" INDOOR_FAN_SPEED: "); Serial.print(s->indoor_fan_speed);
@@ -455,7 +455,7 @@ void air_decode_command(byte * data, air_status_t *s) {
       s->sensor_val = data[9] * 256 + data[10]; //answer does not report query id, so we should assign it to the last queried sensor
       //INDOOR_ROOM, INDOOR_TA, INDOOR_TCJ, INDOOR_TC, FILTER_TIME, OUTDOOR_TE, OUTDOOR_TO, OUTDOOR_TD, OUTDOOR_TS, OUTDOOR_THS, OUTDOOR_CURRENT, OUTDOOR_HOURS
       switch (s->sensor_id) {
-        case INDOOR_ROOM: s->remote_sensor_temp = s->sensor_val; break;
+        //case INDOOR_ROOM: s->remote_sensor_temp = s->sensor_val; break;
         case INDOOR_TA:   s->indoor_ta = s->sensor_val;  break;
         case INDOOR_TCJ:  s->indoor_tcj = s->sensor_val;  break;
         case INDOOR_TC:   s->indoor_tc = s->sensor_val;  break;
@@ -705,6 +705,8 @@ void air_query_sensor(air_status_t *air, uint8_t id)  {
 void air_query_sensors(air_status_t *air, const byte *ids, size_t num_ids) {
     for (size_t i = 0; i < num_ids; i++) {
         air_query_sensor(air, ids[i]);
+        air_parse_serial(air); // get result
+        yield(); // allow other tasks to run
     }
 }
 

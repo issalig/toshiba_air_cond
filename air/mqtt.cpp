@@ -13,6 +13,7 @@ extern air_status_t air_status;
 extern float dht_t_current;
 extern float dht_h_current;
 extern MySimpleTimer timerMQTT;
+extern bool simulation_mode;
 
 #include "print_log.h"
 
@@ -92,9 +93,9 @@ void saveMQTTConfigToFile() {
   if (file) {
     file.print(configJson);
     file.close();
-    print_log("[MQTT] config saved to /mqtt_config.json\n");
+    print_log("[MQTT] config saved to /mqtt_config.json");
   } else {
-    print_log("[MQTT] Failed to save config\n");
+    print_log("[MQTT] Failed to save config");
   }
 }
 
@@ -113,8 +114,8 @@ void loadMQTTConfigFromFile() {
         mqtt_password_str = doc["password"].as<String>();
         device_name_str = doc["device_name"].as<String>();
         
-        print_log("[MQTT] config loaded from file\n");
-        print_logf("[MQTT] Server: %s, Port: %d, User: %s, Device: %s\n",
+        print_log("[MQTT] config loaded from file");
+        print_logf("[MQTT] Server: %s, Port: %d, User: %s, Device: %s",
                   mqtt_server_str.c_str(), mqtt_port, mqtt_user_str.c_str(), device_name_str.c_str());
       }
     }
@@ -126,18 +127,12 @@ void startMQTT() {
   mqttClient.setCallback(mqttCallback);
   mqttClient.setBufferSize(1024); // Increase buffer size for discovery messages
   
-  print_log("[MQTT] configured\n");
+  print_log("[MQTT] Configured");
 }
 
 void startMQTTTimer() {
-  // timerMQTT.setUnit(1000);
-  // timerMQTT.setInterval(30); // Send data every 30 seconds
-  // timerMQTT.repeat();
-  // timerMQTT.start();
-
-  // c api
   my_timer_set_unit(&timerMQTT, 1000); // 1000ms
-  my_timer_set_interval(&timerMQTT, 30); // update every 30 s
+  my_timer_set_interval(&timerMQTT, 30); // update every X s
   my_timer_repeat(&timerMQTT);
   my_timer_start(&timerMQTT);
 }
@@ -145,14 +140,14 @@ void startMQTTTimer() {
 void connectToMQTT() {
   // Only try to connect if we have network connectivity
   if (WiFi.status() != WL_CONNECTED) {
-    print_log("[MQTT] WiFi not connected, skipping MQTT\n");
+    print_log("[MQTT] WiFi not connected, skipping MQTT");
     return;
   }
   
   // Add a simple ping test to MQTT server before attempting connection
   WiFiClient testClient;
   if (!testClient.connect(mqtt_server_str.c_str(), mqtt_port)) {
-    print_log("[MQTT] server not reachable, skipping connection\n");
+    print_log("[MQTT] server not reachable, skipping connection");
     mqttConnected = false;
     return;
   }
@@ -160,10 +155,10 @@ void connectToMQTT() {
   
   // Only attempt connection if server is reachable
   if (!mqttClient.connected()) {
-    print_log("[MQTT] Attempting connection...\n");
+    print_log("[MQTT] Attempting connection...");
     
     if (mqttClient.connect(device_name_str.c_str(), mqtt_user_str.c_str(), mqtt_password_str.c_str())) {
-      print_log("[MQTT] connected\n");
+      print_log("[MQTT] connected");
       mqttConnected = true;
 
       // Subscribe to command topic
@@ -187,7 +182,7 @@ void handleMQTT() {
   if (my_timer_is_time(&timerMQTT)) {
     // Only proceed if WiFi is connected
     if (WiFi.status() != WL_CONNECTED) {
-      print_log("[MQTT] WiFi disconnected, skipping MQTT\n");
+      print_log("[MQTT] WiFi disconnected, skipping MQTT");
       mqttConnected = false;
       return;
     }
@@ -238,11 +233,11 @@ void handleMQTT() {
       mqttClient.publish(temp_topic.c_str(), String(air_status.remote_sensor_temp).c_str());
       
       //combine all of the abose prints into a shorter one
-      print_logf("[MQTT] Published - Target: %d, Current: %.1f, Mode: %s, Fan: %s\n",
+      print_logf("[MQTT] Published - Target: %d, Current: %.1f, Mode: %s, Fan: %s",
                  air_status.target_temp, air_status.remote_sensor_temp, acMode.c_str(), fanMode.c_str());
 
     } else {
-      print_log("[MQTT] not connected, skipping data send\n");
+      print_log("[MQTT] not connected, skipping data send");
       mqttConnected = false;
     }
   }
@@ -254,6 +249,8 @@ void handleMQTT() {
   mqttConnected = mqttClient.connected();
 
   air_status.mqtt = mqttConnected; // Update air_status with MQTT status
+
+  yield();
 }
 
 void mqttCallback(char *topic, byte *payload, unsigned int length)
@@ -264,7 +261,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
     message += (char)payload[i];
   }
 
-  print_logf("[MQTT] received [%s]: %s\n", topic, message.c_str());
+  print_logf("[MQTT] received [%s]: %s", topic, message.c_str());
 
   bool statusChanged = false;
 
@@ -276,12 +273,18 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
     if (tempFloat > 0)
     { // toFloat() returns 0 if conversion fails
       int temp = (int)round(tempFloat);
-      print_logf("[MQTT] Temperature command (plain): %.1f -> %d\n", tempFloat, temp);
+      print_logf("[MQTT] Temperature command (plain): %.1f -> %d", tempFloat, temp);
       if (temp > 30)
         temp = 30;
       if (temp < 18)
         temp = 18;
-      air_set_temp(&air_status, temp);
+
+      if (simulation_mode) {
+        air_status.target_temp = temp;
+        print_logf("[TEST MODE] Temperature set to %d°C via MQTT", temp);
+      } else {
+        air_set_temp(&air_status, temp);
+      }
       statusChanged = true;
     }
   }
@@ -290,56 +293,98 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
   {
     if (message == "on")
     {
-      print_log("[MQTT] Power ON command\n");
-      air_set_power_on(&air_status);
+      print_log("[MQTT] Power ON command");
+      if (simulation_mode) {
+        air_status.power = true;
+        print_log("[TEST MODE] Power ON via MQTT");
+      } else {
+        air_set_power_on(&air_status);
+      }
       statusChanged = true;
     }
     else if (message == "off")
     {
-      print_log("[MQTT] Power OFF command\n");
-      air_set_power_off(&air_status);
+      print_log("[MQTT] Power OFF command");
+      if (simulation_mode) {
+        air_status.power = false;
+        print_log("[TEST MODE] Power OFF via MQTT");
+      } else {
+        air_set_power_off(&air_status);
+      }
       statusChanged = true;
     }
     else if (message == "cool" || message == "heat" || message == "auto" || message == "fan_only" || message == "dry")
     {
-      print_logf("[MQTT] Mode command: %s\n", message.c_str());
-      if (message == "cool")
-      {
-        air_set_power_on(&air_status);
-        yield(); // Allow other tasks to run
-        air_set_mode(&air_status, MODE_COOL);
-        statusChanged = true;
-      }
-      else if (message == "heat")
-      {
-        air_set_power_on(&air_status);
-        yield();
-        air_set_mode(&air_status, MODE_HEAT);
-        statusChanged = true;
-      }
-      else if (message == "auto")
-      {
-        air_set_power_on(&air_status);
-        yield();
-        //air_set_mode(&air_status, MODE_AUTO);
-        byte data[] = {0x40, 0x00, 0x11, 0x03, 0x08, 0x42, 0x05, 0x1d};
-        air_send_data(&air_status, data, sizeof(data));
-        byte data2[] = {0x40, 0x00, 0x15, 0x02, 0x08, 0x42, 0x1d};      
-        air_send_data(&air_status, data2, sizeof(data2));
-        statusChanged = true;
-      }
-      else if (message == "fan_only")
-      {
-        air_set_power_on(&air_status);
-        air_set_mode(&air_status, MODE_FAN);
-        statusChanged = true;
-      }
-      else if (message == "dry")
-      {
-        air_set_power_on(&air_status);
-        yield();
-        air_set_mode(&air_status, MODE_DRY);
-        statusChanged = true;
+      print_logf("[MQTT] Mode command: %s", message.c_str());
+       if (simulation_mode) {
+        air_status.power = true; // Turn on power in test mode
+        if (message == "cool") {
+          air_status.mode = MODE_COOL;
+          strcpy(air_status.mode_str, "COOL");
+          print_log("[TEST MODE] Mode set to COOL via MQTT");
+          statusChanged = true;
+        } else if (message == "heat") {
+          air_status.mode = MODE_HEAT;
+          strcpy(air_status.mode_str, "HEAT");
+          print_log("[TEST MODE] Mode set to HEAT via MQTT");
+          statusChanged = true;
+        } else if (message == "auto") {
+          air_status.mode = MODE_AUTO;
+          strcpy(air_status.mode_str, "AUTO");
+          print_log("[TEST MODE] Mode set to AUTO via MQTT");
+          statusChanged = true;
+        } else if (message == "fan_only") {
+          air_status.mode = MODE_FAN;
+          strcpy(air_status.mode_str, "FAN");
+          print_log("[TEST MODE] Mode set to FAN via MQTT");
+          statusChanged = true;
+        } else if (message == "dry") {
+          air_status.mode = MODE_DRY;
+          strcpy(air_status.mode_str, "DRY");
+          print_log("[TEST MODE] Mode set to DRY via MQTT");
+          statusChanged = true;
+        }
+      } else {
+        // Normal mode - send commands to AC
+
+        if (message == "cool")
+        {
+          air_set_power_on(&air_status);
+          yield(); // Allow other tasks to run
+          air_set_mode(&air_status, MODE_COOL);
+          statusChanged = true;
+        }
+        else if (message == "heat")
+        {
+          air_set_power_on(&air_status);
+          yield();
+          air_set_mode(&air_status, MODE_HEAT);
+          statusChanged = true;
+        }
+        else if (message == "auto")
+        {
+          air_set_power_on(&air_status);
+          yield();
+          //air_set_mode(&air_status, MODE_AUTO);
+          byte data[] = {0x40, 0x00, 0x11, 0x03, 0x08, 0x42, 0x05, 0x1d};
+          air_send_data(&air_status, data, sizeof(data));
+          byte data2[] = {0x40, 0x00, 0x15, 0x02, 0x08, 0x42, 0x1d};      
+          air_send_data(&air_status, data2, sizeof(data2));
+          statusChanged = true;
+        }
+        else if (message == "fan_only")
+        {
+          air_set_power_on(&air_status);
+          air_set_mode(&air_status, MODE_FAN);
+          statusChanged = true;
+        }
+        else if (message == "dry")
+        {
+          air_set_power_on(&air_status);
+          yield();
+          air_set_mode(&air_status, MODE_DRY);
+          statusChanged = true;
+        }
       }
     }
   }
@@ -350,69 +395,78 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
     if (message == "low" || message == "medium" || message == "high" || message == "auto")
     {
       // Handle fan speed commands
-      print_logf("[MQTT] Fan speed command: %s\n", message.c_str());
-      if (message == "low")
-      {
-        air_set_fan(&air_status, FAN_LOW);
-        statusChanged = true;
-      }
-      else if (message == "medium")
-      {
-        air_set_fan(&air_status, FAN_MEDIUM);
-        statusChanged = true;
-      }
-      else if (message == "high")
-      {
-        air_set_fan(&air_status, FAN_HIGH);
-        statusChanged = true;
-      }
-      else if (message == "auto")
-      {
-        air_set_fan(&air_status, FAN_AUTO);
-        statusChanged = true;
-      }
+      print_logf("[MQTT] Fan speed command: %s", message.c_str());
+      if (simulation_mode) {
+        if (message == "low")
+        {
+          air_status.fan = FAN_LOW;
+          strcpy(air_status.fan_str, "LOW");
+          print_log("[TEST MODE] Fan set to LOW via MQTT");
+          statusChanged = true;
+        }
+        else if (message == "medium")
+        {
+          air_status.fan = FAN_MEDIUM;
+          strcpy(air_status.fan_str, "MED");
+          print_log("[TEST MODE] Fan set to MEDIUM via MQTT");
+          statusChanged = true;
+        }
+        else if (message == "high")
+        {
+          air_status.fan = FAN_HIGH;
+          strcpy(air_status.fan_str, "HIGH");
+          print_log("[TEST MODE] Fan set to HIGH via MQTT");
+          statusChanged = true;
+        }
+        else if (message == "auto")
+        {
+          air_status.fan = FAN_AUTO;
+          strcpy(air_status.fan_str, "AUTO");
+          print_log("[TEST MODE] Fan set to AUTO via MQTT");
+          statusChanged = true;
+        }
+      } else {
+        if (message == "low")
+        {
+          air_set_fan(&air_status, FAN_LOW);
+          statusChanged = true;
+        }
+        else if (message == "medium")
+        {
+          air_set_fan(&air_status, FAN_MEDIUM);
+          statusChanged = true;
+        }
+        else if (message == "high")
+        {
+          air_set_fan(&air_status, FAN_HIGH);
+          statusChanged = true;
+
+        }
+        else if (message == "auto")
+        {
+          air_set_fan(&air_status, FAN_AUTO);
+          statusChanged = true;
+
+        }
+      } //end no test mode
     }
 
+  }
     if (statusChanged)
     {
-      print_log("[MQTT] command processed successfully\n");
+      if (simulation_mode) {
+        print_log("[MQTT] command processed successfully (TEST MODE)");
+      } else {
+        print_log("[MQTT] command processed successfully");
+      }
+      notifyWebSocketClients(); // Update status update to websocket clients
+      yield();
+      //my_timer_start(&timerMQTT); // Restart MQTT timer to ensure next update
+      timerMQTT._start = 0; // Force timer to be ready
       handleMQTT(); // Call handleMQTT to send updated status to HA
-      notifyWebSocketClients(); // Send status update to websocket clients
     }
-  }
 }
 
-    // this is a yaml example for Home Assistant MQTT discovery
-    // climate:
-    //   - platform: mqtt
-    //     name: "Living Room AC"
-    //     unique_id: living_room_ac
-    //     temperature_command_topic: "homeassistant/ac/set/temperature"
-    //     temperature_state_topic: "homeassistant/ac/status/temperature"
-    //     mode_command_topic: "homeassistant/ac/set/mode"
-    //     mode_state_topic: "homeassistant/ac/status/mode"
-    //     fan_mode_command_topic: "homeassistant/ac/set/fan_mode"
-    //     fan_mode_state_topic: "homeassistant/ac/status/fan_mode"
-    //     current_temperature_topic: "homeassistant/ac/status/current_temperature"
-    //     min_temp: 16
-    //     max_temp: 30
-    //     temp_step: 1.0
-
-    //     modes:
-    //       - "off"
-    //       - "cool"
-    //       - "heat"
-    //       - "dry"
-    //       - "fan_only"
-
-    //     fan_modes:
-    //       - "auto"
-    //       - "low"
-    //       - "medium"
-    //       - "high"
-
-    //     retain: false
-    //     qos: 1
 // climate:
 //   - name: "Toshiba Air Conditioner"
 //     unique_id: "toshiba_air_conditioner"
@@ -464,7 +518,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 
     void sendMQTTDiscovery()
     {
-      print_log("[MQTT] Sending discovery messages...\n");
+      print_log("[MQTT] Sending discovery messages...");
 
       // Helper function to publish with retry
       auto publishWithRetry = [](const char *topic, const String &payload) -> bool
@@ -475,7 +529,8 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
           {
             return true;
           }
-          delay(100);
+          //delay(100);
+          yield();
         }
         return false;
       };
@@ -532,18 +587,18 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
       String climateConfig;
       serializeJson(climateDoc, climateConfig);
       bool climateResult = publishWithRetry(climate_conf_topic.c_str(), climateConfig);
-      print_logf("[MQTT] Climate discovery: %s (size: %d)\n", climateResult ? "SUCCESS" : "FAILED", climateConfig.length());
+      print_logf("[MQTT] Climate discovery: %s (size: %d)", climateResult ? "SUCCESS" : "FAILED", climateConfig.length());
     }
 
     // mqtt configuration from web
     bool testMQTTConnection()
     {
-      print_log("[MQTT] Testing connection...\n");
+      print_log("[MQTT] Testing connection...");
 
       // Try to connect to MQTT broker
       if (WiFi.status() != WL_CONNECTED)
       {
-        print_log("[MQTT] WiFi not connected\n");
+        print_log("[MQTT] WiFi not connected");
         return false;
       }
 
@@ -551,7 +606,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
       WiFiClient testClient;
       if (!testClient.connect(mqtt_server_str.c_str(), mqtt_port))
       {
-        print_log("[MQTT] Cannot reach MQTT server\n");
+        print_log("[MQTT] Cannot reach MQTT server");
         return false;
       }
       testClient.stop();
@@ -562,24 +617,24 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 
       if (testMqtt.connect(device_name_str.c_str(), mqtt_user_str.c_str(), mqtt_password_str.c_str()))
       {
-        print_log("[MQTT] Test connection successful\n");
+        print_log("[MQTT] Test connection successful");
         testMqtt.disconnect();
         return true;
       }
       else
       {
-        print_logf("[MQTT] Test connection failed, rc=%d\n", testMqtt.state());
+        print_logf("[MQTT] Test connection failed, rc=%d", testMqtt.state());
         return false;
       }
     }
 
     void resetMQTTDiscovery()
     {
-      print_log("[MQTT] Resetting discovery...\n");
+      print_log("[MQTT] Resetting discovery...");
 
       if (!mqttClient.connected())
       {
-        print_log("[MQTT] Not connected, cannot reset discovery\n");
+        print_log("[MQTT] Not connected, cannot reset discovery");
         return;
       }
 
@@ -588,7 +643,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
       String climateTopic=climate_conf_topic;
       mqttClient.publish(climateTopic.c_str(), "", true);
       
-      print_log("[MQTT] Discovery reset messages sent\n");
+      print_log("[MQTT] Discovery reset messages sent");
     }
 
     // Getter functions for current MQTT configuration

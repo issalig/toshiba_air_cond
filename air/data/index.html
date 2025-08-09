@@ -239,7 +239,7 @@ var connection;
 function onOpen(event) {
     console.log('Connection opened');
     updateConnectionStatus("open");
-    connection.send('Connect ' + new Date());
+    //connection.send('Connect ' + new Date());
     //document.getElementById('connection').textContent = "open";
     
    (function scheduleRequestStatus() {
@@ -249,15 +249,18 @@ function onOpen(event) {
 
         let data = {
 			id: "status",
-			value: curr_time
+			value: curr_time + " - auto"
 		}
 
-        console.log("Requesting STATUS at " + curr_time);
+        console.log("Scheduled STATUS at " + curr_time);
 		let json = JSON.stringify(data);
 		connection.send(json);
       //end send json
 
-      setTimeout(scheduleRequestStatus, 2 * 1000); //ask for status every X seconds
+      //call sendRequestStatus() every X seconds.
+      //pressing buttons calls sendRequestStatus() directly. this way update is faster and do not send a lot of requests when doing nothing.
+    
+      setTimeout(scheduleRequestStatus, 20 * 1000); 
    })();
 
    (function scheduleRequestTimeSeries() {	  
@@ -302,6 +305,15 @@ function processData(data)
     if (json.id && json.id.startsWith("mqtt_")) {
     parseMQTTResponse(json);
     }
+
+    // Simulation mode response handling
+    if (json.id === "simulation_mode") {
+        if (json.status === "enabled") {
+            alert('Simulation mode enabled!');
+        } else if (json.status === "disabled") {
+            alert('Simulation mode disabled! Normal AC operation restored.');
+        }
+    } 
 }
 
 function parseSerialLog(json) {
@@ -314,15 +326,17 @@ function parseSerialLog(json) {
 let serialLogLines = [];
 
 function appendSerialLog(msg) {
+    const maxLines = 100; // Maximum number of lines to keep in the log
     const log = document.getElementById('serial-log');
     if (log) {
-        // Just append the message as-is (it already has \n if needed)
-        log.textContent += msg;
+        // Add newline to the message if it doesn't already end with one
+        const messageWithNewline = msg.endsWith('\n') ? msg : msg + '\n';
+        log.textContent += messageWithNewline;
         
         // Keep only the last 100 lines by splitting and rejoining
         const lines = log.textContent.split('\n');
-        if (lines.length > 100) {
-            const trimmedLines = lines.slice(-100);
+        if (lines.length > maxLines) {
+            const trimmedLines = lines.slice(-maxLines);
             log.textContent = trimmedLines.join('\n');
         }
         
@@ -573,6 +587,20 @@ updatePowerButton(json.power);
         }
     }
 
+    // Update simulation mode status
+    if (json.simulation_mode !== undefined) {
+        const statusElem = document.getElementById('simulation_mode_status');
+        if (statusElem) {
+            if (json.simulation_mode == true) {
+                statusElem.textContent = 'Enabled';
+                statusElem.style.color = '#ff9800';
+            } else {
+                statusElem.textContent = 'Disabled';
+                statusElem.style.color = '#6c757d';
+            }
+        }
+    }
+
     // Update address displays
     if (json.master !== undefined) {
         document.getElementById('current_master').textContent = '0x' + json.master.toString(16).toUpperCase().padStart(2, '0');
@@ -655,16 +683,34 @@ function parseMQTTResponse(json) {
     }
 }
 
-
 // Function to update status icons
 function updateStatusIcons(json) {
     const statusIconsContainer = document.getElementById('status-icons');
     
+    // Declare all icon variables at the beginning with default values
+    let modeIcon = '';
+    let fanIcon = '';
+    let flagsIcon = '';
+    let timerIcon = '';
+    let mqttIcon = '';
+    let simulationModeIcon = '';
+    
+    // Add MQTT status icon
+    if (json.mqtt !== undefined) {
+        if (json.mqtt == true) {
+            mqttIcon = ' <span class="material-icons" style="color:#4caf50;" title="MQTT Connected">home</span>';
+        } else {
+            mqttIcon = ' <span class="material-icons" style="color:#f44336;" title="MQTT Disconnected">home</span>';
+        }
+    }
+
+    // Simulation Mode status icon
+    if (json.simulation_mode !== undefined && json.simulation_mode == true) {
+        simulationModeIcon = ' <span class="material-symbols-outlined" style="color:#ff9800;" title="Simulation Mode Active">computer</span>';
+    }
+    
     if (json.power == '1') {
         // Power is ON - show mode and fan icons
-        let modeIcon = '';
-        let fanIcon = '';
-        let flagsIcon = '';
         
         // Mode icons
         switch(json.mode) {
@@ -701,6 +747,95 @@ function updateStatusIcons(json) {
                 break;
             case 'AUTO':
                 fanIcon = '<span class="material-icons" style="color:#2196f3;" title="Auto">hdr_auto</span>';
+                break;
+            default:
+                fanIcon = '<span class="material-icons" style="color:#9e9e9e;" title="Unknown">question_mark</span>';
+        }
+        
+        // Timer icon if timer is enabled
+        if (json.timer_enabled == '1') {
+            const timerMode = json.timer_mode == '1' ? 'on' : 'off';
+            const timerColor = timerMode === 'on' ? '#4caf50' : '#f44336';
+            const pendingTime = json.timer_pending || '0';
+            
+            timerIcon = ` <span class="material-icons" style="color:${timerColor};" title="Timer ${timerMode.toUpperCase()}: ${pendingTime} min remaining">timer</span><span style="color:${timerColor}; font-size:10px; margin-left:2px;">${pendingTime}</span>`;
+        }
+
+        // add save icon if save is enabled and use a green color
+        if (json.save == '1') {
+            flagsIcon += ' <span class="material-icons" style="color:#4caf50;" title="Save">energy_savings_leaf</span>';
+        }
+
+        // add filter alert icon if json.filter_alert exists and is 1
+        if (json.filter_alert == '1') {
+            flagsIcon += ' <span class="material-icons" style="color:#f44336;" title="Filter">grid_on</span>';
+        }
+
+        //add preheat icon if json.preheat exists and is 1
+        if (json.preheat == '1') {
+            flagsIcon += ' <span class="material-icons" style="color:#ff9800;" title="Heat">fireplace</span>';
+        }
+
+        statusIconsContainer.innerHTML = flagsIcon + ' ' + modeIcon + ' ' + fanIcon + mqttIcon + simulationModeIcon + timerIcon;
+    } else {
+        // Power is OFF - show only power off icon and timer if enabled
+        if (json.timer_enabled == '1') {
+            const timerMode = json.timer_mode == '1' ? 'on' : 'off';
+            const timerColor = timerMode === 'on' ? '#4caf50' : '#f44336';
+            const pendingTime = json.timer_pending || '0';
+            
+            timerIcon = ` <span class="material-icons" style="color:${timerColor};" title="Timer ${timerMode.toUpperCase()}: ${pendingTime} min">timer</span>`;
+        }
+                
+        statusIconsContainer.innerHTML = '<span class="material-icons" style="color:#f44336;" title="Off">power_off</span>' + mqttIcon + simulationModeIcon + timerIcon;
+    }
+}
+
+// Function to update status icons
+function updateStatusIcons00(json) {
+    const statusIconsContainer = document.getElementById('status-icons');
+    
+    if (json.power == '1') {
+        // Power is ON - show mode and fan icons
+        let modeIcon = '';
+        let fanIcon = '';
+        let flagsIcon = '';
+        
+        // Mode icons
+        switch(json.mode) {
+            case 'COOL':
+                modeIcon = '<span class="material-icons" style="color:#2196f3;" title="Cool">ac_unit</span>';
+                break;
+            case 'HEAT':
+                modeIcon = '<span class="material-symbols-outlined" style="color:#ff9800;" title="Heat">sunny</span>';
+                break;
+            case 'DRY':
+                modeIcon = '<span class="material-icons" style="color:#795548;" title="Dry">opacity</span>';
+                break;
+            case 'FAN':
+                modeIcon = '<span class="material-symbols-outlined" style="color:#4caf50;" title="Fan">mode_fan</span>';
+                break;
+            case 'AUTO':
+                modeIcon = '<span class="material-icons" style="color:#9c27b0;" title="Mode Auto">hdr_auto</span>';
+                break;
+            default:
+                modeIcon = '<span class="material-icons" style="color:#9e9e9e;" title="Unknown">help_outline</span>';
+        }
+        
+        // Fan speed icons - different icons for each speed
+        // Using density icons for fan speeds may seem counterintuitive because they are inversely related
+        switch(json.fan) {
+            case 'LOW':
+                fanIcon = '<span class="material-icons" style="color:#4caf50;" title="Low">density_large</span>';
+                break;
+            case 'MED':
+                fanIcon = '<span class="material-icons" style="color:#ff9800;" title="Medium">density_medium</span>';
+                break;
+            case 'HIGH':
+                fanIcon = '<span class="material-icons" style="color:#f44336;" title="High">density_small</span>';
+                break;
+            case 'AUTO':
+                fanIcon = '<span class="material-icons" style="color:#2196f3;" title="Fan Auto">hdr_auto</span>';
                 break;
             default:
                 fanIcon = '<span class="material-icons" style="color:#9e9e9e;" title="Unknown">quenstion_mark</span>';
@@ -763,13 +898,29 @@ function updateStatusIcons(json) {
                 mqttIcon = ' <span class="material-icons" style="color:#f44336;" title="MQTT Disconnected">home</span>';
             }
         }
-        
+                
         statusIconsContainer.innerHTML = '<span class="material-icons" style="color:#f44336;" title="Off">power_off</span>' + mqttIcon + timerIcon;
+    }
+        
+    // Simulation Mode status icon
+    let simulationModeIcon = '';
+    if (json.simulation_mode !== undefined && json.simulation_mode == true) {
+        simulationModeIcon = ' <span class="material-symbols-outlined" style="color:#ff9800;" title="Simulation Mode Active">computer</span>';
+    }
+    
+    // Update the final statusIconsContainer.innerHTML lines to include simulationModeIcon:
+    
+    if (json.power == '1') {
+        // Power is ON case
+        statusIconsContainer.innerHTML = flagsIcon + ' ' + modeIcon + ' ' + fanIcon + mqttIcon + simulationModeIcon + timerIcon;
+    } else {
+        // Power is OFF case  
+        statusIconsContainer.innerHTML = '<span class="material-icons" style="color:#f44336;" title="Off">power_off</span>' + mqttIcon + simulationModeIcon + timerIcon;
     }
 }
 
 // Helper function to send command and request status
-function sendRequestStatus(data) {
+function sendRequestStatus() {
     //let json = JSON.stringify(data);
     //connection.send(json);
     //console.log('Send: ' + json);
@@ -779,12 +930,13 @@ function sendRequestStatus(data) {
         let statusData = {
             id: "status",
             //value: new Date().getHours() + ":" + new Date().getMinutes() + ":" + new Date().getSeconds()
-            value: new Date().toLocaleTimeString('default', { hour12: false })
+            value: new Date().toLocaleTimeString('default', { hour12: false }) + " - event"
+            
 
         };
         let statusJson = JSON.stringify(statusData);
         connection.send(statusJson);
-        console.log('Auto status request: ' + statusJson);
+        console.log('Event status request: ' + statusJson);
     }, 100); // 100ms delay
 }
 
@@ -800,7 +952,7 @@ function power_on() {
     console.log('Send: ' + json);
     
     document.getElementById('power_on').style.backgroundColor = button_pressed_color;
-    sendRequestStatus(data);
+    sendRequestStatus();
 }
 
 function power_off() {
@@ -814,7 +966,7 @@ function power_off() {
     console.log('Send: ' + json);
     
     document.getElementById('power_off').style.backgroundColor = button_pressed_color;
-    sendRequestStatus(data);
+    sendRequestStatus();
 }
 
 function save_toggle() {
@@ -836,7 +988,7 @@ function save_toggle() {
         document.getElementById('save_button').style.backgroundColor = button_released_color;
     }
     
-    sendRequestStatus(data);
+    sendRequestStatus();
 }
 
 function mode_fan() {
@@ -850,7 +1002,7 @@ function mode_fan() {
     console.log('Send: ' + json);
     
     document.getElementById('mode_fan').style.backgroundColor = button_pressed_color;
-    sendRequestStatus(data);
+    sendRequestStatus();
 }
 
 function mode_dry() {
@@ -864,7 +1016,7 @@ function mode_dry() {
     console.log('Send: ' + json);
     
     document.getElementById('mode_dry').style.backgroundColor = button_pressed_color;
-    sendRequestStatus(data);
+    sendRequestStatus();
 }
 
 function mode_cool() {
@@ -878,7 +1030,7 @@ function mode_cool() {
     console.log('Send: ' + json);
     
     document.getElementById('mode_cool').style.backgroundColor = button_pressed_color;
-    sendRequestStatus(data);
+    sendRequestStatus();
 }
 
 function mode_heat() {
@@ -892,7 +1044,7 @@ function mode_heat() {
     console.log('Send: ' + json);
     
     document.getElementById('mode_heat').style.backgroundColor = button_pressed_color;
-    sendRequestStatus(data);
+    sendRequestStatus();
 }
 
 function mode_auto() {
@@ -906,7 +1058,7 @@ function mode_auto() {
     console.log('Send: ' + json);
     
     document.getElementById('mode_auto').style.backgroundColor = button_pressed_color;
-    sendRequestStatus(data);
+    sendRequestStatus();
 }
 
 function fan_low() {
@@ -920,7 +1072,7 @@ function fan_low() {
     console.log('Send: ' + json);
     
     document.getElementById('fan_low').style.backgroundColor = button_pressed_color;
-    sendRequestStatus(data);
+    sendRequestStatus();
 }
 
 function fan_medium() {
@@ -934,7 +1086,7 @@ function fan_medium() {
     console.log('Send: ' + json);
     
     document.getElementById('fan_medium').style.backgroundColor = button_pressed_color;
-    sendRequestStatus(data);
+    sendRequestStatus();
 }
 
 function fan_high() {
@@ -948,7 +1100,7 @@ function fan_high() {
     console.log('Send: ' + json);
     
     document.getElementById('fan_high').style.backgroundColor = button_pressed_color;
-    sendRequestStatus(data);
+    sendRequestStatus();
 }
 
 function fan_auto() {
@@ -962,7 +1114,7 @@ function fan_auto() {
     console.log('Send: ' + json);
     
     document.getElementById('fan_auto').style.backgroundColor = button_pressed_color;
-    sendRequestStatus(data);
+    sendRequestStatus();
 }
 
 function temp_plus() {
@@ -974,7 +1126,7 @@ function temp_plus() {
  
     connection.send(json);
     console.log('Send: ' + json);
-    sendRequestStatus(data);
+    sendRequestStatus();
 }
 
 function temp_minus() {
@@ -986,7 +1138,7 @@ function temp_minus() {
  
     connection.send(json);
     console.log('Send: ' + json); 
-    sendRequestStatus(data);
+    sendRequestStatus();
 }
 
 function timer_changed() {
@@ -1115,7 +1267,7 @@ function cycleFanSpeed() {
     connection.send(json);
     console.log('Send: ' + json);
     
-    sendRequestStatus(data);
+    sendRequestStatus();
 }
 
 // Update the parseStatus function to handle the single fan button
@@ -1170,7 +1322,7 @@ function cycleMode() {
     connection.send(json);
     console.log('Send: ' + json);
     
-    sendRequestStatus(data);
+    sendRequestStatus();
 }
 
 // Update function to handle the single mode button
@@ -1270,6 +1422,8 @@ function reset_sw_air_timer(){
     console.log('Send: ' + json);
     
     document.getElementById('sw_set_timer_button').style.backgroundColor = button_released_color;
+
+    sendRequestStatus();
 }
 
 // Add this variable at the top with other global variables
@@ -1312,6 +1466,8 @@ function set_sw_air_timer(){
  
     connection.send(json);
     console.log('Send: ' + json); 
+
+    sendRequestStatus();
 }
 
 function timer_hw_cancel() {
@@ -1932,7 +2088,12 @@ function toggleHomeAssistantControls() {
         homeassistantIcon.style.border = '2px solid #002F7A';
         homeassistantIcon.style.boxShadow = '0 2px 8px #002F7A44';
         
-        loadMQTTConfig();
+        // Only load MQTT config if WebSocket is connected
+        if (connection && connection.readyState === WebSocket.OPEN) {
+            loadMQTTConfig();
+        } else {
+            console.log('WebSocket not connected, skipping MQTT config load');
+        }
     } else {
         homeassistantControls.style.display = 'none';
         homeassistantIcon.style.border = '2px solid #e9ecef';
@@ -2283,6 +2444,81 @@ function resetObservedRemotes() {
     console.log("Clearing observed remotes...");
 }
 
+function enableSimulationMode() {
+    let data = {
+        id: "simulation_mode",
+        value: "enable"
+    };
+    
+    let json = JSON.stringify(data);
+    connection.send(json);
+    console.log('Enable Simulation Mode: ' + json);
+    
+    // Visual feedback
+    const enableButton = document.getElementById('simulation_mode_enable_btn');
+    const originalText = enableButton.innerHTML;
+    enableButton.innerHTML = '<span class="material-icons" style="font-size: 14px; vertical-align: middle;">check</span> Enabled!';
+    enableButton.style.background = '#4caf50';
+    
+    setTimeout(() => {
+        enableButton.innerHTML = originalText;
+        enableButton.style.background = '#ff9800';
+    }, 1500);
+    
+    // Update status
+    document.getElementById('simulation_mode_status').textContent = 'Enabled';
+    document.getElementById('simulation_mode_status').style.color = '#ff9800';
+}
+
+function disableSimulationMode() {
+    let data = {
+        id: "simulation_mode",
+        value: "disable"
+    };
+    
+    let json = JSON.stringify(data);
+    connection.send(json);
+    console.log('Disable Simulation Mode: ' + json);
+    
+    // Visual feedback
+    const disableButton = document.getElementById('simulation_mode_disable_btn');
+    const originalText = disableButton.innerHTML;
+    disableButton.innerHTML = '<span class="material-icons" style="font-size: 14px; vertical-align: middle;">check</span> Disabled!';
+    disableButton.style.background = '#4caf50';
+    
+    setTimeout(() => {
+        disableButton.innerHTML = originalText;
+        disableButton.style.background = '#6c757d';
+    }, 1500);
+    
+    // Update status
+    document.getElementById('simulation_mode_status').textContent = 'Disabled';
+    document.getElementById('simulation_mode_status').style.color = '#6c757d';
+}
+
+function restartDevice() {
+    if (confirm('Are you sure you want to restart the device?')) {
+        let data = {
+            id: "restart"
+        };
+        let json = JSON.stringify(data);
+        connection.send(json);
+        console.log('Send Restart: ' + json);
+
+        // Visual feedback
+        const btn = document.getElementById('restart_button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="material-icons" style="font-size: 16px; vertical-align: middle;">autorenew</span> Restarting...';
+        btn.style.background = '#ff9800';
+        btn.disabled = true;
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.style.background = '#d32f2f';
+            btn.disabled = false;
+        }, 8000);
+    }
+}
+
 window.onload = function() {
     //getTimeseries();  //avoid errors when no connection is available
 	showGraph();
@@ -2349,8 +2585,8 @@ window.onload = function() {
                     | Fan: <span id="indoor_fan_speed">--</span> rpm</div>
             </div>
 
-            <!-- Controller Buttons -->
-            <div class="button-row">
+            <!-- Controller Buttons. Not displayed. Maybe show these in computer and compact in small devices-->
+            <div class="button-row"  style="display: none;">
                 <button class="control-btn" id="power_on" onclick="power_on();">
                     <span class="material-icons">power_settings_new</span>
                     ON
@@ -2364,17 +2600,7 @@ window.onload = function() {
                     Save
                 </button>
             </div>
-            <div class="button-row" style="display: none;">
-                <button class="control-btn" id="power_btn" onclick="cyclePower();">
-                    <span class="material-icons" id="power_icon">power_off</span>
-                    <span id="power_text">OFF</span>
-                </button>
-                <button class="control-btn" id="save_button" onclick="save_toggle();">
-                    <span class="material-icons">energy_savings_leaf</span>
-                    Save
-                </button>
-            </div>
-            <div class="button-row">
+            <div class="button-row"  style="display: none;">
                 <button class="control-btn" id="mode_fan" onclick="mode_fan();">
                     <span class="material-symbols-outlined">mode_fan</span>
                     Fan
@@ -2397,7 +2623,7 @@ window.onload = function() {
                     Auto
                 </button>
             </div>
-            <div class="button-row">
+            <div class="button-row"  style="display: none;">
                 <button class="control-btn" id="fan_low" onclick="fan_low();">
                     <span class="material-symbols-outlined">density_large</span>
                     Low
@@ -2415,7 +2641,18 @@ window.onload = function() {
                     Auto
                 </button>
             </div>
-            <div class="button-row" style="display: none;">
+            <!-- Compact controller buttons -->
+            <div class="button-row">
+                <button class="control-btn" id="power_btn" onclick="cyclePower();">
+                    <span class="material-icons" id="power_icon">power_off</span>
+                    <span id="power_text">OFF</span>
+                </button>
+                <button class="control-btn" id="save_button" onclick="save_toggle();">
+                    <span class="material-icons">energy_savings_leaf</span>
+                    Save
+                </button>
+            </div>
+            <div class="button-row">
                 <button class="control-btn" id="mode_btn" onclick="cycleMode();">
                     <span class="material-symbols-outlined" id="mode_icon">mode_fan</span>
                     <span id="mode_text">Fan</span>
@@ -2771,6 +3008,29 @@ window.onload = function() {
                         </div>
                     </div>
 
+                    <!-- Simulation Mode Control -->
+                    <div style="margin-bottom: 12px; padding: 8px; background: #fff3cd; border-radius: 4px; border: 1px solid #ffeaa7;">
+                        <div style="color: #856404; font-size: 11px; margin-bottom: 4px;">Simulation Mode:</div>
+                        <div style="display: flex; gap: 4px; margin-bottom: 4px;">
+                            <button id="simulation_mode_enable_btn" onclick="enableSimulationMode();"
+                                style="flex: 1; padding: 6px 12px; background: #ff9800; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                                <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">computer</span>
+                                Enable Simulation Mode
+                            </button>
+                            <button id="simulation_mode_disable_btn" onclick="disableSimulationMode();"
+                                style="flex: 1; padding: 6px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                                <span class="material-icons" style="font-size: 14px; vertical-align: middle;">cancel</span>
+                                Disable Simulation Mode
+                            </button>
+                        </div>
+                        <div style="color: #856404; font-size: 10px;">
+                            Simulation mode simulates AC without hardware. All commands update status directly.
+                        </div>
+                        <div style="margin-top: 4px;">
+                            Status: <span id="simulation_mode_status" style="font-weight: bold; color: #6c757d;">Disabled</span>
+                        </div>
+                    </div>
+
                     <!-- Temperature Sampling Rate -->
                     <div style="margin-bottom: 8px;">
                         <span style="color: #666; font-size: 12px;">Temperature sampling rate:</span>
@@ -2781,6 +3041,14 @@ window.onload = function() {
                             <button id="sampling_button" onclick="set_sampling();"
                                 style="padding: 4px 8px; background: #002F7A; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">Set</button>
                         </div>
+                    </div>
+                    <!-- Restart -->
+                    <div style="margin-top: 12px;">
+                        <button id="restart_button" onclick="restartDevice();"
+                            style="padding: 8px 16px; background: #d32f2f; color: white; border: none; border-radius: 4px; font-size: 13px; cursor: pointer;">
+                            <span class="material-icons" style="font-size: 16px; vertical-align: middle; margin-right: 4px;">restart_alt</span>
+                            Restart Device
+                        </button>
                     </div>
                     <!-- Upload file -->
                     <div

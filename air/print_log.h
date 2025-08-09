@@ -3,7 +3,15 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
+
+#ifdef USE_ASYNC
+#include <ESPAsyncWebServer.h>
+#else
 #include <WebSocketsServer.h>
+#endif
+
+// External function declaration (defined in air.ino)
+extern void webSocketBroadcast(String message);
 
 // Logging function declarations
 void print_log(const String& msg);
