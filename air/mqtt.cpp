@@ -281,7 +281,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 
       if (simulation_mode) {
         air_status.target_temp = temp;
-        print_logf("[TEST MODE] Temperature set to %d°C via MQTT", temp);
+        print_logf("[SIMULATION MODE] Temperature set to %d°C via MQTT", temp);
       } else {
         air_set_temp(&air_status, temp);
       }
@@ -296,7 +296,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
       print_log("[MQTT] Power ON command");
       if (simulation_mode) {
         air_status.power = true;
-        print_log("[TEST MODE] Power ON via MQTT");
+        print_log("[SIMULATION MODE] Power ON via MQTT");
       } else {
         air_set_power_on(&air_status);
       }
@@ -307,7 +307,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
       print_log("[MQTT] Power OFF command");
       if (simulation_mode) {
         air_status.power = false;
-        print_log("[TEST MODE] Power OFF via MQTT");
+        print_log("[SIMULATION MODE] Power OFF via MQTT");
       } else {
         air_set_power_off(&air_status);
       }
@@ -321,27 +321,27 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
         if (message == "cool") {
           air_status.mode = MODE_COOL;
           strcpy(air_status.mode_str, "COOL");
-          print_log("[TEST MODE] Mode set to COOL via MQTT");
+          print_log("[SIMULATION MODE] Mode set to COOL via MQTT");
           statusChanged = true;
         } else if (message == "heat") {
           air_status.mode = MODE_HEAT;
           strcpy(air_status.mode_str, "HEAT");
-          print_log("[TEST MODE] Mode set to HEAT via MQTT");
+          print_log("[SIMULATION MODE] Mode set to HEAT via MQTT");
           statusChanged = true;
         } else if (message == "auto") {
           air_status.mode = MODE_AUTO;
           strcpy(air_status.mode_str, "AUTO");
-          print_log("[TEST MODE] Mode set to AUTO via MQTT");
+          print_log("[SIMULATION MODE] Mode set to AUTO via MQTT");
           statusChanged = true;
         } else if (message == "fan_only") {
           air_status.mode = MODE_FAN;
           strcpy(air_status.mode_str, "FAN");
-          print_log("[TEST MODE] Mode set to FAN via MQTT");
+          print_log("[SIMULATION MODE] Mode set to FAN via MQTT");
           statusChanged = true;
         } else if (message == "dry") {
           air_status.mode = MODE_DRY;
           strcpy(air_status.mode_str, "DRY");
-          print_log("[TEST MODE] Mode set to DRY via MQTT");
+          print_log("[SIMULATION MODE] Mode set to DRY via MQTT");
           statusChanged = true;
         }
       } else {
@@ -401,28 +401,28 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
         {
           air_status.fan = FAN_LOW;
           strcpy(air_status.fan_str, "LOW");
-          print_log("[TEST MODE] Fan set to LOW via MQTT");
+          print_log("[SIMULATION MODE] Fan set to LOW via MQTT");
           statusChanged = true;
         }
         else if (message == "medium")
         {
           air_status.fan = FAN_MEDIUM;
           strcpy(air_status.fan_str, "MED");
-          print_log("[TEST MODE] Fan set to MEDIUM via MQTT");
+          print_log("[SIMULATION MODE] Fan set to MEDIUM via MQTT");
           statusChanged = true;
         }
         else if (message == "high")
         {
           air_status.fan = FAN_HIGH;
           strcpy(air_status.fan_str, "HIGH");
-          print_log("[TEST MODE] Fan set to HIGH via MQTT");
+          print_log("[SIMULATION MODE] Fan set to HIGH via MQTT");
           statusChanged = true;
         }
         else if (message == "auto")
         {
           air_status.fan = FAN_AUTO;
           strcpy(air_status.fan_str, "AUTO");
-          print_log("[TEST MODE] Fan set to AUTO via MQTT");
+          print_log("[SIMULATION MODE] Fan set to AUTO via MQTT");
           statusChanged = true;
         }
       } else {
@@ -455,7 +455,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
     if (statusChanged)
     {
       if (simulation_mode) {
-        print_log("[MQTT] command processed successfully (TEST MODE)");
+        print_log("[MQTT] command processed successfully (SIMULATION MODE)");
       } else {
         print_log("[MQTT] command processed successfully");
       }
