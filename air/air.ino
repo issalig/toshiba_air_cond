@@ -195,7 +195,7 @@ MySimpleTimer timerAutonomous;
 //MySimpleTimer timerTelegram;
 
 bool autonomous_mode = false; // use autonomous mode if there is no wired remote
-bool simulation_mode = true; // Set to true to enable simulation mode without AC unit
+bool simulation_mode = false; // Set to true to enable simulation mode without AC unit
 
 
 int temp_interval = 1800; //in secs, 30 mins for temperature readings

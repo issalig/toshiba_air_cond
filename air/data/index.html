@@ -1410,6 +1410,15 @@ function toggleDebugControls() {
     }
 }
 
+function toggleCollapse(section) {
+    const body = document.getElementById(section + '_body');
+    const icon = document.getElementById(section + '_icon');
+    if (!body || !icon) return;
+    const hidden = body.style.display === 'none';
+    body.style.display = hidden ? 'grid' : 'none';
+    icon.textContent = hidden ? 'expand_less' : 'expand_more';
+}
+
 function reset_sw_air_timer(){	
     let data = {
        id : "timer",
@@ -2496,6 +2505,37 @@ function disableSimulationMode() {
     document.getElementById('simulation_mode_status').style.color = '#6c757d';
 }
 
+function showSystemSubsection(subsection) {
+    // Hide all subsections
+    const subsections = ['info', 'sensors', 'addresses', 'modes', 'admin'];
+    subsections.forEach(sub => {
+        const element = document.getElementById(`system-${sub}-subsection`);
+        if (element) {
+            element.style.display = 'none';
+        }
+        
+        // Reset button styles
+        const btn = document.getElementById(`system-${sub}-btn`);
+        if (btn) {
+            btn.style.background = '#6c757d';
+            btn.style.color = 'white';
+        }
+    });
+    
+    // Show selected subsection
+    const selectedElement = document.getElementById(`system-${subsection}-subsection`);
+    if (selectedElement) {
+        selectedElement.style.display = 'block';
+    }
+    
+    // Highlight selected button
+    const selectedBtn = document.getElementById(`system-${subsection}-btn`);
+    if (selectedBtn) {
+        selectedBtn.style.background = '#002F7A';
+        selectedBtn.style.color = 'white';
+    }
+}
+
 function restartDevice() {
     if (confirm('Are you sure you want to restart the device?')) {
         let data = {
@@ -2799,272 +2839,295 @@ window.onload = function() {
                         </div>
                     </div>
                 </div>
+<!-- comments -->
 
-                <!-- System Controls - Hidden by Default -->
-                <div id="system-controls" style="display: none; margin-bottom: 12px;">
-                    <!-- System Information -->
-                    <div
-                        style="background: #fff; border-radius: 8px; padding: 12px; margin-bottom: 8px; box-shadow: 0 2px 4px #002F7A22;">
-                        <div style="font-weight: bold; color: #002F7A; margin-bottom: 8px; font-size: 14px;">System
-                            Information</div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;">
-                            <div>
-                                <span style="color: #666;">Boot Time:</span><br>
-                                <span id="boot_time" style="color: #002F7A; font-weight: bold;">--</span>
-                            </div>
-                            <div>
-                                <span style="color: #666;">IP Address:</span><br>
-                                <span id="ip" style="color: #002F7A; font-weight: bold;">--</span>
-                            </div>
-                            <div>
-                                <span style="color: #666;">Free Memory:</span><br>
-                                <span id="heap" style="color: #002F7A; font-weight: bold;">--</span>
-                            </div>
-                            <div>
-                                <span style="color: #666;">Decode Errors:</span><br>
-                                <span id="decode_errors" style="color: #002F7A; font-weight: bold;">--</span>
-                            </div>
-                        </div>
-                    </div>
+<!-- System Controls - Hidden by Default -->
+<div id="system-controls" style="display: none; margin-bottom: 12px;">
+    <!-- System Subsection Navigation -->
+    <div style="display: flex; gap: 4px; margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 8px;">
+        <button onclick="showSystemSubsection('info')" id="system-info-btn" 
+                style="flex: 1; padding: 8px 4px; background: #002F7A; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+            <span class="material-icons" style="font-size: 14px; display: block;">info</span>
+            Info
+        </button>
+        <button onclick="showSystemSubsection('sensors')" id="system-sensors-btn"
+                style="flex: 1; padding: 8px 4px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+            <span class="material-icons" style="font-size: 14px; display: block;">sensors</span>
+            Sensors
+        </button>
+        <button onclick="showSystemSubsection('addresses')" id="system-addresses-btn"
+                style="flex: 1; padding: 8px 4px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+            <span class="material-icons" style="font-size: 14px; display: block;">router</span>
+            Addresses
+        </button>
+        <button onclick="showSystemSubsection('modes')" id="system-modes-btn"
+                style="flex: 1; padding: 8px 4px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+            <span class="material-icons" style="font-size: 14px; display: block;">settings</span>
+            Modes
+        </button>
+        <button onclick="showSystemSubsection('admin')" id="system-admin-btn"
+                style="flex: 1; padding: 8px 4px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+            <span class="material-icons" style="font-size: 14px; display: block;">admin_panel_settings</span>
+            Admin
+        </button>
+    </div>
 
-    <!-- Indoor Sensors Section -->
-    <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #e9ecef;">
-        <div style="font-weight: bold; color: #002F7A; margin-bottom: 6px; font-size: 13px;">Indoor Sensors</div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
-            <div>
-                <span style="color: #666;">Room Temp:</span><br>
-                <span id="indoor_room_temp" style="color: #002F7A; font-weight: bold;">--</span>°C
-            </div>
-            <div>
-                <span style="color: #666;">TA:</span><br>
-                <span id="indoor_ta" style="color: #002F7A; font-weight: bold;">--</span>°C
-            </div>
-            <div>
-                <span style="color: #666;">TCJ:</span><br>
-                <span id="indoor_tcj" style="color: #002F7A; font-weight: bold;">--</span>°C
-            </div>
-            <div>
-                <span style="color: #666;">TC:</span><br>
-                <span id="indoor_tc" style="color: #002F7A; font-weight: bold;">--</span>°C
-            </div>
-            <div>
-                <span style="color: #666;">Filter Time:</span><br>
-                <span id="indoor_filter_time" style="color: #002F7A; font-weight: bold;">--</span>
-            </div>
-            <div>
-                <span style="color: #666;">Fan Run Time:</span><br>
-                <span id="indoor_fan_run_time" style="color: #002F7A; font-weight: bold;">--</span>
+    <!-- System Information Subsection -->
+    <div id="system-info-subsection">
+        <!-- System Information -->
+        <div style="background: #fff; border-radius: 8px; padding: 12px; margin-bottom: 8px; box-shadow: 0 2px 4px #002F7A22;">
+            <div style="font-weight: bold; color: #002F7A; margin-bottom: 8px; font-size: 14px;">System Information</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;">
+                <div>
+                    <span style="color: #666;">Boot Time:</span><br>
+                    <span id="boot_time" style="color: #002F7A; font-weight: bold;">--</span>
+                </div>
+                <div>
+                    <span style="color: #666;">IP Address:</span><br>
+                    <span id="ip" style="color: #002F7A; font-weight: bold;">--</span>
+                </div>
+                <div>
+                    <span style="color: #666;">Free Memory:</span><br>
+                    <span id="heap" style="color: #002F7A; font-weight: bold;">--</span>
+                </div>
+                <div>
+                    <span style="color: #666;">Decode Errors:</span><br>
+                    <span id="decode_errors" style="color: #002F7A; font-weight: bold;">--</span>
+                </div>
             </div>
         </div>
     </div>
+
+    <!-- System Sensors Subsection -->
+    <div id="system-sensors-subsection" style="display: none;">
+        <!-- Indoor Sensors Section -->
+        <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #e9ecef;">
+            <div onclick="toggleCollapse('indoor_sensors')" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+                <div style="font-weight: bold; color: #002F7A; margin-bottom: 6px; font-size: 13px;">Indoor Sensors</div>
+                <span id="indoor_sensors_icon" class="material-icons" style="font-size:18px;color:#002F7A;">expand_less</span>
+            </div>
+            <div id="indoor_sensors_body" style="display:grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; margin-top:4px;">
+                <div>
+                    <span style="color: #666;">Room Temp:</span><br>
+                    <span id="indoor_room_temp" style="color: #002F7A; font-weight: bold;">--</span>°C
+                </div>
+                <div>
+                    <span style="color: #666;">TA:</span><br>
+                    <span id="indoor_ta" style="color: #002F7A; font-weight: bold;">--</span>°C
+                </div>
+                <div>
+                    <span style="color: #666;">TCJ:</span><br>
+                    <span id="indoor_tcj" style="color: #002F7A; font-weight: bold;">--</span>°C
+                </div>
+                <div>
+                    <span style="color: #666;">TC:</span><br>
+                    <span id="indoor_tc" style="color: #002F7A; font-weight: bold;">--</span>°C
+                </div>
+                <div>
+                    <span style="color: #666;">Filter Time:</span><br>
+                    <span id="indoor_filter_time" style="color: #002F7A; font-weight: bold;">--</span>
+                </div>
+                <div>
+                    <span style="color: #666;">Fan Run Time:</span><br>
+                    <span id="indoor_fan_run_time" style="color: #002F7A; font-weight: bold;">--</span>
+                </div>
+            </div>
+        </div>
 
         <!-- Outdoor Sensors Section -->
-    <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #e9ecef;">
-        <div style="font-weight: bold; color: #002F7A; margin-bottom: 6px; font-size: 13px;">Outdoor Sensors</div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
-            <div>
-                <span style="color: #666;">TO:</span><br>
-                <span id="outdoor_to" style="color: #002F7A; font-weight: bold;">--</span>°C
+        <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #e9ecef;">
+            <div onclick="toggleCollapse('outdoor_sensors')" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+                <div style="font-weight: bold; color: #002F7A; margin-bottom: 6px; font-size: 13px;">Outdoor Sensors</div>
+                <span id="outdoor_sensors_icon" class="material-icons" style="font-size:18px;color:#002F7A;">expand_less</span>
             </div>
-            <div>
-                <span style="color: #666;">TD:</span><br>
-                <span id="outdoor_td" style="color: #002F7A; font-weight: bold;">--</span>°C
-            </div>
-            <div>
-                <span style="color: #666;">TS:</span><br>
-                <span id="outdoor_ts" style="color: #002F7A; font-weight: bold;">--</span>°C
-            </div>
-            <div>
-                <span style="color: #666;">THS:</span><br>
-                <span id="outdoor_ths" style="color: #002F7A; font-weight: bold;">--</span>°C
-            </div>
-            <div>
-                <span style="color: #666;">TL:</span><br>
-                <span id="outdoor_tl" style="color: #002F7A; font-weight: bold;">--</span>°C
-            </div>
-            <div>
-                <span style="color: #666;">Current:</span><br>
-                <span id="outdoor_current" style="color: #002F7A; font-weight: bold;">--</span>A
-            </div>
-            <div>
-                <span style="color: #666;">Cumulative Hours:</span><br>
-                <span id="outdoor_cumhour" style="color: #002F7A; font-weight: bold;">--</span>h(x10)
-            </div>
-            <div>
-                <span style="color: #666;">Comp Freq:</span><br>
-                <span id="outdoor_comp_freq" style="color: #002F7A; font-weight: bold;">--</span>Hz
-            </div>
-            <div>
-                <span style="color: #666;">Fan Low Speed:</span><br>
-                <span id="outdoor_lower_fan_speed" style="color: #002F7A; font-weight: bold;">--</span>
-            </div>
-            <div>
-                <span style="color: #666;">Fan High Speed:</span><br>
-                <span id="outdoor_upper_fan_speed" style="color: #002F7A; font-weight: bold;">--</span>
+            <div id="outdoor_sensors_body" style="display:grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; margin-top:4px;">
+                <div>
+                    <span style="color: #666;">TO:</span><br>
+                    <span id="outdoor_to" style="color: #002F7A; font-weight: bold;">--</span>°C
+                </div>
+                <div>
+                    <span style="color: #666;">TD:</span><br>
+                    <span id="outdoor_td" style="color: #002F7A; font-weight: bold;">--</span>°C
+                </div>
+                <div>
+                    <span style="color: #666;">TS:</span><br>
+                    <span id="outdoor_ts" style="color: #002F7A; font-weight: bold;">--</span>°C
+                </div>
+                <div>
+                    <span style="color: #666;">THS:</span><br>
+                    <span id="outdoor_ths" style="color: #002F7A; font-weight: bold;">--</span>°C
+                </div>
+                <div>
+                    <span style="color: #666;">TL:</span><br>
+                    <span id="outdoor_tl" style="color: #002F7A; font-weight: bold;">--</span>°C
+                </div>
+                <div>
+                    <span style="color: #666;">Current:</span><br>
+                    <span id="outdoor_current" style="color: #002F7A; font-weight: bold;">--</span>A
+                </div>
+                <div>
+                    <span style="color: #666;">Cumulative Hours:</span><br>
+                    <span id="outdoor_cumhour" style="color: #002F7A; font-weight: bold;">--</span>h(x10)
+                </div>
+                <div>
+                    <span style="color: #666;">Comp Freq:</span><br>
+                    <span id="outdoor_comp_freq" style="color: #002F7A; font-weight: bold;">--</span>Hz
+                </div>
+                <div>
+                    <span style="color: #666;">Fan Low Speed:</span><br>
+                    <span id="outdoor_lower_fan_speed" style="color: #002F7A; font-weight: bold;">--</span>
+                </div>
+                <div>
+                    <span style="color: #666;">Fan High Speed:</span><br>
+                    <span id="outdoor_upper_fan_speed" style="color: #002F7A; font-weight: bold;">--</span>
+                </div>
             </div>
         </div>
     </div>
 
-                    <!-- Address Configuration Section -->
-                    <div
-                        style="background: #fff; border-radius: 8px; padding: 12px; margin-bottom: 8px; box-shadow: 0 2px 4px #002F7A22;">
-                        <div style="font-weight: bold; color: #002F7A; margin-bottom: 8px; font-size: 14px;">Address
-                            Configuration</div>
+    <!-- System Addresses Subsection -->
+    <div id="system-addresses-subsection" style="display: none;">
+        <!-- Address Configuration Section -->
+        <div style="background: #fff; border-radius: 8px; padding: 12px; margin-bottom: 8px; box-shadow: 0 2px 4px #002F7A22;">
+            <div style="font-weight: bold; color: #002F7A; margin-bottom: 8px; font-size: 14px;">Address Configuration</div>
 
-                        <!-- Current Addresses Display -->
-                        <div
-                            style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; border: 1px solid #e9ecef;">
-                            <div style="color: #666; font-size: 11px; margin-bottom: 4px;">Current addresses:</div>
-                            <div style="font-family: monospace; font-size: 11px; margin-bottom: 4px;">
-                                <span style="color: #333;">Active Master:</span> <span id="current_master"
-                                    style="color: #002F7A; font-weight: bold;">0x--</span>
-                                <span style="margin-left: 16px; color: #333;">Active Remote:</span> <span
-                                    id="current_remote" style="color: #002F7A; font-weight: bold;">0x--</span>
-                            </div>
-                            <div style="font-family: monospace; font-size: 11px;">
-                                <span style="color: #666;">Observed Master:</span> <span id="observed_master"
-                                    style="color: #28a745; font-weight: bold;">0x--</span>
-                                <span style="margin-left: 16px; color: #666;">Observed Remotes:</span> <span
-                                    id="observed_remotes" style="color: #28a745; font-weight: bold;">0x--</span>
-                            </div>
-                        </div>
-
-                        <!-- Address Controls -->
-                        <div
-                            style="margin-bottom: 8px; padding: 8px; background: #fff3cd; border-radius: 4px; border: 1px solid #ffeaa7;">
-                            <div style="color: #856404; font-size: 11px; margin-bottom: 6px;">Address Controls:</div>
-                            <div style="display: flex; gap: 4px; margin-bottom: 4px;">
-                                <button onclick="syncAddresses();"
-                                    style="flex: 1; padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
-                                    <span class="material-icons"
-                                        style="font-size: 12px; vertical-align: middle;">sync</span>
-                                    Use Observed
-                                </button>
-                                <button onclick="resetAddresses();"
-                                    style="flex: 1; padding: 6px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
-                                    <span class="material-icons"
-                                        style="font-size: 12px; vertical-align: middle;">refresh</span>
-                                    Reset Default
-                                </button>
-                                <button onclick="resetObservedRemotes();"
-                                    style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; margin-left: 4px;">
-                                    Clear Observed
-                                </button>
-                            </div>
-                            <div style="color: #856404; font-size: 10px;">
-                                "Use Observed" copies detected addresses to active ones. "Reset Default" restores
-                                0x00/0x40.
-                            </div>
-                        </div>
-
-                        <!-- Manual Address Setting -->
-                        <div
-                            style="margin-bottom: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px; border: 1px solid #e9ecef;">
-                            <div style="color: #666; font-size: 11px; margin-bottom: 4px;">Manual address setting:</div>
-                            <div
-                                style="display: flex; gap: 4px; margin-bottom: 4px; align-items: center; justify-content: center;">
-                                <label for="manual_master" style="color: #333; font-size: 11px;">Master:</label>
-                                <input id="manual_master" type="text" placeholder="0x00" maxlength="4"
-                                    style="width: 50px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 11px;" />
-                                <label for="manual_remote" style="color: #333; font-size: 11px;">Remote:</label>
-                                <input id="manual_remote" type="text" placeholder="0x40" maxlength="4"
-                                    style="width: 50px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 11px;" />
-                                <button onclick="setManualAddresses();"
-                                    style="padding: 4px 8px; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
-                                    Set
-                                </button>
-                            </div>
-                            <div style="color: #999; font-size: 10px;">
-                                Enter hex values (e.g., 0x00, 0x40). Leave empty to keep current.
-                            </div>
-                        </div>
-                    </div>
-
-
-                    <!-- Autonomous Mode Control -->
-                    <div
-                        style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; border: 1px solid #e9ecef;">
-                        <div style="color: #666; font-size: 11px; margin-bottom: 4px;">Autonomous Mode:</div>
-                        <div style="display: flex; gap: 4px; margin-bottom: 4px;">
-                            <button id="autonomous_start_btn" onclick="startAutonomousMode();"
-                                style="flex: 1; padding: 6px 12px; background: #4caf50; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
-                                <span class="material-icons"
-                                    style="font-size: 14px; vertical-align: middle;">play_arrow</span>
-                                Start Auto
-                            </button>
-                            <button id="autonomous_stop_btn" onclick="stopAutonomousMode();"
-                                style="flex: 1; padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
-                                <span class="material-icons"
-                                    style="font-size: 14px; vertical-align: middle;">stop</span>
-                                Stop Auto
-                            </button>
-                        </div>
-                        <div style="color: #999; font-size: 10px;">
-                            Sends ping and temperature every 8 seconds. A temperature sensor is required.
-                        </div>
-                        <div style="margin-top: 4px;">
-                            Status: <span id="autonomous_status"
-                                style="font-weight: bold; color: #f44336;">Disabled</span>
-                        </div>
-                    </div>
-
-                    <!-- Simulation Mode Control -->
-                    <div style="margin-bottom: 12px; padding: 8px; background: #fff3cd; border-radius: 4px; border: 1px solid #ffeaa7;">
-                        <div style="color: #856404; font-size: 11px; margin-bottom: 4px;">Simulation Mode:</div>
-                        <div style="display: flex; gap: 4px; margin-bottom: 4px;">
-                            <button id="simulation_mode_enable_btn" onclick="enableSimulationMode();"
-                                style="flex: 1; padding: 6px 12px; background: #ff9800; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
-                                <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">computer</span>
-                                Enable Simulation Mode
-                            </button>
-                            <button id="simulation_mode_disable_btn" onclick="disableSimulationMode();"
-                                style="flex: 1; padding: 6px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
-                                <span class="material-icons" style="font-size: 14px; vertical-align: middle;">cancel</span>
-                                Disable Simulation Mode
-                            </button>
-                        </div>
-                        <div style="color: #856404; font-size: 10px;">
-                            Simulation mode simulates AC without hardware. All commands update status directly.
-                        </div>
-                        <div style="margin-top: 4px;">
-                            Status: <span id="simulation_mode_status" style="font-weight: bold; color: #6c757d;">Disabled</span>
-                        </div>
-                    </div>
-
-                    <!-- Temperature Sampling Rate -->
-                    <div style="margin-bottom: 8px;">
-                        <span style="color: #666; font-size: 12px;">Temperature sampling rate:</span>
-                        <div style="display: flex; gap: 4px; margin-top: 4px;">
-                            <input id="sampling_text" type="number" min="1" max="3600"
-                                style="flex: 1; padding: 4px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;"
-                                placeholder="seconds" />
-                            <button id="sampling_button" onclick="set_sampling();"
-                                style="padding: 4px 8px; background: #002F7A; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">Set</button>
-                        </div>
-                    </div>
-                    <!-- Restart -->
-                    <div style="margin-top: 12px;">
-                        <button id="restart_button" onclick="restartDevice();"
-                            style="padding: 8px 16px; background: #d32f2f; color: white; border: none; border-radius: 4px; font-size: 13px; cursor: pointer;">
-                            <span class="material-icons" style="font-size: 16px; vertical-align: middle; margin-right: 4px;">restart_alt</span>
-                            Restart Device
-                        </button>
-                    </div>
-                    <!-- Upload file -->
-                    <div
-                        style="background: #fff; border-radius: 8px; padding: 12px; margin-top: 12px; box-shadow: 0 2px 4px #002F7A22;">
-                        <div style="font-weight: bold; color: #002F7A; margin-bottom: 8px; font-size: 14px;">Upload File
-                        </div>
-                        <input type="file" id="file_input" accept=".txt,.json" style="margin-bottom: 8px;">
-                        <button id="upload_button" onclick="uploadFile();"
-                            style="padding: 6px 12px; background: #002F7A; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">Upload</button>
-
-                        <div style="margin-top: 12px;">
-                            <a href="/edit.html"
-                                style="color: #002F7A; text-decoration: underline; font-size: 13px;">Upload file</a>
-                        </div>
-                    </div>
+            <!-- Current Addresses Display -->
+            <div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; border: 1px solid #e9ecef;">
+                <div style="color: #666; font-size: 11px; margin-bottom: 4px;">Current addresses:</div>
+                <div style="font-family: monospace; font-size: 11px; margin-bottom: 4px;">
+                    <span style="color: #333;">Active Master:</span> <span id="current_master" style="color: #002F7A; font-weight: bold;">0x--</span>
+                    <span style="margin-left: 16px; color: #333;">Active Remote:</span> <span id="current_remote" style="color: #002F7A; font-weight: bold;">0x--</span>
                 </div>
+                <div style="font-family: monospace; font-size: 11px;">
+                    <span style="color: #666;">Observed Master:</span> <span id="observed_master" style="color: #28a745; font-weight: bold;">0x--</span>
+                    <span style="margin-left: 16px; color: #666;">Observed Remotes:</span> <span id="observed_remotes" style="color: #28a745; font-weight: bold;">0x--</span>
+                </div>
+            </div>
+
+            <!-- Address Controls -->
+            <div style="margin-bottom: 8px; padding: 8px; background: #fff3cd; border-radius: 4px; border: 1px solid #ffeaa7;">
+                <div style="color: #856404; font-size: 11px; margin-bottom: 6px;">Address Controls:</div>
+                <div style="display: flex; gap: 4px; margin-bottom: 4px;">
+                    <button onclick="syncAddresses();" style="flex: 1; padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                        <span class="material-icons" style="font-size: 12px; vertical-align: middle;">sync</span>
+                        Use Observed
+                    </button>
+                    <button onclick="resetAddresses();" style="flex: 1; padding: 6px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                        <span class="material-icons" style="font-size: 12px; vertical-align: middle;">refresh</span>
+                        Reset Default
+                    </button>
+                    <button onclick="resetObservedRemotes();" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; margin-left: 4px;">
+                        Clear Observed
+                    </button>
+                </div>
+                <div style="color: #856404; font-size: 10px;">
+                    "Use Observed" copies detected addresses to active ones. "Reset Default" restores 0x00/0x40.
+                </div>
+            </div>
+
+            <!-- Manual Address Setting -->
+            <div style="margin-bottom: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px; border: 1px solid #e9ecef;">
+                <div style="color: #666; font-size: 11px; margin-bottom: 4px;">Manual address setting:</div>
+                <div style="display: flex; gap: 4px; margin-bottom: 4px; align-items: center; justify-content: center;">
+                    <label for="manual_master" style="color: #333; font-size: 11px;">Master:</label>
+                    <input id="manual_master" type="text" placeholder="0x00" maxlength="4" style="width: 50px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 11px;" />
+                    <label for="manual_remote" style="color: #333; font-size: 11px;">Remote:</label>
+                    <input id="manual_remote" type="text" placeholder="0x40" maxlength="4" style="width: 50px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 11px;" />
+                    <button onclick="setManualAddresses();" style="padding: 4px 8px; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                        Set
+                    </button>
+                </div>
+                <div style="color: #999; font-size: 10px;">
+                    Enter hex values (e.g., 0x00, 0x40). Leave empty to keep current.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Modes Subsection -->
+    <div id="system-modes-subsection" style="display: none;">
+        <!-- Mode Configuration -->
+        <div style="background: #fff; border-radius: 8px; padding: 12px; margin-bottom: 8px; box-shadow: 0 2px 4px #002F7A22;">
+            <div style="font-weight: bold; color: #002F7A; margin-bottom: 8px; font-size: 14px;">Mode Configuration</div>
+            
+            <!-- Autonomous Mode Control -->
+            <div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; border: 1px solid #e9ecef;">
+                <div style="color: #666; font-size: 11px; margin-bottom: 4px;">Autonomous Mode:</div>
+                <div style="display: flex; gap: 4px; margin-bottom: 4px;">
+                    <button id="autonomous_start_btn" onclick="startAutonomousMode();" style="flex: 1; padding: 6px 12px; background: #4caf50; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                        <span class="material-icons" style="font-size: 14px; vertical-align: middle;">play_arrow</span>
+                        Start Auto
+                    </button>
+                    <button id="autonomous_stop_btn" onclick="stopAutonomousMode();" style="flex: 1; padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                        <span class="material-icons" style="font-size: 14px; vertical-align: middle;">stop</span>
+                        Stop Auto
+                    </button>
+                </div>
+                <div style="color: #999; font-size: 10px;">
+                    Sends ping and temperature every 8 seconds. A temperature sensor is required.
+                </div>
+                <div style="margin-top: 4px;">
+                    Status: <span id="autonomous_status" style="font-weight: bold; color: #f44336;">Disabled</span>
+                </div>
+            </div>
+
+            <!-- Simulation Mode Control -->
+            <div style="margin-bottom: 12px; padding: 8px; background: #fff3cd; border-radius: 4px; border: 1px solid #ffeaa7;">
+                <div style="color: #856404; font-size: 11px; margin-bottom: 4px;">Simulation Mode:</div>
+                <div style="display: flex; gap: 4px; margin-bottom: 4px;">
+                    <button id="simulation_mode_enable_btn" onclick="enableSimulationMode();" style="flex: 1; padding: 6px 12px; background: #ff9800; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                        <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">computer</span>
+                        Enable Simulation Mode
+                    </button>
+                    <button id="simulation_mode_disable_btn" onclick="disableSimulationMode();" style="flex: 1; padding: 6px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                        <span class="material-icons" style="font-size: 14px; vertical-align: middle;">cancel</span>
+                        Disable Simulation Mode
+                    </button>
+                </div>
+                <div style="color: #856404; font-size: 10px;">
+                    Simulation mode simulates AC without hardware. All commands update status directly.
+                </div>
+                <div style="margin-top: 4px;">
+                    Status: <span id="simulation_mode_status" style="font-weight: bold; color: #6c757d;">Disabled</span>
+                </div>
+            </div>
+
+            <!-- Temperature Sampling Rate -->
+            <div style="margin-bottom: 8px;">
+                <span style="color: #666; font-size: 12px;">Temperature sampling rate:</span>
+                <div style="display: flex; gap: 4px; margin-top: 4px;">
+                    <input id="sampling_text" type="number" min="1" max="3600" style="flex: 1; padding: 4px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;" placeholder="seconds" />
+                    <button id="sampling_button" onclick="set_sampling();" style="padding: 4px 8px; background: #002F7A; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">Set</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Admin Subsection -->
+    <div id="system-admin-subsection" style="display: none;">
+        <!-- Restart -->
+        <div style="margin-top: 12px;">
+            <button id="restart_button" onclick="restartDevice();" style="padding: 8px 16px; background: #d32f2f; color: white; border: none; border-radius: 4px; font-size: 13px; cursor: pointer;">
+                <span class="material-icons" style="font-size: 16px; vertical-align: middle; margin-right: 4px;">restart_alt</span>
+                Restart Device
+            </button>
+        </div>
+        
+        <!-- Upload file -->
+        <div style="background: #fff; border-radius: 8px; padding: 12px; margin-top: 12px; box-shadow: 0 2px 4px #002F7A22;">
+            <div style="font-weight: bold; color: #002F7A; margin-bottom: 8px; font-size: 14px;">Upload File</div>
+            <input type="file" id="file_input" accept=".txt,.json" style="margin-bottom: 8px;">
+            <button id="upload_button" onclick="uploadFile();" style="padding: 6px 12px; background: #002F7A; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">Upload</button>
+
+            <div style="margin-top: 12px;">
+                <a href="/edit.html" style="color: #002F7A; text-decoration: underline; font-size: 13px;">Upload file</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- comments -->    
+ 
 
                 <!-- Debug Controls - Hidden by Default -->
                 <div id="debug-controls" style="display: none; margin-bottom: 12px;">
