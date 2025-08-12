@@ -1,25 +1,25 @@
-#ifndef MYSIMPLETIMER_H
-#define MYSIMPLETIMER_H
+#ifndef MYTIMER_H
+#define MYTIMER_H
 
 typedef struct {
-    unsigned long _start;
-    int _interval;
-    int _enabled;// = false;
-    int _unit;// = 60 * 1000; // default unit is 60 seconds
-    int _repeat;// = false;
-} MySimpleTimer;
+    unsigned long start;
+    int interval;
+    int enabled;// = false;
+    int unit;// = 60 * 1000; // default unit is 60 seconds
+    int repeat;// = false;
+} my_timer;
 
-void my_timer_init(MySimpleTimer* timer);
-int my_timer_is_time(MySimpleTimer* timer);
-int my_timer_pending_time(MySimpleTimer* timer);
-void my_timer_set_interval(MySimpleTimer* timer, int interval);
-int my_timer_get_interval(MySimpleTimer* timer);
-void my_timer_set_unit(MySimpleTimer* timer, int unit);
-void my_timer_start(MySimpleTimer* timer);
-void my_timer_enable(MySimpleTimer* timer);
-void my_timer_disable(MySimpleTimer* timer);
-int my_timer_is_enabled(MySimpleTimer* timer);
-void my_timer_repeat(MySimpleTimer* timer);
-void my_timer_dont_repeat(MySimpleTimer* timer);
+void my_timer_init(my_timer* timer);
+int my_timer_is_time(my_timer* timer);
+int my_timer_pending_time(my_timer* timer);
+void my_timer_set_interval(my_timer* timer, int interval);
+int my_timer_get_interval(my_timer* timer);
+void my_timer_set_unit(my_timer* timer, int unit);
+void my_timer_start(my_timer* timer);
+void my_timer_enable(my_timer* timer);
+void my_timer_disable(my_timer* timer);
+int my_timer_is_enabled(my_timer* timer);
+void my_timer_repeat(my_timer* timer);
+void my_timer_dont_repeat(my_timer* timer);
 
 #endif

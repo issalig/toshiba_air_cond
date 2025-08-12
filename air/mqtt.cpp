@@ -12,7 +12,7 @@
 extern air_status_t air_status;
 extern float dht_t_current;
 extern float dht_h_current;
-extern MySimpleTimer timerMQTT;
+extern my_timer timerMQTT;
 extern bool simulation_mode;
 
 #include "print_log.h"
@@ -462,7 +462,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
       notifyWebSocketClients(); // Update status update to websocket clients
       yield();
       //my_timer_start(&timerMQTT); // Restart MQTT timer to ensure next update
-      timerMQTT._start = 0; // Force timer to be ready
+      timerMQTT.start = 0; // Force timer to be ready
       handleMQTT(); // Call handleMQTT to send updated status to HA
     }
 }

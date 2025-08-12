@@ -23,16 +23,16 @@ extern WebSocketsServer webSocket;
 #endif
 
 
-extern MySimpleTimer timerOnOff;
+extern my_timer timerOnOff;
 //File fsUploadFile;                                    // a File variable to temporarily store the received file
 
-extern MySimpleTimer timerTemperature;
+extern my_timer timerTemperature;
 extern int temp_interval;
 
-extern MySimpleTimer timerAutonomous;
+extern my_timer timerAutonomous;
 extern bool autonomous_mode;
 
-extern MySimpleTimer timerMQTT;
+extern my_timer timerMQTT;
 
 extern const int DHTPin;
 
@@ -65,9 +65,9 @@ extern const long utcOffsetInSeconds;
 extern int timeOffset;
 extern NTPClient timeClient;
 
-extern MySimpleTimer timerStatus;
-extern MySimpleTimer timerReadSerial;
-extern MySimpleTimer timerSaveFile;
+extern my_timer timerStatus;
+extern my_timer timerReadSerial;
+extern my_timer timerSaveFile;
 
 
 extern const char compile_date[];
@@ -847,11 +847,11 @@ void processRequest( uint8_t *  payload) {
 
   if (shouldPublishMQTT) {
     // Force immediate MQTT update by temporarily manipulating timer
-    timerMQTT._start = 0; // Force timer to be ready
+    timerMQTT.start = 0; // Force timer to be ready
     handleMQTT(); // This will now execute the MQTT publish immediately
     yield();
 
-    Serial.println("[WEB] AC command processed - MQTT status published to Home Assistant");
+    Serial.println("[WEB] WebScoket info pulbished to MQTT");
   }
   #endif
 

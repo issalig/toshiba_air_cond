@@ -10,7 +10,7 @@
                 HW
                 R/W circuit (see readme.md)
                 Oled screen connected to D1 (SCL) D2 (SDA) (optional)
-                AHT20 + BMP280 connected to D1 (SCL) D2 (SDA) (optional)
+                AHT20 + BMP280 connected to D1 (SCL) D2 (SDA) (optional but one temperature sensor is needed if autonomous mode is used)
 
                 Software serial rx on D7, tx on D8
                 Wemos mini D1
@@ -113,7 +113,7 @@ IPAddress subnet(255, 255, 255, 0);
 IPAddress dns(8, 8, 8, 8);
 
 air_status_t air_status;
-MySimpleTimer timerOnOff;
+my_timer timerOnOff;
 
 #ifdef USE_ASYNC
 AsyncWebServer server(80);
@@ -186,12 +186,12 @@ int timeOffset = 0;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 0); //do not apply utc here
 
 // Timers
-MySimpleTimer timerTemperature;
-MySimpleTimer timerStatus;
-MySimpleTimer timerReadSerial;
-MySimpleTimer timerSaveFile;
-MySimpleTimer timerMQTT; 
-MySimpleTimer timerAutonomous;
+my_timer timerTemperature;
+my_timer timerStatus;
+my_timer timerReadSerial;
+my_timer timerSaveFile;
+my_timer timerMQTT; 
+my_timer timerAutonomous;
 //MySimpleTimer timerTelegram;
 
 bool autonomous_mode = false; // use autonomous mode if there is no wired remote
@@ -280,6 +280,91 @@ void startTime() {
   air_status.boot_time = boot_time;
 }
 
+// Structure to hold environmental sensor readings
+struct env_snapshot {
+  float temp;
+  float humidity;
+  float pressure;
+  bool temp_valid;
+  bool humidity_valid;
+  bool pressure_valid;
+  String temp_source;
+  String humidity_source;
+  String pressure_source;
+};
+
+// Common sensor reading function - reads all available environmental sensors
+// and returns the best available readings with source information
+env_snapshot readEnvironmentalSensors(const char* context = "") {
+  env_snapshot snapshot = {
+    .temp = -999.0,
+    .humidity = -999.0,
+    .pressure = -999.0,
+    .temp_valid = false,
+    .humidity_valid = false,
+    .pressure_valid = false,
+    .temp_source = "None",
+    .humidity_source = "None",
+    .pressure_source = "None"
+  };
+
+#ifdef USE_AHT20
+  if (humidity_status) {
+    sensors_event_t humidity, temp;
+    if (aht.getEvent(&humidity, &temp)) {
+      aht_t_current = temp.temperature;
+      sensor_humidity_current = humidity.relative_humidity;
+      
+      // AHT20 is preferred for both temperature and humidity
+      snapshot.temp = aht_t_current;
+      snapshot.humidity = sensor_humidity_current;
+      snapshot.temp_valid = true;
+      snapshot.humidity_valid = true;
+      snapshot.temp_source = "AHT20";
+      snapshot.humidity_source = "AHT20";
+      
+      if (strlen(context) > 0) {
+        print_logf("[AHT20][%s] temp %.1f hum %.1f", context, aht_t_current, sensor_humidity_current);
+      }
+    } else {
+      print_logf("[AHT20][%s] Failed to read sensor", context);
+      aht_t_current = -999.0;
+      sensor_humidity_current = -999.0;
+    }
+  }
+  yield();
+#endif
+
+#ifdef USE_BMP280
+  if (pressure_status) {
+    bmp280_t_current = bmp280.readTemperature();
+    sensor_pressure_current = bmp280.readPressure() / 100.0F;
+    
+    // Use BMP280 temperature only if AHT20 failed or not available
+    if (!snapshot.temp_valid && bmp280_t_current > -999.0) {
+      snapshot.temp = bmp280_t_current;
+      snapshot.temp_valid = true;
+      snapshot.temp_source = "BMP280";
+    }
+    
+    // BMP280 is primary pressure source
+    if (sensor_pressure_current > -999.0) {
+      snapshot.pressure = sensor_pressure_current;
+      snapshot.pressure_valid = true;
+      snapshot.pressure_source = "BMP280";
+    }
+    
+    if (strlen(context) > 0) {
+      print_logf("[BMP280][%s] temp %.1f press %.1f hPa", context, bmp280_t_current, sensor_pressure_current);
+    }
+  }
+  yield();
+#endif
+
+  return snapshot;
+}
+
+
 void startTemperature() {
   my_timer_set_unit(&timerTemperature, 1000); // 1000ms
   my_timer_set_interval(&timerTemperature, temp_interval); //update every XX s
@@ -288,41 +373,19 @@ void startTemperature() {
 
   // Clear centralized arrays
   memset(ac_sensor_temperature, 0, MAX_LOG_DATA * sizeof(float));
-  memset(ac_outdoor_te, 0, MAX_LOG_DATA * sizeof(float));
+  memset(ac_outdoor_te, 0, MAX_LOG_DATA * sizeof(int));
   memset(sensor_temperature, 0, MAX_LOG_DATA * sizeof(float));
   memset(sensor_humidity, 0, MAX_LOG_DATA * sizeof(float));
   memset(sensor_pressure, 0, MAX_LOG_DATA * sizeof(float));
   memset(timestamps, 0, MAX_LOG_DATA * sizeof(unsigned long));
 
-  // Initialize sensors and get initial readings
-  float initial_temp = -999.0;
-  float initial_humidity = -999.0;
-  float initial_pressure = -999.0;
-  String temp_source = "None";
-  String humidity_source = "None";
-  String pressure_source = "None";
-
+  // Initialize sensors
 #ifdef USE_AHT20
   if (!aht.begin()) {
     print_log("Could not find a valid AHT20 sensor, check wiring!");
     humidity_status = false;
   } else {
     humidity_status = true;
-    sensors_event_t humidity, temp;
-    aht.getEvent(&humidity, &temp);
-    aht_t_current = temp.temperature;
-    sensor_humidity_current = humidity.relative_humidity;
-    
-    if (initial_temp <= -999.0) {
-      initial_temp = aht_t_current;
-      temp_source = "AHT20";
-    }
-    if (initial_humidity <= -999.0) {
-      initial_humidity = sensor_humidity_current;
-      humidity_source = "AHT20";
-    }
-    
-    print_logf("[AHT20] Initialized - temp %.1f hum %.1f", aht_t_current, sensor_humidity_current);
   }
 #endif
 
@@ -337,71 +400,45 @@ void startTemperature() {
                       Adafruit_BMP280::SAMPLING_X16,
                       Adafruit_BMP280::FILTER_X16,
                       Adafruit_BMP280::STANDBY_MS_500);
-    
-    bmp280_t_current = bmp280.readTemperature();
-    sensor_pressure_current = bmp280.readPressure() / 100.0F;
-    
-    // Use BMP280 temperature if no other sensor available
-    if (initial_temp <= -999.0) {
-      initial_temp = bmp280_t_current;
-      temp_source = "BMP280";
-    }
-    // BMP280 is primary pressure source
-    initial_pressure = sensor_pressure_current;
-    pressure_source = "BMP280";
-    
-    print_logf("[BMP280] Initialized - temp %.1f press %.1f hPa", bmp280_t_current, sensor_pressure_current);
   }
 #endif
 
+  // Get initial sensor readings
+  env_snapshot snapshot = readEnvironmentalSensors("INIT");
 
+  // Set centralized readings with AC fallback for temperature
+  sensor_temperature[0] = snapshot.temp_valid ? snapshot.temp : air_status.remote_sensor_temp;
+  sensor_humidity[0] = snapshot.humidity_valid ? snapshot.humidity : -999.0;
+  sensor_pressure[0] = snapshot.pressure_valid ? snapshot.pressure : -999.0;
 
-  // Set centralized readings
-  if (initial_temp > -999.0) {
-    sensor_temperature[0] = initial_temp;
-    sensor_temperature_current = initial_temp;
-    print_logf("[SENSOR] Using %s as temperature source: %.1f°C", temp_source.c_str(), initial_temp);
-  } else {
-    sensor_temperature[0] = air_status.remote_sensor_temp;
-    sensor_temperature_current = air_status.remote_sensor_temp;
-    print_logf("[SENSOR] Using AC sensor as temperature fallback: %.1f°C", air_status.remote_sensor_temp);
+  sensor_temperature_current = sensor_temperature[0];
+  sensor_humidity_current = sensor_humidity[0];
+  sensor_pressure_current = sensor_pressure[0];
+
+  print_logf("[SENSOR] Temperature source: %s (%.1f°C)", 
+             snapshot.temp_valid ? snapshot.temp_source.c_str() : "AC fallback", 
+             sensor_temperature[0]);
+  
+  if (snapshot.humidity_valid) {
+    print_logf("[SENSOR] Humidity source: %s (%.1f%%)", snapshot.humidity_source.c_str(), sensor_humidity[0]);
+  }
+  
+  if (snapshot.pressure_valid) {
+    print_logf("[SENSOR] Pressure source: %s (%.1f hPa)", snapshot.pressure_source.c_str(), sensor_pressure[0]);
   }
 
-  if (initial_humidity > -999.0) {
-    sensor_humidity[0] = initial_humidity;
-    sensor_humidity_current = initial_humidity;
-    print_logf("[SENSOR] Using %s as humidity source: %.1f%%", humidity_source.c_str(), initial_humidity);
-  } else {
-    sensor_humidity[0] = -999.0;
-    sensor_humidity_current = -999.0;
-  }
+  // Query AC and log first sample
+  air_send_ping(&air_status);
+  air_parse_serial(&air_status);
+  ac_sensor_temperature[0] = air_status.remote_sensor_temp;
 
-  if (initial_pressure > -999.0) {
-    sensor_pressure[0] = initial_pressure;
-    sensor_pressure_current = initial_pressure;
-    print_logf("[SENSOR] Using %s as pressure source: %.1f hPa", pressure_source.c_str(), initial_pressure);
-  } else {
-    sensor_pressure[0] = -999.0;
-    sensor_pressure_current = -999.0;
-  }
-
-////////////////
-
-  // ask to air conditioning for sensors and call air_parse_serial after to get the date
-
-  air_send_ping(&air_status); // send ping to air conditioning
-  air_parse_serial(&air_status) ;
-  ac_sensor_temperature[0] = air_status.remote_sensor_temp; // sensor_temp is room temperature
-  air_query_sensor(&air_status, OUTDOOR_TE); // query outdoor temperature sensor
-  air_parse_serial(&air_status) ;
+  air_query_sensor(&air_status, OUTDOOR_TE);
+  air_parse_serial(&air_status);
   ac_outdoor_te[0] = air_status.outdoor_te;
 
   timeClient.update();
   timestamps[0] = timeClient.getEpochTime();
 
-
-    
-  //timestamps[temp_idx] = timeClient.getEpochTime();
   temp_idx = (temp_idx + 1) % MAX_LOG_DATA;
 }
 
@@ -465,63 +502,25 @@ void handleTimerOnOff() {
 //for temp logging every temp_interval (30 mins by default)
 void handleTemperature() {
   if (my_timer_is_time(&timerTemperature)) {
-     Serial.println("[HANDLE] handleTemperature");
+    Serial.println("[HANDLE] handleTemperature");
     if (!simulation_mode) {
       air_send_ping(&air_status);
     }
 
-    float best_temp = -999.0;
-    float best_humidity = -999.0;
-    float best_pressure = -999.0;
-
-#ifdef USE_AHT20
-    if (humidity_status) {
-        sensors_event_t humidity, temp;
-        if (aht.getEvent(&humidity, &temp)) {
-            aht_t_current = temp.temperature;
-            sensor_humidity_current = humidity.relative_humidity;
-            
-            best_temp = aht_t_current;      // AHT20 is primary temperature source
-            best_humidity = sensor_humidity_current;  // AHT20 is primary humidity source
-            
-            print_logf("[AHT20] %d temp %.1f hum %.1f", temp_idx, aht_t_current, sensor_humidity_current);
-        } else {
-            print_log("[AHT20] Failed to read sensor");
-            aht_t_current = -999.0;
-            sensor_humidity_current = -999.0;
-        }
-    }
-    yield();
-#endif
-
-#ifdef USE_BMP280
-    if (pressure_status) {
-        bmp280_t_current = bmp280.readTemperature();
-        sensor_pressure_current = bmp280.readPressure() / 100.0F;
-        
-        // Use BMP280 temperature only if AHT20 failed
-        if (best_temp <= -999.0) {
-            best_temp = bmp280_t_current;
-        }
-        best_pressure = sensor_pressure_current; // BMP280 is primary pressure source
-        
-        print_logf("[BMP280] %d temp %.1f press %.1f hPa", temp_idx, bmp280_t_current, sensor_pressure_current);
-    }
-    yield();
-#endif
+    // Read environmental sensors
+    env_snapshot snapshot = readEnvironmentalSensors("LOG");
 
     ac_sensor_temperature[temp_idx] = air_status.remote_sensor_temp;
 
-    // Store centralized readings
-    sensor_temperature[temp_idx] = (best_temp > -999.0) ? best_temp : air_status.remote_sensor_temp;
-    sensor_humidity[temp_idx] = best_humidity;
-    sensor_pressure[temp_idx] = best_pressure;
+    // Store centralized readings with AC fallback for temperature
+    sensor_temperature[temp_idx] = snapshot.temp_valid ? snapshot.temp : air_status.remote_sensor_temp;
+    sensor_humidity[temp_idx] = snapshot.humidity_valid ? snapshot.humidity : -999.0;
+    sensor_pressure[temp_idx] = snapshot.pressure_valid ? snapshot.pressure : -999.0;
 
     if (!simulation_mode) {
       air_query_sensor(&air_status, OUTDOOR_TE);
       air_parse_serial(&air_status);
     }
-
 
     ac_outdoor_te[temp_idx] = air_status.outdoor_te;
 
@@ -536,7 +535,6 @@ void handleTemperature() {
   }
 }
 
-
 void handleSaveFile() {
   //if (timerSaveFile.isTime()) {
   if (my_timer_is_time(&timerSaveFile)) {
@@ -547,66 +545,23 @@ void handleSaveFile() {
   }
 }
 
-
+//used for status not for logging
 void getTemperatureCurrent() {
-  float best_temp = -999.0;
-  float best_humidity = -999.0;
-  float best_pressure = -999.0;
+  // Read environmental sensors
+  env_snapshot snapshot = readEnvironmentalSensors("STATUS");
 
-#ifdef USE_AHT20
-  if (humidity_status) {
-    sensors_event_t humidity, temp;
-    if (aht.getEvent(&humidity, &temp)) {
-      aht_t_current = temp.temperature;
-      sensor_humidity_current = humidity.relative_humidity;
-      
-      best_temp = aht_t_current;
-      best_humidity = sensor_humidity_current;
-      
-      print_logf("[AHT20] temp %.1f hum %.1f", aht_t_current, sensor_humidity_current);
-    } else {
-      aht_t_current = -999.0;
-      sensor_humidity_current = -999.0;
-    }
-  }
-  yield();
-#endif
+  // Update centralized current readings with AC fallback for temperature
+  sensor_temperature_current = snapshot.temp_valid ? snapshot.temp : air_status.remote_sensor_temp;
+  sensor_humidity_current = snapshot.humidity_valid ? snapshot.humidity : -999.0;
+  sensor_pressure_current = snapshot.pressure_valid ? snapshot.pressure : -999.0;
 
-#ifdef USE_BMP280
-  if (pressure_status) {
-    bmp280_t_current = bmp280.readTemperature();
-    sensor_pressure_current = bmp280.readPressure() / 100.0F;
-    
-    // Use BMP280 temperature only if AHT20 failed
-    if (best_temp <= -999.0) {
-        best_temp = bmp280_t_current;
-    }
-    best_pressure = sensor_pressure_current;
-    
-    print_logf("[BMP280] temp %.1f press %.1f hPa", bmp280_t_current, sensor_pressure_current);
-  }
-  yield();
-#endif
-
-  // Update centralized current readings
-  sensor_temperature_current = (best_temp > -999.0) ? best_temp : air_status.remote_sensor_temp;
-  sensor_humidity_current = best_humidity;
-  sensor_pressure_current = best_pressure;
-
-  ac_sensor_temperature[temp_idx] = air_status.remote_sensor_temp;
+  // Request outdoor temp (parsed elsewhere)
   air_query_sensor(&air_status, OUTDOOR_TE);
-  ac_outdoor_te[temp_idx] = air_status.outdoor_te;
-
-  // FIX this. I do not want to create a new entry but report this on status
-
-  //timeClient.update();
-  //timestamps[temp_idx] = timeClient.getEpochTime();
-  //temp_idx = (temp_idx + 1) % MAX_LOG_DATA;
 }
 
 //get current status, temperature and sensors. not intended for logging
+//mainly use for web interface status request
 void handleStatus() {
-  //if (timerStatus.isTime()) {
   if (my_timer_is_time(&timerStatus)) {
     Serial.println("[HANDLE] handleStatus");
     getTemperatureCurrent();
@@ -614,14 +569,14 @@ void handleStatus() {
         
     if (simulation_mode) {
       // In test mode, skip querying sensors from AC unit
-      Serial.println("[TEST MODE] Skipping AC sensor queries");
+      Serial.println("[SIMULATION MODE] Skipping AC sensor queries");
     } else {
       air_query_sensors(&air_status, sensor_ids, sizeof(sensor_ids));
       yield();
     }
 
     air_print_status(&air_status);
-    yield(); // Allow ESP8266 to handle WiFi stack
+    yield();
   }
 }
 
