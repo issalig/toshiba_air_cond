@@ -17,21 +17,24 @@ You can find the service manual from central unit and wired controller here: htt
 # Instructions are not yet updated and based on legacy Arduino IDE fro V1.0
 
 # Software installation
-Code is developed in Arduino for ESP8266 and in particular for Wemos D1 mini board. Basically it is a WebServer that serves a webpage and communicates with the client by means of WebSockets. Some nice features are OTA updates, WifiManager and others ...
-
+Code is developed in PlatformIO for ESP8266 and in particular for Wemos D1 mini board. It is basically a WebServer that serves a webpage and communicates with the client by means of WebSockets. It also offers Home Assistant integration and has nice features usch as OTA updates, file uploading, WifiManager and others.
 
 ### Dependencies
 
-This project uses libraries and code from different authors, you can install them in Arduino IDE going to Tools->Library Manager
+This project uses libraries and code from different authors, they are installed automatically from platformio.ibi file
 
 - [esp8266](https://github.com/esp8266/Arduino)
 - [espsoftwareserial](https://github.com/plerup/espsoftwareserial) by Peter Lerup
 - [WiFiManager](https://github.com/tzapu/WiFiManager) by tzapu
 - [WebSockets](https://github.com/Links2004/arduinoWebSockets) by Links2004
 - [ArduinoJson](https://github.com/bblanchon/ArduinoJson) by Benoit Blanchon
+- [Adafruit libraries] Adafruit SSD1306, Adafruit GFX Library, adafruit/Adafruit AHTX0 and adafruit/Adafruit BMP280 Library
+- LittleFS
+- [PubSubClient] (https://github.com/knolleary/pubsubclient)
+- NTPClient
 
 ### Compilation
-First things first. Compile the code and upload it to the board. You will need to install the previous libraries and maybe some others. Once it is compiled it means you have all the dependencies installed.
+First things first. Compile it with VSCode and upload it to the board. If use are using Arduino IDE you will need to install the previous libraries and maybe some others. Once it is compiled it means you have all the dependencies installed.
 
 ### Install LittleFS sketch upload (VSCODE)
 
