@@ -172,6 +172,9 @@ sigrok-cli -d fx2lafw -c samplerate=250000 -t D0=r -P uart:rx=D0:baudrate=2400:p
 ```
 
 # Custom hardware
+[Up](#toshiba_air_cond) [Previous](#Data-acquisition) [Next](#Data-format)
+
+
 I have designed some circuits to read and write the signal
 
 ## Read
@@ -253,6 +256,7 @@ Temp up button is connected to R24 and R46
 
 
 # Data format
+[Up](#toshiba_air_cond) [Previous](#Custom-hardware) [Next](#Message-types)
 
 Data packages have the following format:
 
