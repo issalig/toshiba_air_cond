@@ -7,12 +7,23 @@ In particular, this project has been tested with remote control unit RBC-AMT32E 
 
 You can find the service manual from central unit and wired controller here: http://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_Gainable_Std-Compact--DI_406566806110614061606_GB.pdf, https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf
 
-
 # Status
 
 - Operational.
 
+## Index
+
+[Software installation](#Software-installation)
+
+[Web Interface](#Web-Interface)
+
+[Hardware Installation](#Hardware-Installation)
+
+[Custom hardware](#Custom-hardware)
+ 
 # Software installation
+[Up](#toshiba_air_cond) [Previous](#Index) [Next](#Hardware-Installation)
+
 Code is developed in PlatformIO for ESP8266 and in particular for Wemos D1 mini board. It is basically a WebServer that serves a webpage and communicates with the client by means of WebSockets. It also offers Home Assistant integration and has nice features usch as OTA updates, file uploading, WifiManager and others.
 
 ### Dependencies
@@ -74,6 +85,7 @@ upload_flags = --auth=esp8266  ; Replace with your OTA password from OTAPassword
 If you just want to upload individual files you can use http://air.local/edit.html
 
 # Web Interface
+[Up](#toshiba_air_cond) [Previous](#Software-Installation) [Next](#Hardware-Installation)
 
 This section describes the features available through the embedded web interface served by the ESP8266 air conditioning controller.
 
@@ -116,6 +128,9 @@ This section describes the features available through the embedded web interface
    - Persisted to `/mqtt_config.json` in LittleFS
 
 # Hardware installation
+[Up](#toshiba_air_cond) [Previous](#Web-Interface) [Next](#Data-acquisition)
+
+
 You will need an esp8266, a circuit for adapting signals to esp8266, a USB power supply, a a couple of dupont (female) wires.
 - Take out the cover of your remote controller
 - Loose the screws of AB terminals. **WARNING**: My PCB assumes A is positive and B is negative. If this is not your case you can damage the PCB. (https://github.com/issalig/toshiba_air_cond/discussions/40#discussioncomment-8149607)
@@ -132,6 +147,7 @@ Just switch it on/off while you are in bed. If you like it just send me a beer a
 ![image](https://github.com/issalig/toshiba_air_cond/blob/master/pcb/mounted_board.jpg)
 
 # Data acquisition
+[Up](#toshiba_air_cond) [Previous](#Hardware-Installation) [Next](#Custom-hardware)
 
 This is how I managed to decode the information from the AB bus. First I plugged a multimeter to check the range of the signal and not fry anything. Then I used a DS0138 oscilloscope to monitor the signal and to guess voltages and baudrate (a resistor divider is suggested in order to lower the voltage). Later, an 8-channel USB logic analyzer (4-5 USD) can be used to capture data into the computer. **REMEMBER** to convert voltages to 0-3.3v before connecting it to logic analyzer or you will make magic smoke. You can use the read circuit below.
 
