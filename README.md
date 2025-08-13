@@ -21,7 +21,7 @@ You can find the service manual from central unit and wired controller here: htt
 
 [Message types](#Message-types)
 
-[Other infos](#Other-infos)
+[Other info](#Other-info)
  
 # Software installation
 [Up](#toshiba_air_cond) [Previous](#Index) [Next](#Hardware-Installation)
@@ -349,6 +349,8 @@ Opcode2
 CRC is computed as Checksum8 XOR of all the bytes (Compute it at https://www.scadacore.com/tools/programming-calculators/online-checksum-calculator/)
 
 # Message types
+
+[Up](#toshiba_air_cond) [Previous](#Data-format) [Next](#Other-info)
 
 There are two different status messages sent from master: normal and extended. Opcode for both is 81
 Extended has two extra bytes, one could be some temperature? and other is always E9 in my experiments.
@@ -968,6 +970,8 @@ https://codepen.io/CiTA/pen/OwowEB remote
 
 
 # Other info
+[Up](#toshiba_air_cond) [Previous](#Message-types)
+
 
 
 If you want to know about error codes and sensor addresses you can check the following links.
