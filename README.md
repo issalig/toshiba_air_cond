@@ -7,10 +7,6 @@ In particular, this project has been tested with remote control unit RBC-AMT32E 
 
 You can find the service manual from central unit and wired controller here: http://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_Gainable_Std-Compact--DI_406566806110614061606_GB.pdf, https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf
 
-# Status
-
-- Operational.
-
 ## Index
 
 [Software installation](#Software-installation)
