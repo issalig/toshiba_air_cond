@@ -45,6 +45,25 @@ This project uses libraries and code from different authors, they are installed 
 ### Compilation
 First things first. Compile it with VSCode and upload it to the board. If use are using Arduino IDE you will need to install the previous libraries and maybe some others. Once it is compiled it means you have all the dependencies installed.
 
+Minimal hardware is ESP8266 and the pcb for adapting signal from serial to AB line. 
+
+- ESP8266 (Wemos D1 Mini R2)
+- Toshiba AC serial interface (SoftwareSerial D7=RX, D8=TX)
+- Optional I2C sensors (shared bus D1=SCL, D2=SDA):
+  - AHT20 (temperature + humidity)  [enabled with `#define USE_AHT20`]
+  - BMP280 (temperature + pressure) [enabled with `#define USE_BMP280`]
+- Optional OLED 128x64 SSD1306 (I2C D1=SCL, D2=SDA)         [`#define USE_SCREEN`]
+- Reset / Config button on D4 (WiFiManager AP)
+  
+To sum up, the following defines are available and features are disabled by commenting its `#define` in  [config.h](https://github.com/issalig/toshiba_air_cond/blob/master/air/config.h)
+
+- `USE_OTA`      OTA updates
+- `USE_SCREEN`   OLED status display
+- `USE_MQTT`     MQTT + Home Assistant integration
+- `USE_AHT20`    AHT20 sensor support
+- `USE_BMP280`   BMP280 sensor support
+
+
 ### WiFi setup
 Once you have the code uploaded it is time to configure your WiFi. This project makes use of the great WiFiManager library so there is no need to hardcode your WiFi settings.
 - Plug you esp board. It will start blinking.
