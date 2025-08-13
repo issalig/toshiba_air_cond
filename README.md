@@ -77,6 +77,47 @@ upload_flags = --auth=esp8266  ; Replace with your OTA password from OTAPassword
 
 If you just want to upload individual files you can use http://air.local/edit.html
 
+# Web Interface
+
+This section describes the features available through the embedded web interface served by the ESP8266 air conditioning controller.
+
+## Access
+- URL via mDNS: `http://air.local` (See `mdnsName` in `config.h`)
+- HTTP Port: 80
+- WebSocket Port: 81
+
+![web interface](https://github.com/user-attachments/assets/c799ae9e-48ad-44bb-9438-c98791343c15))
+
+## Main Features
+1. Control Functions
+   - Power ON / OFF
+   - Set target temperature (bounded 16–30 °C; internally enforced 18–30 in MQTT handler)
+   - Change mode: `cool`, `heat`, `dry`, `fan_only`, `auto`, `off`
+   - Change fan speed: `auto`, `low`, `medium`, `high`
+   - Save mode
+
+2. Timer
+   - ON/OFF Timer. Software based relying only in esp8266
+
+3. Chart
+   - Shows current temperature, external temperature and pressure/humidity if sensors are available.
+
+4. System
+   - Info: IP, boot time and decoding errors.
+   - Sensors: Internal / External AC sensors.
+   - Address: Address configuration for master/remote in case your system uses different from default or you want to install different remotes.
+   - Mode: 
+    - Autonomous mode indicator: Use it if there is no remote connected (sends pings like remotes). It is necessary to have a temperature sensor to report room temperture.
+    - Simulation mode indicator: Simulates a physical AC
+   - Admin: Upload files. Use it to upload index.html and others.
+5. Debug
+    - Send RAW messages to AC, i.e., "00 FE 10 02 80 8A E6"
+    - Debug output: Shows serial raw and decoded messages
+    - Log
+
+6. MQTT Configuration (if `USE_MQTT`)
+   - Runtime modification of: host, port, username, password, device name
+   - Persisted to `/mqtt_config.json` in LittleFS
 
 # Hardware installation
 You will need an esp8266, a circuit for adapting signals to esp8266, a USB power supply, a a couple of dupont (female) wires.
