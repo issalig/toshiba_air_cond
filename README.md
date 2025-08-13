@@ -1,5 +1,5 @@
 # toshiba_air_cond
-This project implements functions to decode Toshiba AB protocol from indoor units to wired controllers and provides a hardware design to communicate.
+This project implements functions to decode Toshiba AB protocol from indoor units to wired controllers and provides a hardware design for communication.
 
 Gerbers are available but remember if you improve the design please share it, that's how open source works, if you do not want to share, this project is not for you.
 
@@ -28,7 +28,7 @@ This project uses libraries and code from different authors, they are installed 
 - [WiFiManager](https://github.com/tzapu/WiFiManager) by tzapu
 - [WebSockets](https://github.com/Links2004/arduinoWebSockets) by Links2004
 - [ArduinoJson](https://github.com/bblanchon/ArduinoJson) by Benoit Blanchon
-- [Adafruit libraries] Adafruit SSD1306, Adafruit GFX Library, adafruit/Adafruit AHTX0 and adafruit/Adafruit BMP280 Library
+- [Adafruit libraries] (https://github.com/adafruit) Adafruit SSD1306, Adafruit GFX Library, adafruit/Adafruit AHTX0 and adafruit/Adafruit BMP280 Library
 - LittleFS
 - [PubSubClient] (https://github.com/knolleary/pubsubclient)
 - NTPClient
@@ -36,42 +36,46 @@ This project uses libraries and code from different authors, they are installed 
 ### Compilation
 First things first. Compile it with VSCode and upload it to the board. If use are using Arduino IDE you will need to install the previous libraries and maybe some others. Once it is compiled it means you have all the dependencies installed.
 
-### Install LittleFS sketch upload (VSCODE)
-
-### Install LittleFS sketch upload (Arduino IDE)
-This project uses LittleFS filesystem to store the webpage files, .html, .js , ...
-In order to upload these files you need to install a plugin and follow the instructions:
-- Download the tool archive from (https://github.com/earlephilhower/arduino-esp8266littlefs-plugin/releases).
-- In your Arduino sketchbook directory, create tools directory if it doesn't exist yet.
-- Unpack the tool into tools directory (the path will look like <home_dir>/Arduino/tools/ESP8266LittleFS/tool/esp8266littlefs.jar).
-- Restart Arduino IDE.
-
-Files are located into the **data** folder of your sketch and all the contents of the folder will be uploaded
-- Make sure you have selected a board, port, and closed Serial Monitor. OTA ports are not valid, you need to plug the board into your computer.
-- Select Tools > ESP8266 LittleFS Data Upload menu item. This should start uploading the files into ESP8266 flash file system. When done, IDE status bar will display LittleFS Image Uploaded message. Might take a few minutes for large file system sizes.
-
 ### WiFi setup
-Once you have the code and the data uploaded it is time to configure your WiFi. This project makes use of the great WiFiManager library so there is no need to hardcode your WiFi settings.
-- Plug your board and connect to airAP wifi network. You can do it with your cellphone or PC. 
+Once you have the code uploaded it is time to configure your WiFi. This project makes use of the great WiFiManager library so there is no need to hardcode your WiFi settings.
+- Plug you esp board. It will start blinking.
+- Connect to **airAP** wifi network from your cellphone or PC.
+- Open a browser and the WifiManager will appear.
 - Select your WiFi network and the password.
 - If everything is correct, airAP shuts down and board connects to your WiFi.
+- Connect to your normal WiFi from computer/cellphone.
 
 ### Connect
 Now the esp8266 is connected to your network and can be reached as http://air.local
 
+### Upload files
+Connect to http://air.local/upload.html and select index.html
+This will store index.html file and http://air.local should show the main page.
+You can use this endpoint to modify the webpage or add more functionality. If you do it please share.
+
+### Delete files
+Similarly to upload page you can use http://air.local/delete.html to delete a file.
+
 ### Addons
-The project and the board support sensors for temperature, humidity and pressure (DHT11 and BMP180), these values are shown in a graph in the webpage. If you do not connect these sensor there is no problem. Graph will show indoor and outdoor temperature reported by the air conditioning.
-In the bottom side of the pcb you can find the connections, DHT is connected to D3 and BMP180 uses SPI.
+The project and the board support sensors for temperature, humidity and pressure (AHT20 and BMP280), these values are shown in a graph in the webpage. If you do not connect these sensors there is no problem. Graph will show indoor and outdoor temperature reported by the air conditioning.
+In the bottom side of the pcb you can find the SPI connections.
 ![image](https://user-images.githubusercontent.com/7136948/148600587-4383e831-2e45-4c01-80d2-e20d8952b76c.png)
 
 ### OTA and file update
 OTA updates are available, so you do not need to unplug the esp everytime you want to flash it. In the Arduino IDE just set Tools->Port->air at xxx.
+If you are using PlatformIO it is done in platform.io
+Default OTA password is esp8266
+
+```
+; OTA upload configuration
+upload_protocol = espota
+upload_port = air.local        ; Replace with your device's actual IP from OTAName in config.cpp
+upload_flags = --auth=esp8266  ; Replace with your OTA password from OTAPassword varialble in config.cpp
+```
+
 
 If you just want to upload individual files you can use http://air.local/edit.html
 
-### Known bugs
-- After a little time without acitvity, the websocket is closed. I am working on a reconnection function.
-- A reload can cause the board to reboot because a websocket is opened when it is serving webpage files. Sometimes happen and sometimes not. But it is not critical.
 
 # Hardware installation
 You will need an esp8266, a circuit for adapting signals to esp8266, a USB power supply, a a couple of dupont (female) wires.
