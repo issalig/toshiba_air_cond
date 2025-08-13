@@ -14,7 +14,7 @@ You can find the service manual from central unit and wired controller here: htt
 
 # NEW VERSION 2.0 SUPPORTS VSCODE AND PLATFORMIO
 
-# Instructions are not yet updated and based on legacy Arduino IDE fro V1.0
+# Instructions are being updated, some info can be incorrect.
 
 # Software installation
 Code is developed in PlatformIO for ESP8266 and in particular for Wemos D1 mini board. It is basically a WebServer that serves a webpage and communicates with the client by means of WebSockets. It also offers Home Assistant integration and has nice features usch as OTA updates, file uploading, WifiManager and others.
