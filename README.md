@@ -21,14 +21,14 @@ Code is developed in PlatformIO for ESP8266 and in particular for Wemos D1 mini 
 
 ### Dependencies
 
-This project uses libraries and code from different authors, they are installed automatically from platformio.ibi file
+This project uses libraries and code from different authors, they are installed automatically from platformio.ini file
 
 - [esp8266](https://github.com/esp8266/Arduino)
 - [espsoftwareserial](https://github.com/plerup/espsoftwareserial) by Peter Lerup
 - [WiFiManager](https://github.com/tzapu/WiFiManager) by tzapu
 - [WebSockets](https://github.com/Links2004/arduinoWebSockets) by Links2004
 - [ArduinoJson](https://github.com/bblanchon/ArduinoJson) by Benoit Blanchon
-- [Adafruit libraries] (https://github.com/adafruit) Adafruit SSD1306, Adafruit GFX Library, adafruit/Adafruit AHTX0 and adafruit/Adafruit BMP280 Library
+- [Adafruit libraries](https://github.com/adafruit) Adafruit SSD1306, Adafruit GFX Library, adafruit/Adafruit AHTX0 and adafruit/Adafruit BMP280 Library
 - LittleFS
 - [PubSubClient] (https://github.com/knolleary/pubsubclient)
 - NTPClient
@@ -49,7 +49,8 @@ Once you have the code uploaded it is time to configure your WiFi. This project 
 Now the esp8266 is connected to your network and can be reached as http://air.local
 
 ### Upload files
-Connect to http://air.local/upload.html and select index.html
+Connect to http://air.local/upload.html  and select ![index.html](https://github.com/issalig/toshiba_air_cond/blob/master/data/index.html)
+
 This will store index.html file and http://air.local should show the main page.
 You can use this endpoint to modify the webpage or add more functionality. If you do it please share.
 
