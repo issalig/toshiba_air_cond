@@ -20,6 +20,12 @@ You can find the service manual from central unit and wired controller here: htt
 [Hardware Installation](#Hardware-Installation)
 
 [Custom hardware](#Custom-hardware)
+
+[Data format](#Data-format)
+
+[Message types](#Message-types)
+
+[Other infos](#Other-infos)
  
 # Software installation
 [Up](#toshiba_air_cond) [Previous](#Index) [Next](#Hardware-Installation)
