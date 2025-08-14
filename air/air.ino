@@ -53,7 +53,7 @@
 */
 
 #include "config.h" // check it for settings
-#include "upload_html.h" //hardcoded html upload
+#include "file_manager_html.h" //unified file manager
 #include "display.h"
 
 #include "LittleFS.h"
@@ -263,6 +263,15 @@ void setup() {
     initSimulationMode();
   }
 
+
+  Serial.println();
+  Serial.println("=== ESP8266 Flash Info ===");
+  Serial.printf("Flash Chip ID: %08X\n", ESP.getFlashChipId());
+  Serial.printf("Flash Size: %u bytes (%.1f MB)\n", ESP.getFlashChipRealSize(), ESP.getFlashChipRealSize() / 1024.0 / 1024.0);
+  Serial.printf("Sketch Size: %u bytes\n", ESP.getSketchSize());
+  Serial.printf("Free Sketch Space: %u bytes\n", ESP.getFreeSketchSpace());
+  Serial.printf("Filesystem Size: %u bytes\n", ESP.getFlashChipSize() - ESP.getSketchSize());
+
 }
 
 // start functions
@@ -382,7 +391,7 @@ void startTemperature() {
   // Initialize sensors
 #ifdef USE_AHT20
   if (!aht.begin()) {
-    print_log("Could not find a valid AHT20 sensor, check wiring!");
+    print_log("[AHT20] Could not find a valid sensor, check wiring!");
     humidity_status = false;
   } else {
     humidity_status = true;
@@ -780,15 +789,76 @@ void startServer() { // Start a HTTP server with a file read handler and an uplo
     server.send(200, "text/plain", "");
   }, handleFileUpload);                       // go to 'handleFileUpload'
 
-  // Serve built-in editor
-  server.on("/upload.html", HTTP_GET, []() {
-        server.send_P(200, "text/html", upload_html);
+  // Serve built-in file manager (replaces separate upload and delete pages)
+  server.on("/upload", HTTP_GET, []() {
+        server.send_P(200, "text/html", file_manager_html);
   });
 
-  server.on("/upload.html", HTTP_POST, []() {  
+  server.on("/upload", HTTP_POST, []() {  
     server.send(200, "text/plain", "Upload successful!");
   }, handleFileUpload);                       
 
+  // Built-in file manager (same as upload for unified interface)
+  server.on("/delete", HTTP_GET, []() {
+    server.send_P(200, "text/html", file_manager_html);
+  });
+
+  // File manager endpoint (same as upload for unified interface)
+  server.on("/filemanager", HTTP_GET, []() {
+    server.send_P(200, "text/html", file_manager_html);
+  });
+
+  // API endpoint to list files
+  server.on("/api/files", HTTP_GET, []() {
+    JsonDocument doc;
+    JsonArray files = doc["files"].to<JsonArray>();
+    
+    Dir dir = LittleFS.openDir("/");
+    while (dir.next()) {
+      JsonObject file = files.add<JsonObject>();
+      file["name"] = dir.fileName();
+      file["size"] = dir.fileSize();
+    }
+    
+    String response;
+    serializeJson(doc, response);
+    server.send(200, "application/json", response);
+  });
+
+  // API endpoint to delete files
+  server.on("/api/delete", HTTP_POST, []() {
+    String body = server.arg("plain");
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, body);
+    
+    if (!error && doc["filename"].is<const char*>()) {
+      String filename = doc["filename"];
+      
+      // Add leading slash if not present
+      if (!filename.startsWith("/")) {
+        filename = "/" + filename;
+      }
+      
+      // Prevent deletion of critical files
+      // if (filename == "/index.html") {
+      //   server.send(200, "application/json", "{\"success\":false,\"error\":\"Cannot delete critical system files\"}");
+      //   return;
+      // }
+      
+      if (LittleFS.exists(filename)) {
+        if (LittleFS.remove(filename)) {
+          print_logf("[DELETE] File deleted: %s", filename.c_str());
+          server.send(200, "application/json", "{\"success\":true}");
+        } else {
+          server.send(200, "application/json", "{\"success\":false,\"error\":\"Failed to delete file\"}");
+        }
+      } else {
+        server.send(200, "application/json", "{\"success\":false,\"error\":\"File not found\"}");
+      }
+    } else {
+      server.send(200, "application/json", "{\"success\":false,\"error\":\"Invalid request format\"}");
+    }
+  });
 
   server.onNotFound(handleNotFound);          // if someone requests any other file or page, go to function 'handleNotFound'
   // and check if the file exists

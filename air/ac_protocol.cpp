@@ -68,7 +68,6 @@ int check_crc(const byte *data, size_t len) {
   return (my_crc == crc);
 }
 
-
 void air_print_status(air_status_t *s) {
   Serial.print("[STATUS]");
   Serial.print(" Power: "); Serial.print(s->power);

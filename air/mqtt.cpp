@@ -36,7 +36,6 @@ String fan_mode_topic     = "homeassistant/ac/status/fan_mode";
 String fan_mode_command_topic = "homeassistant/ac/set/fan_mode";
 String temp_command_topic = "homeassistant/ac/set/temperature";
 
-//String climate_conf_topic = "homeassistant/ac/config";
 String climate_conf_topic = "homeassistant/climate/toshiba_ac/config";
 
 WiFiClient espClient;
