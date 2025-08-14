@@ -77,13 +77,13 @@ Once you have the code uploaded it is time to configure your WiFi. This project 
 Now the esp8266 is connected to your network and can be reached as http://air.local
 
 ### Upload files
-Connect to http://air.local/upload.html  and select ![index.html](https://github.com/issalig/toshiba_air_cond/blob/master/air/data/index.html)
+Connect to http://air.local/filemanager, type ![index.html](https://github.com/issalig/toshiba_air_cond/blob/master/air/data/index.html) and upload it.
 
 This will store index.html file and http://air.local should show the main page.
 You can use this endpoint to modify the webpage or add more functionality. If you do it please share.
 
 ### Delete files
-Similarly to upload page you can use http://air.local/delete.html to delete a file.
+Similarly to upload page you can use http://air.local/filemanager to delete a file.
 
 ### Addons
 The project and the board support sensors for temperature, humidity and pressure (AHT20 and BMP280), these values are shown in a graph in the webpage. If you do not connect these sensors there is no problem. Graph will show indoor and outdoor temperature reported by the air conditioning.
