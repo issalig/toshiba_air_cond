@@ -1,5 +1,5 @@
 # toshiba_air_cond
-This project implements functions to decode Toshiba AB protocol from indoor units to wired controllers and provides a hardware design to communicate.
+This project implements functions to decode Toshiba AB protocol from indoor units to wired controllers and provides a hardware design for communication.
 
 Gerbers are available but remember if you improve the design please share it, that's how open source works, if you do not want to share, this project is not for you.
 
@@ -7,70 +7,151 @@ In particular, this project has been tested with remote control unit RBC-AMT32E 
 
 You can find the service manual from central unit and wired controller here: http://www.toshibaclim.com/Portals/0/Documentation/Manuels%20produits/SM_Gainable_Std-Compact--DI_406566806110614061606_GB.pdf, https://rednux.com/mediafiles/Hersteller/toshiba/Toshiba-Bedienungsanleitung-RBC-AMT32E-Englisch.pdf
 
+## Index
 
-# Status
+[Software installation](#Software-installation)
 
-- Operational.
+[Web Interface](#Web-Interface)
 
-# NEW VERSION 2.0 SUPPORTS VSCODE AND PLATFORMIO
+[Hardware Installation](#Hardware-Installation)
 
-# Instructions are not yet updated and based on legacy Arduino IDE fro V1.0
+[Custom hardware](#Custom-hardware)
 
+[Data format](#Data-format)
+
+[Message types](#Message-types)
+
+[Other info](#Other-info)
+ 
 # Software installation
-Code is developed in Arduino for ESP8266 and in particular for Wemos D1 mini board. Basically it is a WebServer that serves a webpage and communicates with the client by means of WebSockets. Some nice features are OTA updates, WifiManager and others ...
+[Up](#toshiba_air_cond) [Previous](#Index) [Next](#Hardware-Installation)
 
+Code is developed in PlatformIO for ESP8266 and in particular for Wemos D1 mini board. It is basically a WebServer that serves a webpage and communicates with the client by means of WebSockets. It also offers Home Assistant integration and has nice features usch as OTA updates, file uploading, WifiManager and others.
 
 ### Dependencies
 
-This project uses libraries and code from different authors, you can install them in Arduino IDE going to Tools->Library Manager
+This project uses libraries and code from different authors, they are installed automatically from platformio.ini file
 
 - [esp8266](https://github.com/esp8266/Arduino)
 - [espsoftwareserial](https://github.com/plerup/espsoftwareserial) by Peter Lerup
 - [WiFiManager](https://github.com/tzapu/WiFiManager) by tzapu
 - [WebSockets](https://github.com/Links2004/arduinoWebSockets) by Links2004
 - [ArduinoJson](https://github.com/bblanchon/ArduinoJson) by Benoit Blanchon
+- [Adafruit libraries](https://github.com/adafruit) Adafruit SSD1306, Adafruit GFX Library, adafruit/Adafruit AHTX0 and adafruit/Adafruit BMP280
+- LittleFS
+- [PubSubClient](https://github.com/knolleary/pubsubclient)
+- NTPClient
 
 ### Compilation
-First things first. Compile the code and upload it to the board. You will need to install the previous libraries and maybe some others. Once it is compiled it means you have all the dependencies installed.
+First things first. Compile it with VSCode and upload it to the board. If use are using Arduino IDE you will need to install the previous libraries and maybe some others. Once it is compiled it means you have all the dependencies installed.
 
-### Install LittleFS sketch upload (VSCODE)
+Minimal hardware is ESP8266 and the pcb for adapting signal from serial to AB line. 
 
-### Install LittleFS sketch upload (Arduino IDE)
-This project uses LittleFS filesystem to store the webpage files, .html, .js , ...
-In order to upload these files you need to install a plugin and follow the instructions:
-- Download the tool archive from (https://github.com/earlephilhower/arduino-esp8266littlefs-plugin/releases).
-- In your Arduino sketchbook directory, create tools directory if it doesn't exist yet.
-- Unpack the tool into tools directory (the path will look like <home_dir>/Arduino/tools/ESP8266LittleFS/tool/esp8266littlefs.jar).
-- Restart Arduino IDE.
+- ESP8266 (Wemos D1 Mini R2)
+- Toshiba AC serial interface (SoftwareSerial D7=RX, D8=TX)
+- Optional I2C sensors (shared bus D1=SCL, D2=SDA):
+  - AHT20 (temperature + humidity)  [enabled with `#define USE_AHT20`]
+  - BMP280 (temperature + pressure) [enabled with `#define USE_BMP280`]
+- Optional OLED 128x64 SSD1306 (I2C D1=SCL, D2=SDA)         [`#define USE_SCREEN`]
+- Reset / Config button on D4 (WiFiManager AP)
+  
+To sum up, the following defines are available and features are disabled by commenting its `#define` in  [config.h](https://github.com/issalig/toshiba_air_cond/blob/master/air/config.h)
 
-Files are located into the **data** folder of your sketch and all the contents of the folder will be uploaded
-- Make sure you have selected a board, port, and closed Serial Monitor. OTA ports are not valid, you need to plug the board into your computer.
-- Select Tools > ESP8266 LittleFS Data Upload menu item. This should start uploading the files into ESP8266 flash file system. When done, IDE status bar will display LittleFS Image Uploaded message. Might take a few minutes for large file system sizes.
+- `USE_OTA`      OTA updates
+- `USE_SCREEN`   OLED status display
+- `USE_MQTT`     MQTT + Home Assistant integration
+- `USE_AHT20`    AHT20 sensor support
+- `USE_BMP280`   BMP280 sensor support
+
 
 ### WiFi setup
-Once you have the code and the data uploaded it is time to configure your WiFi. This project makes use of the great WiFiManager library so there is no need to hardcode your WiFi settings.
-- Plug your board and connect to airAP wifi network. You can do it with your cellphone or PC. 
+Once you have the code uploaded it is time to configure your WiFi. This project makes use of the great WiFiManager library so there is no need to hardcode your WiFi settings.
+- Plug you esp board. It will start blinking.
+- Connect to **airAP** wifi network from your cellphone or PC.
+- Open a browser and the WifiManager will appear.
 - Select your WiFi network and the password.
 - If everything is correct, airAP shuts down and board connects to your WiFi.
+- Connect to your normal WiFi from computer/cellphone.
 
 ### Connect
 Now the esp8266 is connected to your network and can be reached as http://air.local
 
+### Upload files
+Connect to http://air.local/upload.html  and select ![index.html](https://github.com/issalig/toshiba_air_cond/blob/master/air/data/index.html)
+
+This will store index.html file and http://air.local should show the main page.
+You can use this endpoint to modify the webpage or add more functionality. If you do it please share.
+
+### Delete files
+Similarly to upload page you can use http://air.local/delete.html to delete a file.
+
 ### Addons
-The project and the board support sensors for temperature, humidity and pressure (DHT11 and BMP180), these values are shown in a graph in the webpage. If you do not connect these sensor there is no problem. Graph will show indoor and outdoor temperature reported by the air conditioning.
-In the bottom side of the pcb you can find the connections, DHT is connected to D3 and BMP180 uses SPI.
+The project and the board support sensors for temperature, humidity and pressure (AHT20 and BMP280), these values are shown in a graph in the webpage. If you do not connect these sensors there is no problem. Graph will show indoor and outdoor temperature reported by the air conditioning.
+In the bottom side of the pcb you can find the SPI connections.
 ![image](https://user-images.githubusercontent.com/7136948/148600587-4383e831-2e45-4c01-80d2-e20d8952b76c.png)
 
 ### OTA and file update
 OTA updates are available, so you do not need to unplug the esp everytime you want to flash it. In the Arduino IDE just set Tools->Port->air at xxx.
+If you are using PlatformIO it is done in platform.io
+Default OTA password is esp8266
+
+```
+; OTA upload configuration
+upload_protocol = espota
+upload_port = air.local        ; Replace with your device's actual IP from OTAName in config.cpp
+upload_flags = --auth=esp8266  ; Replace with your OTA password from OTAPassword varialble in config.cpp
+```
+
 
 If you just want to upload individual files you can use http://air.local/edit.html
 
-### Known bugs
-- After a little time without acitvity, the websocket is closed. I am working on a reconnection function.
-- A reload can cause the board to reboot because a websocket is opened when it is serving webpage files. Sometimes happen and sometimes not. But it is not critical.
+# Web Interface
+[Up](#toshiba_air_cond) [Previous](#Software-Installation) [Next](#Hardware-Installation)
+
+This section describes the features available through the embedded web interface served by the ESP8266 air conditioning controller.
+
+## Access
+- URL via mDNS: `http://air.local` (See `mdnsName` in `config.h`)
+- HTTP Port: 80
+- WebSocket Port: 81
+
+![web interface](https://github.com/user-attachments/assets/c799ae9e-48ad-44bb-9438-c98791343c15))
+
+## Main Features
+1. Control Functions
+   - Power ON / OFF
+   - Set target temperature (bounded 16–30 °C; internally enforced 18–30 in MQTT handler)
+   - Change mode: `cool`, `heat`, `dry`, `fan_only`, `auto`, `off`
+   - Change fan speed: `auto`, `low`, `medium`, `high`
+   - Save mode
+
+2. Timer
+   - ON/OFF Timer. Software based relying only in esp8266
+
+3. Chart
+   - Shows current temperature, external temperature and pressure/humidity if sensors are available.
+
+4. System
+   - Info: IP, boot time and decoding errors.
+   - Sensors: Internal / External AC sensors.
+   - Address: Address configuration for master/remote in case your system uses different from default or you want to install different remotes.
+   - Mode: 
+    - Autonomous mode indicator: Use it if there is no remote connected (sends pings like remotes). It is necessary to have a temperature sensor to report room temperture.
+    - Simulation mode indicator: Simulates a physical AC
+   - Admin: Upload files. Use it to upload index.html and others.
+5. Debug
+    - Send RAW messages to AC, i.e., "00 FE 10 02 80 8A E6"
+    - Debug output: Shows serial raw and decoded messages
+    - Log
+
+6. MQTT Configuration (if `USE_MQTT`)
+   - Runtime modification of: host, port, username, password, device name
+   - Persisted to `/mqtt_config.json` in LittleFS
 
 # Hardware installation
+[Up](#toshiba_air_cond) [Previous](#Web-Interface) [Next](#Data-acquisition)
+
+
 You will need an esp8266, a circuit for adapting signals to esp8266, a USB power supply, a a couple of dupont (female) wires.
 - Take out the cover of your remote controller
 - Loose the screws of AB terminals. **WARNING**: My PCB assumes A is positive and B is negative. If this is not your case you can damage the PCB. (https://github.com/issalig/toshiba_air_cond/discussions/40#discussioncomment-8149607)
@@ -87,6 +168,7 @@ Just switch it on/off while you are in bed. If you like it just send me a beer a
 ![image](https://github.com/issalig/toshiba_air_cond/blob/master/pcb/mounted_board.jpg)
 
 # Data acquisition
+[Up](#toshiba_air_cond) [Previous](#Hardware-Installation) [Next](#Custom-hardware)
 
 This is how I managed to decode the information from the AB bus. First I plugged a multimeter to check the range of the signal and not fry anything. Then I used a DS0138 oscilloscope to monitor the signal and to guess voltages and baudrate (a resistor divider is suggested in order to lower the voltage). Later, an 8-channel USB logic analyzer (4-5 USD) can be used to capture data into the computer. **REMEMBER** to convert voltages to 0-3.3v before connecting it to logic analyzer or you will make magic smoke. You can use the read circuit below.
 
@@ -109,6 +191,9 @@ sigrok-cli -d fx2lafw -c samplerate=250000 -t D0=r -P uart:rx=D0:baudrate=2400:p
 ```
 
 # Custom hardware
+[Up](#toshiba_air_cond) [Previous](#Data-acquisition) [Next](#Data-format)
+
+
 I have designed some circuits to read and write the signal
 
 ## Read
@@ -190,6 +275,7 @@ Temp up button is connected to R24 and R46
 
 
 # Data format
+[Up](#toshiba_air_cond) [Previous](#Custom-hardware) [Next](#Message-types)
 
 Data packages have the following format:
 
@@ -286,6 +372,8 @@ Opcode2
 CRC is computed as Checksum8 XOR of all the bytes (Compute it at https://www.scadacore.com/tools/programming-calculators/online-checksum-calculator/)
 
 # Message types
+
+[Up](#toshiba_air_cond) [Previous](#Data-format) [Next](#Other-info)
 
 There are two different status messages sent from master: normal and extended. Opcode for both is 81
 Extended has two extra bytes, one could be some temperature? and other is always E9 in my experiments.
@@ -905,6 +993,8 @@ https://codepen.io/CiTA/pen/OwowEB remote
 
 
 # Other info
+[Up](#toshiba_air_cond) [Previous](#Message-types)
+
 
 
 If you want to know about error codes and sensor addresses you can check the following links.
