@@ -970,7 +970,7 @@ void handleFileUpload() { // upload a new file to the LittleFS
     if (fsUploadFile) {                                   // If the file was successfully created
       fsUploadFile.close();                               // Close the file again
       Serial.print("[FILE] handleFileUpload Size: "); Serial.println(upload.totalSize);
-      server.sendHeader("Location", "/success.html");     // Redirect the client to the success page
+      server.sendHeader("Location", "/filemanager?upload=success");     // Redirect back to file manager with success
       server.send(303);
     } else {
       server.send(500, "text/plain", "500: couldn't create file");

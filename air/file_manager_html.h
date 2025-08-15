@@ -82,6 +82,34 @@ const char file_manager_html[] PROGMEM = R"rawliteral(
             font-family: monospace;
             font-size: 14px;
         }
+        .file-item {
+            display: block;
+            padding: 6px 10px;
+            margin: 2px 0;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+            border: 1px solid transparent;
+            text-decoration: none;
+            color: inherit;
+        }
+        .file-item:hover {
+            background: #e9ecef;
+            border-color: #dee2e6;
+        }
+        .file-item.selected {
+            background: #cce5ff;
+            border-color: #002F7A;
+            color: #002F7A;
+            font-weight: bold;
+        }
+        .file-item.clickable {
+            cursor: pointer;
+        }
+        .file-item.clickable:hover {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+        }
         form {
             margin: 0px auto 8px auto;
             display: flex;
@@ -184,7 +212,7 @@ const char file_manager_html[] PROGMEM = R"rawliteral(
             </p>
             
             <form method="post" enctype="multipart/form-data" action="/upload">
-                <input type="file" name="Choose file" accept=".gz,.html,.ico,.js,.css">
+                <input type="file" name="Choose file" accept=".gz,.html,.ico,.js,.css" required>
                 <input class="button btn-primary" type="submit" value="Upload File" name="submit">
             </form>
         </div>
@@ -192,19 +220,26 @@ const char file_manager_html[] PROGMEM = R"rawliteral(
         <!-- Delete Tab -->
         <div id="delete-content" class="tab-content">
             <p class="info-text">
-                Enter the filename you want to delete. Be careful - this action cannot be undone!<br/>
+                <strong>Click on a file to select it for deletion</strong>, or enter the filename manually.<br/>
+                Be careful - this action cannot be undone!
             </p>
             
-            <input type="text" id="filename" placeholder="Enter filename to delete (e.g. status.json)" />
+            <input type="text" id="filename" placeholder="Enter filename or click on a file in the list above" />
             <div class="button-container">
                 <button class="button btn-delete" onclick="deleteFile()">Delete File</button>
+                <button class="button btn-primary" onclick="clearSelection()">Clear Selection</button>
             </div>
             <div id="message" class="message"></div>
         </div>
     </div>
 
     <script>
+        let selectedFile = null;
+        let currentTab = 'upload';
+
         function switchTab(tabName) {
+            currentTab = tabName;
+            
             // Hide all tab contents
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.remove('active');
@@ -220,6 +255,19 @@ const char file_manager_html[] PROGMEM = R"rawliteral(
             
             // Add active class to clicked tab
             event.target.classList.add('active');
+            
+            // Refresh file list to update clickability
+            refreshFiles();
+        }
+
+        function checkUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('upload') === 'success') {
+                showMessage('File uploaded successfully!', 'success', 'upload');
+                // Clean up URL without reload
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, newUrl);
+            }
         }
 
         function refreshFiles() {
@@ -230,8 +278,19 @@ const char file_manager_html[] PROGMEM = R"rawliteral(
                     let html = '';
                     if (data.files && data.files.length > 0) {
                         data.files.forEach(f => {
-                            html += f.name + ' (' + formatSize(f.size) + ')<br>';
+                            const isClickable = currentTab === 'delete';
+                            const clickHandler = isClickable ? `onclick="selectFile('${f.name}')"` : '';
+                            const cssClass = isClickable ? 'file-item clickable' : 'file-item';
+                            const selectedClass = (selectedFile === f.name && isClickable) ? ' selected' : '';
+                            
+                            html += `<div class="${cssClass}${selectedClass}" ${clickHandler}>` +
+                                   `${f.name} (${formatSize(f.size)})` +
+                                   `</div>`;
                         });
+                        
+                        if (currentTab === 'delete' && data.files.length > 0) {
+                            html = '<div style="font-size: 12px; color: #666; margin-bottom: 8px;">Click on a file to select it for deletion:</div>' + html;
+                        }
                     } else {
                         html = 'No files found';
                     }
@@ -242,10 +301,41 @@ const char file_manager_html[] PROGMEM = R"rawliteral(
                 });
         }
 
+        function selectFile(filename) {
+            if (currentTab !== 'delete') return;
+            
+            selectedFile = filename;
+            document.getElementById('filename').value = filename;
+            
+            // Update visual selection
+            document.querySelectorAll('.file-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // Find and highlight the selected file
+            document.querySelectorAll('.file-item').forEach(item => {
+                if (item.textContent.startsWith(filename + ' ')) {
+                    item.classList.add('selected');
+                }
+            });
+            
+            // Clear any previous messages
+            document.getElementById('message').style.display = 'none';
+        }
+
+        function clearSelection() {
+            selectedFile = null;
+            document.getElementById('filename').value = '';
+            document.querySelectorAll('.file-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            document.getElementById('message').style.display = 'none';
+        }
+
         function deleteFile() {
             const filename = document.getElementById('filename').value.trim();
             if (!filename) {
-                showMessage('Please enter a filename', 'error');
+                showMessage('Please select a file or enter a filename', 'error');
                 return;
             }
             if (!confirm('Delete "' + filename + '"? This cannot be undone!')) return;
@@ -259,7 +349,7 @@ const char file_manager_html[] PROGMEM = R"rawliteral(
             .then(data => {
                 if (data.success) {
                     showMessage('File deleted successfully', 'success');
-                    document.getElementById('filename').value = '';
+                    clearSelection();
                     refreshFiles();
                 } else {
                     showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
@@ -270,12 +360,42 @@ const char file_manager_html[] PROGMEM = R"rawliteral(
             });
         }
 
-        function showMessage(text, type) {
+        function showMessage(text, type, targetTab = null) {
+            // If we need to show message in upload tab, make sure we're there
+            if (targetTab === 'upload' && currentTab !== 'upload') {
+                switchTab('upload');
+                setTimeout(() => displayMessage(text, type), 100);
+            } else {
+                displayMessage(text, type);
+            }
+        }
+
+        function displayMessage(text, type) {
             const msg = document.getElementById('message');
+            if (!msg) {
+                // Create message element in upload tab if it doesn't exist
+                const uploadContent = document.getElementById('upload-content');
+                const messageDiv = document.createElement('div');
+                messageDiv.id = 'upload-message';
+                messageDiv.className = 'message';
+                uploadContent.appendChild(messageDiv);
+                displayUploadMessage(text, type);
+                return;
+            }
             msg.className = 'message ' + type;
             msg.innerHTML = text;
             msg.style.display = 'block';
             setTimeout(() => msg.style.display = 'none', 5000);
+        }
+
+        function displayUploadMessage(text, type) {
+            const msg = document.getElementById('upload-message');
+            if (msg) {
+                msg.className = 'message ' + type;
+                msg.innerHTML = text;
+                msg.style.display = 'block';
+                setTimeout(() => msg.style.display = 'none', 5000);
+            }
         }
 
         function formatSize(bytes) {
@@ -284,7 +404,10 @@ const char file_manager_html[] PROGMEM = R"rawliteral(
             return Math.round(bytes/1024/1024) + ' MB';
         }
 
-        window.onload = refreshFiles;
+        window.onload = function() {
+            refreshFiles();
+            checkUrlParams();
+        };
     </script>
 </body>
 </html>
