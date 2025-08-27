@@ -200,7 +200,7 @@ I have designed some circuits to read and write the signal
 I will use an optocoupler because it simplifies things and also isolates microcontroller from the rest of the system.
 
 - Air conditioning side:
-Signal is around 15.6 volts when 1 and 14 when 0. Zener diode provides 13V reference, so signal is 1V .. 2.6V and after diode (0.7V drop) is 0.3V .. 1.9V, enough to activate photodiode (1.2V) when 1 and to not activate it when 0.
+Voltage is around 15.6 volts when "1" and 14 when "0". A zener diode in reversed position provides 13V reference given that voltage is in the range [14, 15.6] and is > 13V. Thus, the signal is now in the range [1V, 2.6V]. Then, after diode 1N4001 (0.7V drop) voltage is 0.3V .. 1.9V, enough to activate the photodiode (1.2V) when "1" and to not activate it when "0".
 
 IR led from optocouple drops 1.2v, and from signal we have a difference of 15.6V-13V=2.6V, thus 2.6V-1.2V=1.4V/100ohm = 14mA which has a maximum CTR=140%
 Ic=3.3, If=14
@@ -211,46 +211,52 @@ Type     VZnom  IZT  for  rzjT    rzjk  at  IZK    IR  at  VR
 1N4743A  13     19        <10     <100      0.25   <5      9.9
 ```
 
+Now, let's calculate the resistor value
 Izt=19 mA -> 2.6/19=130ohm  P=VI 2.6*19 =52mW
 
 
 - Microcontroller side: 1k resistor limits the current. ESP8266 max current is 12mA > 3.3/1k = 3.3 mA
 
 ```
-                             1N4001  _______
-  A -----------------100R ---->|----|       |-------------3v3
-                |                   | PC817 |
-               10k                  |       |
-                |                   |       |
-  B ------>|z-----------------------|_______|------------ OUT               
-                                              |
-         zener 13v                            1k
-                                              |
-                                             GND
+Air                                         Microcontroller
+Conditioner
+
+                          1N4001  _______
+  A ---------+----100R ---->|----|       |-------3v3
+             |                   | PC817 |
+            10k                  |       |
+             |                   |       |
+  B --->|----+-------------------|_______|------ OUT               
+                                             |
+     zener 13v                              1k
+      1N4743A                                |
+                                            GND
              
 ```
 
 ## Write
 
-Write circuit performs similarly to read circuit. When OUT signal is 1, transistor and pullup resistor are 0, thus optocoupler is OFF and voltage is 15.6 (HIGH). When OUT signal is 0, transistor is off and pullup resistor sends 1 and activates optocoupler and zener diode gives 13V (LOW).
+Write circuit performs similarly to read circuit. 
+- When OUT signal is "1", transistor and pullup resistor are "0", thus optocoupler is OFF and voltage is 15.6 (HIGH). 
+- When OUT signal is 0, transistor is off and pullup resistor sends 1 and activates optocoupler and zener diode gives 13V (LOW).
 Some systems recommend to set the Follower in the remote unit.
 
-Here I attach specs for the components.
+Here I attach the datasheets of the components.
 https://www.onsemi.com/pub/Collateral/P2N2222A-D.PDF 
 https://learnabout-electronics.org/Downloads/PC817%20optocoupler.pdf
 
 
 ```
 
-              3v3                                   1N4001
-               |                             |--------<------- A               
-               200                _______    |     |               
-               ------------------|       |---|     ^ z13v
-               |                 | PC817 |         |
- OUT --1k- ---|<  2N2222     |---|_______|---1k---|< 2N2222
+              3v3                                    1N4001
+               |                             |-----+---|<------- A               
+              200                 _______    |     |               
+               ------------------|       |---|     ^ zener 13v
+               /                 | PC817 |         /
+ OUT --1k- ---|   2N2222     |---|_______|---1k---| 2N2222
+               \             |                     \
                |             |                     |
-               |             |                     |
-              GND           GND                    ------------ B
+              GND           GND                    ------------- B
   
 
 ```
