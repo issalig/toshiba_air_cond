@@ -316,23 +316,23 @@ Operation code 1 (1 byte)
 - From master (00)
   |Opc1|Desc|Example|
   |---|---|---|
-  |10| ping | 00 FE 10 02 80 8A E6|
-  |11| parameters (temp. power, mode, fan, save)| 00 52 11 04 80 86 84 01 C4| 
-  |1A| sensor value | 00 40 1A 07 80 EF 80 00 2C 00 2B B5|
-  |1C| status |00 FE 1C 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9|
+  |10| ping | 00 FE **10** 02 80 8A E6|
+  |11| parameters (temp. power, mode, fan, save)| 00 52 **11** 04 80 86 84 01 C4| 
+  |1A| sensor value | 00 40 **1A** 07 80 EF 80 00 2C 00 2B B5|
+  |1C| status |00 FE **1C** 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9|
   |58| extended status | |
-  |18| pong, answer to remote ping |00 40 18 08 80 0C 00 03 00 00 48 00 97|
-  |18| master ack after setting param  |00 40 18 02 80 A1 7B|
+  |18| pong, answer to remote ping |00 40 **18** 08 80 0C 00 03 00 00 48 00 97|
+  |18| master ack after setting param  |00 40 **18** 02 80 A1 7B|
 - From remote (40)
   |Opc1|Desc|Example|
   |---|---|---|
-  |11|  set power |  40 00 11 03 08 41 03 18 |
-  |11 | set mode |   40 00 11 03 08 42 01 19 (heat)|
-  |11 | set temp | 40 00 11 08 08 4C 09 1D 6C 00 05 05 65|
+  |11|  set power |  40 00 **11** 03 08 41 03 18 |
+  |11 | set mode |   40 00 **11** 03 08 42 01 19 (heat)|
+  |11 | set temp | 40 00 **11** 08 08 4C 09 1D 6C 00 05 05 65|
   |11 | set save | |
-  |15| Error history   | 40 00 15 07 08 0C 81 00 00 48 00 9F  |
-  |17| sensor query | 40 00 17 08 08 80 EF 00 2C 08 00 02 1E |
-  |55| temperature | 40 00 55 05 08 81 00 69 00 F0 |
+  |15| Error history   | 40 00 **15** 07 08 0C 81 00 00 48 00 9F  |
+  |17| sensor query | 40 00 **17** 08 08 80 EF 00 2C 08 00 02 1E |
+  |55| temperature | 40 00 **55** 05 08 81 00 69 00 F0 |
   
 
 Data length (1 byte)
