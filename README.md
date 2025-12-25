@@ -294,22 +294,12 @@ And Data field is composed of the following parts:
 |---|---|---|
 
 
-
-
-Source (1 byte): 
-|#|Desc|
+Source/Dest (1 byte): 
+|#|Description|
 |---|---|
 |00 | master (central unit) |
-|40 | remote controller |
+|40 | remote controller in the range [0x40..] |
 |FE | broadcast |
-|52 |??|
-
-Dest (1 byte):
-|#|Desc|
-|---|---|
-|00 | master (central unit) |
-|40 | remote controller|
-|FE | broadcast|
 |52 |??|
 
 Operation code 1 (1 byte) 
@@ -320,21 +310,20 @@ Operation code 1 (1 byte)
   |11| parameters (temp. power, mode, fan, save)| 00 52 **11** 04 80 86 84 01 C4| 
   |1A| sensor value | 00 40 **1A** 07 80 EF 80 00 2C 00 2B B5|
   |1C| status |00 FE **1C** 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9|
-  |58| extended status | |
+  |58| extended status | 00 FE **58** 0F 80 81 34 A8 00 00 6C 6D E9 00 55 55 01 00 01 DC|
   |18| pong, answer to remote ping |00 40 **18** 08 80 0C 00 03 00 00 48 00 97|
   |18| master ack after setting param  |00 40 **18** 02 80 A1 7B|
 - From remote (40)
   |Opc1|Desc|Example|
   |---|---|---|
-  |11|  set power |  40 00 **11** 03 08 41 03 18 |
-  |11 | set mode |   40 00 **11** 03 08 42 01 19 (heat)|
-  |11 | set temp | 40 00 **11** 08 08 4C 09 1D 6C 00 05 05 65|
-  |11 | set save | |
-  |15| Error history   | 40 00 **15** 07 08 0C 81 00 00 48 00 9F  |
+  |11| set power | 40 00 **11** 03 08 41 03 18 |
+  |11| set mode | 40 00 **11** 03 08 42 01 19 (heat)|
+  |11| set temp | 40 00 **11** 08 08 4C 09 1D 6C 00 05 05 65|
+  |11| set save | 40 00 **11** 04 08 54 01 01 09|
+  |15| Error history | 40 00 **15** 07 08 0C 81 00 00 48 00 9F  |
   |17| sensor query | 40 00 **17** 08 08 80 EF 00 2C 08 00 02 1E |
   |55| temperature | 40 00 **55** 05 08 81 00 69 00 F0 |
   
-
 Data length (1 byte)
 - Length of data field
 
@@ -360,8 +349,7 @@ Opcode2
     | 0C | pong,answer to ping opc2 0C | 00 40 18 08 80 **0C** 00 03 00 00 48 00 97 | 
 
   - From remote (40)
-  
-  
+    
     | Opcode2 | Desc | Example |
     |---|---|---|
     | 41 |power|40 00 11 03 08 **41** 02 19|
@@ -380,6 +368,8 @@ CRC is computed as Checksum8 XOR of all the bytes (Compute it at https://www.sca
 # Message types
 
 [Up](#toshiba_air_cond) [Previous](#Data-format) [Next](#Other-info)
+
+Status messages
 
 There are two different status messages sent from master: normal and extended. Opcode for both is 81
 Extended has two extra bytes, one could be some temperature? and other is always E9 in my experiments.
@@ -404,21 +394,21 @@ Extended status
 ```
                                  -- -- extra values in extended
 00 FE 58 0F 80 81 8D A8 00 00 7A 84 E9 00 33 33 01 00 01 9B
-                                    |-always E9
-                                 |-  1000 0100  1000010 66-35=31 (real temp??)  
-                              |-temp 0111 1010 111101 61-35 = 26    
+                        |     |  |   |-always E9
+                        |     |  |-  1000 0100  1000010 66-35=31 (real temp??)  
+                        |     |-temp 0111 1010 111101 61-35 = 26    
                         |- bit 7 "filter alert", bit 1 "preheat"
  
 temperature reading also confirmed in page 14 https://www.toshibaheatpumps.com/application/files/8914/8124/4818/Owners_Manual_-_Modbus_TCB-IFMB640TLE_E88909601.pdf                                                      
 ``` 
 
-ALIVE message (sent every 5 seconds from master)
+ALIVE message (sent periodically from master)
 ```
 00 FE 10 02 80 8A E6 
 |  |  |  |  |  |  |- CRC
 |  | OPC1|  |  |- OPC2 
-|  ALL   |  |-from master, info message??
-Master   |- Length
+|  |-ALL |  |-from master, info message??
+|-Master |- Length
 
 From master (00) to all (FE)
 
@@ -426,16 +416,16 @@ From master (00) to all (FE)
 
 ACK sent after setting parameters
 ```
-00 40 18 02 80 a1 7b 
+00 40 18 02 80 A1 7B 
 ```
 
 PING/PONG, remote pings and master pongs
 ```
 40 00 15 07 08 0c 81 00 00 48 00 9f 
-               |- opcode ping
+               |- opc2
                
 00 40 18 08 80 0c 00 03 00 00 48 00 97
-               |- opcode ping
+               |- opc2
 ```
 
 Temp from remote to master.
@@ -521,9 +511,9 @@ TEST + CL for sensor query
 Timer is decoded but remote takes care of it internally and ignores it if sent from external sources (our circuit)
 
 ```
-40 00 11 09 08 0c 82 00 00 30 07 02 02 e9    1h for poweron
-                                    |----- number of 30 minutes periods,  2 -> 1h
-                                 |----- number of 30 minutes periods,  2 -> 1h
+40 00 11 09 08 0C 82 00 00 30 07 02 02 E9    1h for poweron
+                              |  |  |----- number of 30 minutes periods,  2 -> 1h
+                              |  |----- number of 30 minutes periods,  2 -> 1h
                               |------ 07 poweron 06 poweroff repeat 05 poweroff  00 cancel
                               
 
@@ -536,6 +526,7 @@ Sequence observed for 1h poweron
 
 ```
 # Sensor addresses
+These are the sensor addresses for sensor query.
 
 | No.  | Desc  | Example value  |
 |---|---|---|
