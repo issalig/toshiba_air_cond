@@ -300,6 +300,7 @@ Source/Dest (1 byte):
 |00 | master (central unit) |
 |40 | remote controller in the range [0x40..] |
 |FE | broadcast |
+|F0 | Group
 |52 |??|
 
 Operation code 1 (1 byte) 
@@ -311,7 +312,7 @@ Operation code 1 (1 byte)
   |1A| sensor value | 00 40 **1A** 07 80 EF 80 00 2C 00 2B B5|
   |1C| status |00 FE **1C** 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9|
   |58| extended status | 00 FE **58** 0F 80 81 34 A8 00 00 6C 6D E9 00 55 55 01 00 01 DC|
-  |18| pong, answer to remote ping |00 40 **18** 08 80 0C 00 03 00 00 48 00 97|
+  |18| pong, answer to remote control ping |00 40 **18** 08 80 0C 00 03 00 00 48 00 97|
   |18| master ack after setting param  |00 40 **18** 02 80 A1 7B|
 - From remote (40)
   |Opc1|Desc|Example|
@@ -354,7 +355,7 @@ Opcode2
     |---|---|---|
     | 41 |power|40 00 11 03 08 **41** 02 19|
     | 42 |mode|40 00 11 03 08 **42** 02 1A|
-    | 4C |temp, fan|40 00 11 08 08 **4C** 11 1A 6E 00 55 55 78|
+    | 4C |temp, fan, mode|40 00 11 08 08 **4C** 11 1A 6E 00 55 55 78|
     | 54 |save (opc1 11)|40 00 11 04 08 **54** 01 00 08 |
     | 80 |sensor query|40 00 17 08 08 **80** EF 00 2C 08 00 02 1E|
     | 81 |sensor room temp |40 00 55 05 08 **81** 00 6A 00 F3|
