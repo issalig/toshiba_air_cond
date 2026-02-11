@@ -385,6 +385,7 @@ OpCode1 (byte 2)  indicates the function of the message and OpCode2 (byte 5) spe
 
 The protocol relies on a command/response structure. Most control commands are sent by the Remote (0x40), and the Master (0x00) responds with status updates or acknowledgments.
 
+Temperatures are coded with the formula: `(Value >> 1) - 35`. That is, for a value of `0x78`, the temperature is `(0x78 >> 1) - 35 = 120/2 - 35 = 60 - 35 = 25°C`.
 
 ## 1. Control Commands (Remote -> Master)
 These commands control the state of the AC unit.
@@ -406,7 +407,8 @@ These commands control the state of the AC unit.
 | **Fan Caps** | `15` | `10` | `MSG_FAN_MODES_REQUEST` | `40 00 15 02 08 10 4F` | Request fan capabilities |
 | **Time Cnt** | `15` | `E8` | `MSG_TIME_COUNTER` | `40 00 15 06 08 E8 00 01 00 9E 2C` | Request time counter (?) |
 | **Sensor Query**| `17` | `80` | `MSG_SENSOR_QUERY` | `40 00 17 08 08 80 EF 00 2C 08 00 02 1E` | Request specific sensor value |
-| **Remote Temp** | `55` | `81` | `MSG_REMOTE_SENSOR_TEMP` | `40 00 55 05 08 81 00 69 00 F0` | Report remote controller temperature |
+| **Remote Temp** | `55` | `81` | `MSG_REMOTE_SENSOR_TEMP` | `40 00 55 05 08 81 00 [Val] 00 [CRC]` | Temperature in byte 7|
+
 
 **Temperature and Fan Speed (OpCode 4C) Breakdown:**
 The `4C` packet is used when changing Temperature or Fan Speed. It contains multiple state variables.
@@ -450,7 +452,7 @@ The Master unit periodically broadcasts its status or responds to specific queri
 ## 3. Remote Announce Protocol
 
 ### 1. Announce / Discovery (Remote -> System)
-In the bootup process, the remote controller sends an **Announce** message to a specific broadcast/discovery address (`0xF0`).
+In the master bootup process (you need to switch off and on the master), the remote controller sends an **Announce** message to the broadcast address (`0xF0`).
 *   **Message**: `40 F0 15 02 00 0D AA`
     *   **Source**: `0x40` (Remote)
     *   **Dest**: `0xF0` (Discovery / Broadcast)
@@ -462,7 +464,7 @@ If the master is busy it will respond with `MSG_MASTER_BUSY`
     *   **Dest**: `0x40` (Remote)
     *   **OpCode**: `18` (Response) ... `A3` (Busy) 
 
-otherwise it will respond with `MSG_FEATURES`  
+otherwise it will respond with `MSG_FEATURES` and that means the remote is linked. **Take into account that for the remote to work it needs to be linked to the master.** This is not necessary if you already have a remote linked to the master (i.e. your RBC-AMT32E).
 *   **Message**: `00 40 18 12 80 0d 08 00 fe fe fe fe fe fe fe fe fe fe fe fe fe fe cf`
     *   **Source**: `0x00` (Master)
     *   **Dest**: `0x40` (Remote)
@@ -471,15 +473,17 @@ otherwise it will respond with `MSG_FEATURES`
     *   **Data**: The sequence `FE FE...` likely represents a bitmap of supported features (modes, fan speeds, louvers, etc.) enabled on the indoor unit.
 
 After the reception of `MSG_FEATURES` the remote will ask for the following information:
-- Model info
-- Temperature Limits
-- Fan Capabilities
+* Model info
+* Temperature Limits
+* Capabilities
+* Power Save Ratio
+* Current Setpoint
 
 **Model**:
 *   Request: `40 F0 15 02 00 08 AF`
 *   Response: `00 00 18 0D 00 08 [Model String] [CRC]` (e.g. `RAV-SM406...`)
 
-**Temp Limits**:
+**Temperature Limits**:
 *   Request: `40 00 15 02 08 0A 55`
 *   Response: `00 40 18 10 80 0A 00 2F 0F 80 6A 80 6A 80 6A 80 6A 04 56 00 B0` (Example)
     *   Byte 9: Max Temp (`0x80` -> 29°C)
@@ -503,64 +507,141 @@ After the reception of `MSG_FEATURES` the remote will ask for the following info
         *   Dry:  `0x78` -> 25°C
         *   Cool: `0x78` -> 25°C
 
+**Capabilities**: This message is still UNDER STUDY, so it is not yet clear what the values mean.
+*   Request: `40 00 15 02 08 10 50`
+*   Response: `00 40 18 0E 80 10 00 35 33 35 33 35 33 35 33 00 00 00 C6` (Example)
+    *   Bytes 6-9: ??.
 
 
 **Time Sync / Counter**:
 *   Message: `40 00 15 06 08 E8 00 01 00 9E 2C` (Sent every minute by Remote in some units)
 
-**Master Busy**:
-*   Message: `00 40 18 02 80 A3 79` (Indicates Master is busy, e.g. after mode change)
-
-**Remote Temp Report**:
-*   Message: `40 00 55 05 08 81 00 [Val] 00 [CRC]`
-    *   Value = `(Temp + 35) << 1`
-
-**DN Codes**: Used to configure deep settings of the AC (e.g., jumper settings, addresses).
-*   Request: `40 00 15 05 08 02 F5 00 01 [CRC]` (Example: Request DN Code 00, value F5?) -> *Note: Decoding logic implies byte 6 is requested code*
-*   Request (Actual from logs): `40 00 15 05 08 02 F5 00 01 AE`
-*   Response: `00 40 18 07 80 02 01 02 05 00 00 DB` (Next Code: 01, Value: 02)
-
-
-
-
 ## 4. Sensor & Maintenance
-Messages for reading specific sensor values or error history.
 
-| Command | OpCode 1 | OpCode 2 | Description |
-|---|---|---|---|
-| **Query** | `17` | `80` | Request specific sensor ID (see Sensor Addresses) |
-| **Answer** | `1A` | `EF` | Sensor Value Response |
-| **Errors** | `15`/`18`| `27` | Request/Response Error History |
-
-**Sensor Answer Format:**
-`00 40 1A 07 80 EF 80 00 2C [ValH] [ValL] [CRC]`
-*   Value is typically signed int16. For temperatures, often `Value / 2 - 35` or raw.
+**Query Sensor**: Request specific sensor ID (see Sensor Addresses)
+*   Request: `40 00 17 08 08 80 ef 00 2c 08 00 [SENSOR] [CRC]`
+    * Opcode 17 80
+    * Byte 11: Sensor ID
+*   Response: `00 40 1A 07 80 EF 80 00 2C [ValH] [ValL] [CRC]`
+    * Opcode 1A EF
+    * Byte 9: High Byte
+    * Byte 10: Low Byte
+    * Value: `(Byte9 << 8) | Byte10`
+    * If `Value == 0xA2`, the value is undefined.
 
 # Sensor addresses
-These are the sensor addresses for80 sensor query.
 
-| No.  | Desc  | Example value  |
+| No.  | Desc  |
 |---|---|---|
-| 00 | Room Temp (Control Temp) (°C) | Obtained from master status frames 00 FE 1C ...|
-| 01 | Room temperature (remote controller) | Obtained from controller messages 40 00 55 ... |
-| 02 | Indoor unit intake air temperature (TA) | 23 |
-| 03 | Indoor unit heat exchanger (coil) temperature (TCJ) Liquid | 19 |
-| 04 | Indoor unit heat exchanger (coil) temperature (TC) Vapor | 19 |
-| 07 | Indoor Fan Speed|  0 |
-| 60 | Outdoor unit heat exchanger (coil) temperature (TE) | 18 |
-| 61 | Outside air temperature (TO)| 19 |
-| 62 | Compressor discharge temperature (TD) | 33 |
-| 63 | Compressor suction temperature (TS) | 26 |
-| 65 | Heatsink temperature (THS) | 55 |
-| 6a | Operating current (x1/10) | 0 |
-| 6d | TL Liquid Temp (°C) | 22 |
-| 70 | Compressor Frequency (rps)| 0 |
-| 72 | Fan Speed (Lower) (rpm) | 0 |
-| 73 | Fan Speed (Upper) (rpm) | defined in manual, not working  |
-| f1 | Compressor cumulative operating hours (x100 h) | 7 |
-| f2 | Fan Run Time (x 100h) | 8 |
-| f3 | Filter sign time x 1h | 37 |
-| f8 | Indoor Discharge Temperature | - |
+| 00 | Room Temp (Control Temp) (°C) |
+| 01 | Room temperature (remote controller) |
+| 02 | Indoor unit intake air temperature (TA) |
+| 03 | Indoor unit heat exchanger (coil) temperature (TCJ) Liquid |
+| 04 | Indoor unit heat exchanger (coil) temperature (TC) Vapor |
+| 07 | Indoor Fan Speed|  |
+| 60 | Outdoor unit heat exchanger (coil) temperature (TE) |
+| 61 | Outside air temperature (TO)| |
+| 62 | Compressor discharge temperature (TD) |
+| 63 | Compressor suction temperature (TS) |
+| 65 | Heatsink temperature (THS) |
+| 6a | Operating current (x1/10) |
+| 6d | TL Liquid Temp (°C) |
+| 70 | Compressor Frequency (rps)| |
+| 72 | Fan Speed (Lower) (rpm) |
+| 73 | Fan Speed (Upper) (rpm) |
+| f1 | Compressor cumulative operating hours (x100 h) |
+| f2 | Fan Run Time (x 100h) |
+| f3 | Filter sign time x 1h | 
+| f8 | Indoor Discharge Temperature |
+
+
+
+## 5. DN Codes
+DN Codes are configuration settings for the Toshiba AC unit. Here only read functionality is described.
+
+### Request
+The specific DN code is requested using OpCode `15 02`.
+
+`40 00 15 05 08 02 [Mode] [Code] [Offset] [CRC]`
+
+*   **Mode**: Defines the traversal method.
+    *   `0xF5`: Request **Current** specific code.
+    *   `0xF1`: Request **Next** available code.
+    *   `0xF2`: Request **Previous** available code.
+*   **Code**: DN Code address
+*   **Offset**: Typically `0x00` for current, `0x01` for next/prev.
+
+### Response
+The Master returns the value for the DN code.
+
+`00 40 18 07 80 02 [RefCode] [Value] [Unk1] [Unk2] [Unk3] [CRC]`
+
+*   **RefCode** (Byte 6): Often points to the *next* code or context.
+*   **Value** (Byte 7): The value of the requested DN Code.
+*   **Unk1-3**: Unknown data (possibly related to min/max or permissions).
+
+**Example**:
+*   Request: `40 00 15 05 08 02 f5 01 00 ae` (Request Code 01)
+    *   Response: `00 40 18 07 80 02 01 02 05 00 00 db`
+    *   Here, Byte 7 (`0x02`) is the value. Byte 6 (`0x01`) is current code given F5 "current" mode was used.
+
+### DN Codes List
+These codes define various configuration parameters.
+
+| Code | Description |
+|---|---|
+| `01` | Filter alarm time |
+| `02` | Dirty state |
+| `03` | Central ctl address |
+| `04` | Specific indoor priority |
+| `05` | Fan control heating |
+| `06` | Heating temp shift |
+| `0C` | Preparing indication |
+| `0D` | Auto mode existence |
+| `0E` | FS Box |
+| `0F` | Heat mode |
+| `10` | Type |
+| `11` | Indoor unit capacity |
+| `12` | System address |
+| `13` | Indoor unit address |
+| `14` | Group master/slave |
+| `16` | Indoor fan speed |
+| `1E` | Dead band |
+| `1F` | Max set temp cool |
+| `20` | Min set temp cool |
+| `21` | Max set temp heat |
+| `22` | Min set temp heat |
+| `23` | Max set temp dry |
+| `24` | Min set temp dry |
+| `25` | Max set temp auto |
+| `26` | Min set temp auto |
+| `28` | Auto restart |
+| `2A` | CN70 |
+| `2E` | CN61 |
+| `31` | External fan control |
+| `32` | TA sensor (0 Body, 1 Remote) |
+| `33` | Temperature unit (0 C, 1 F) |
+| `45` | Anti-smudge louver |
+| `49` | 24h ventilation |
+| `4C` | Night purge |
+| `5D` | Standard ducted |
+| `60` | Timer set |
+| `62` | Anti-smudge fan speed |
+| `69` | Louver position |
+| `77` | Dust set point |
+| `86` | Correction strong heating |
+| `88` | Air direction setting |
+| `9A` | Fan control cooling |
+| `9B` | Hot start |
+| `D0` | Power saving |
+| `F0` | Swing mode |
+| `F1` | Louver 1 |
+| `F2` | Louver 2 |
+| `F3` | Louver 3 |
+| `F4` | Louver 4 |
+| `F6` | Application ctl kit |
+| `FE` | Group control |
+
 
 # TO-DOS
 [Up](#toshiba_air_cond) [Previous](#Message-types) [Next](#Other-info)
