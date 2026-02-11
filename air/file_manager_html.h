@@ -1,3 +1,16 @@
+/*
+GNU GENERAL PUBLIC LICENSE
+
+Version 2, June 1991
+
+Copyright (C) 1989, 1991 Free Software Foundation, Inc.  
+51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+
+Everyone is permitted to copy and distribute verbatim copies
+of this license document, but changing it is not allowed.
+
+*/
+
 #ifndef FILE_MANAGER_HTML_H
 #define FILE_MANAGER_HTML_H
 
@@ -5,6 +18,7 @@ const char file_manager_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <title>File Manager</title>
     <meta name="theme-color" content="#00878f">
     <meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0' name='viewport'>
@@ -153,6 +167,10 @@ const char file_manager_html[] PROGMEM = R"rawliteral(
         .btn-primary:hover {
             background: #00878f;
         }
+        .btn-primary:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
         .btn-delete {
             background-color: #dc3545;
         }
@@ -178,6 +196,35 @@ const char file_manager_html[] PROGMEM = R"rawliteral(
             background: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
+        }
+        .progress-container {
+            display: none;
+            margin: 15px 0;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 24px;
+            background: #e9ecef;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #002F7A, #00878f);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .progress-text {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            line-height: 24px;
+            color: #fff;
+            font-weight: bold;
+            font-size: 14px;
+            top: 0;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
         }
         @media (max-width: 500px) {
             .controller-card { max-width: 98vw; }
@@ -211,10 +258,19 @@ const char file_manager_html[] PROGMEM = R"rawliteral(
                 You can use compressed (deflated) files (<b>.gz</b>) to save space and bandwidth.
             </p>
             
-            <form method="post" enctype="multipart/form-data" action="/upload">
-                <input type="file" name="Choose file" accept=".gz,.html,.ico,.js,.css" required>
-                <input class="button btn-primary" type="submit" value="Upload File" name="submit">
+            <form id="uploadForm">
+                <input type="file" id="fileInput" name="file" accept=".gz,.html,.ico,.js,.css" required>
+                <input class="button btn-primary" type="button" value="Upload File" id="uploadButton" onclick="uploadFile()">
             </form>
+            
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                    <div class="progress-text" id="progressText">0%</div>
+                </div>
+            </div>
+            
+            <div id="upload-message" class="message"></div>
         </div>
 
         <!-- Delete Tab -->
@@ -260,14 +316,79 @@ const char file_manager_html[] PROGMEM = R"rawliteral(
             refreshFiles();
         }
 
-        function checkUrlParams() {
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('upload') === 'success') {
-                showMessage('File uploaded successfully!', 'success', 'upload');
-                // Clean up URL without reload
-                const newUrl = window.location.pathname;
-                window.history.replaceState({}, document.title, newUrl);
+        function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showUploadMessage('Please select a file first', 'error');
+                return;
             }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const uploadButton = document.getElementById('uploadButton');
+            
+            progressContainer.style.display = 'block';
+            uploadButton.disabled = true;
+            progressFill.style.width = '0%';
+            progressText.textContent = '0%';
+            
+            const xhr = new XMLHttpRequest();
+            
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = Math.round((e.loaded / e.total) * 100);
+                    progressFill.style.width = percentComplete + '%';
+                    progressText.textContent = percentComplete + '%';
+                }
+            });
+            
+            xhr.addEventListener('load', () => {
+                if (xhr.status === 200 || xhr.status === 303) {
+                    progressFill.style.width = '100%';
+                    progressText.textContent = '100%';
+                    showUploadMessage('File uploaded successfully!', 'success');
+                    
+                    setTimeout(() => {
+                        progressContainer.style.display = 'none';
+                        progressFill.style.width = '0%';
+                        fileInput.value = '';
+                        refreshFiles();
+                    }, 2000);
+                } else {
+                    showUploadMessage('Upload failed: ' + xhr.statusText, 'error');
+                    progressContainer.style.display = 'none';
+                }
+                uploadButton.disabled = false;
+            });
+            
+            xhr.addEventListener('error', () => {
+                showUploadMessage('Network error during upload', 'error');
+                progressContainer.style.display = 'none';
+                uploadButton.disabled = false;
+            });
+            
+            xhr.addEventListener('abort', () => {
+                showUploadMessage('Upload cancelled', 'error');
+                progressContainer.style.display = 'none';
+                uploadButton.disabled = false;
+            });
+            
+            xhr.open('POST', '/upload', true);
+            xhr.send(formData);
+        }
+
+        function showUploadMessage(text, type) {
+            const msg = document.getElementById('upload-message');
+            msg.className = 'message ' + type;
+            msg.innerHTML = text;
+            msg.style.display = 'block';
+            setTimeout(() => msg.style.display = 'none', 5000);
         }
 
         function refreshFiles() {
@@ -360,42 +481,12 @@ const char file_manager_html[] PROGMEM = R"rawliteral(
             });
         }
 
-        function showMessage(text, type, targetTab = null) {
-            // If we need to show message in upload tab, make sure we're there
-            if (targetTab === 'upload' && currentTab !== 'upload') {
-                switchTab('upload');
-                setTimeout(() => displayMessage(text, type), 100);
-            } else {
-                displayMessage(text, type);
-            }
-        }
-
-        function displayMessage(text, type) {
+        function showMessage(text, type) {
             const msg = document.getElementById('message');
-            if (!msg) {
-                // Create message element in upload tab if it doesn't exist
-                const uploadContent = document.getElementById('upload-content');
-                const messageDiv = document.createElement('div');
-                messageDiv.id = 'upload-message';
-                messageDiv.className = 'message';
-                uploadContent.appendChild(messageDiv);
-                displayUploadMessage(text, type);
-                return;
-            }
             msg.className = 'message ' + type;
             msg.innerHTML = text;
             msg.style.display = 'block';
             setTimeout(() => msg.style.display = 'none', 5000);
-        }
-
-        function displayUploadMessage(text, type) {
-            const msg = document.getElementById('upload-message');
-            if (msg) {
-                msg.className = 'message ' + type;
-                msg.innerHTML = text;
-                msg.style.display = 'block';
-                setTimeout(() => msg.style.display = 'none', 5000);
-            }
         }
 
         function formatSize(bytes) {
@@ -406,7 +497,6 @@ const char file_manager_html[] PROGMEM = R"rawliteral(
 
         window.onload = function() {
             refreshFiles();
-            checkUrlParams();
         };
     </script>
 </body>

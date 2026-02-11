@@ -22,6 +22,7 @@ void processRequest(uint8_t *payload);
 String air_to_json(air_status_t *air);
 String string_to_json(String t);
 String timeseries_to_json(String id, String val, void *data, int data_type, int temp_idx);
+String txrx_data_to_json(air_status_t *air);
 
 // Helper functions for array serialization
 void serialize_array_float(float *ptr, JsonArray &arr, int idx);
@@ -29,4 +30,6 @@ void serialize_array_ul_int(unsigned long *ptr, JsonArray &arr, int idx);
 void serialize_array_int(int *ptr, JsonArray &arr, int idx);
 
 void notifyWebSocketClients();
+void notifyTXRXData(); 
+
 #endif // PROCESS_REQUEST_H

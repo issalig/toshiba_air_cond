@@ -1,3 +1,16 @@
+/*
+GNU GENERAL PUBLIC LICENSE
+
+Version 2, June 1991
+
+Copyright (C) 1989, 1991 Free Software Foundation, Inc.  
+51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+
+Everyone is permitted to copy and distribute verbatim copies
+of this license document, but changing it is not allowed.
+
+*/
+
 // mqtt code for home assistant integration
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
@@ -84,7 +97,7 @@ void saveMQTTConfigToFile() {
   doc["username"] = mqtt_user_str;
   doc["password"] = mqtt_password_str;
   doc["device_name"] = device_name_str;
-  
+
   String configJson;
   serializeJson(doc, configJson);
   
@@ -178,7 +191,7 @@ void connectToMQTT() {
 
 void handleMQTT() {
   //if (timerMQTT.isTime()) {
-  if (my_timer_is_time(&timerMQTT)) {
+  if (my_timer_is_time(&timerMQTT) && air_status.mqtt_enabled) {
     // Only proceed if WiFi is connected
     if (WiFi.status() != WL_CONNECTED) {
       print_log("[MQTT] WiFi disconnected, skipping MQTT");
@@ -515,158 +528,166 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 //     qos: 1
 
 
-    void sendMQTTDiscovery()
+void sendMQTTDiscovery()
+{
+  print_log("[MQTT] Sending discovery messages...");
+
+  // Helper function to publish with retry
+  auto publishWithRetry = [](const char *topic, const String &payload) -> bool
+  {
+    for (int i = 0; i < 3; i++)
     {
-      print_log("[MQTT] Sending discovery messages...");
-
-      // Helper function to publish with retry
-      auto publishWithRetry = [](const char *topic, const String &payload) -> bool
+      if (mqttClient.publish(topic, payload.c_str(), true))  //retain true
       {
-        for (int i = 0; i < 3; i++)
-        {
-          if (mqttClient.publish(topic, payload.c_str(), true))  //retain true
-          {
-            return true;
-          }
-          //delay(100);
-          yield();
-        }
-        return false;
-      };
-
-      // Climate device discovery
-      JsonDocument climateDoc;
-      climateDoc["name"] = "Toshiba Air Conditioner";
-      climateDoc["unique_id"] = "toshiba_air_conditioner";
-
-      // Device information
-      JsonObject climateDevice = climateDoc["device"].to<JsonObject>();
-      climateDevice["identifiers"][0] = "toshiba_ac";
-      climateDevice["name"] = "Toshiba AC";
-      climateDevice["model"] = "ESP8266";
-      climateDevice["manufacturer"] = "Custom";
-
-      // Supported modes
-      JsonArray modes = climateDoc["modes"].to<JsonArray>();
-      modes.add("off");
-      modes.add("fan_only");
-      modes.add("cool");
-      modes.add("dry");
-      modes.add("heat");
-      modes.add("auto");
-
-      // Supported fan modes
-      JsonArray fanModes = climateDoc["fan_modes"].to<JsonArray>();
-      fanModes.add("low");
-      fanModes.add("medium");
-      fanModes.add("high");
-      fanModes.add("auto");
-
-      // Topics
-      climateDoc["temperature_command_topic"] = temp_command_topic;
-      climateDoc["temperature_state_topic"] = target_temp_topic;
-      climateDoc["mode_command_topic"] = mode_command_topic;
-      climateDoc["mode_state_topic"] = mode_topic;
-      climateDoc["fan_mode_command_topic"] = fan_mode_command_topic;
-      climateDoc["fan_mode_state_topic"] = fan_mode_topic;
-      climateDoc["current_temperature_topic"] = temp_topic;
-
-      // Temperature settings
-      climateDoc["min_temp"] = 16;
-      climateDoc["max_temp"] = 30;
-      climateDoc["temp_step"] = 1.0; //change target temperature in 1 degree steps
-      climateDoc["temperature_unit"] = "C";
-      climateDoc["precision"] = 0.5; //temperature from AC sensor has 0.5 precision
-
-      // MQTT settings
-      climateDoc["retain"] = false;
-      climateDoc["qos"] = 1;
-
-      // Publish discovery
-      String climateConfig;
-      serializeJson(climateDoc, climateConfig);
-      bool climateResult = publishWithRetry(climate_conf_topic.c_str(), climateConfig);
-      print_logf("[MQTT] Climate discovery: %s (size: %d)", climateResult ? "SUCCESS" : "FAILED", climateConfig.length());
-    }
-
-    // mqtt configuration from web
-    bool testMQTTConnection()
-    {
-      print_log("[MQTT] Testing connection...");
-
-      // Try to connect to MQTT broker
-      if (WiFi.status() != WL_CONNECTED)
-      {
-        print_log("[MQTT] WiFi not connected");
-        return false;
-      }
-
-      // Test connection
-      WiFiClient testClient;
-      if (!testClient.connect(mqtt_server_str.c_str(), mqtt_port))
-      {
-        print_log("[MQTT] Cannot reach MQTT server");
-        return false;
-      }
-      testClient.stop();
-
-      // Try MQTT connection
-      PubSubClient testMqtt(testClient);
-      testMqtt.setServer(mqtt_server_str.c_str(), mqtt_port);
-
-      if (testMqtt.connect(device_name_str.c_str(), mqtt_user_str.c_str(), mqtt_password_str.c_str()))
-      {
-        print_log("[MQTT] Test connection successful");
-        testMqtt.disconnect();
         return true;
       }
-      else
-      {
-        print_logf("[MQTT] Test connection failed, rc=%d", testMqtt.state());
-        return false;
-      }
+      //delay(100);
+      yield();
     }
+    return false;
+  };
 
-    void resetMQTTDiscovery()
-    {
-      print_log("[MQTT] Resetting discovery...");
+  // Climate device discovery
+  JsonDocument climateDoc;
+  climateDoc["name"] = "Toshiba Air Conditioner";
+  climateDoc["unique_id"] = "toshiba_air_conditioner";
 
-      if (!mqttClient.connected())
-      {
-        print_log("[MQTT] Not connected, cannot reset discovery");
-        return;
-      }
+  // Device information
+  JsonObject climateDevice = climateDoc["device"].to<JsonObject>();
+  climateDevice["identifiers"][0] = "toshiba_ac";
+  climateDevice["name"] = "Toshiba AC";
+  climateDevice["model"] = "ESP8266";
+  climateDevice["manufacturer"] = "Custom";
 
-      // Send empty payloads to remove discovery
-      //String climateTopic = "homeassistant/climate/" + device_name_str + "/config";      
-      String climateTopic=climate_conf_topic;
-      mqttClient.publish(climateTopic.c_str(), "", true);
-      
-      print_log("[MQTT] Discovery reset messages sent");
-    }
+  // Supported modes
+  JsonArray modes = climateDoc["modes"].to<JsonArray>();
+  modes.add("off");
+  modes.add("fan_only");
+  modes.add("cool");
+  modes.add("dry");
+  modes.add("heat");
+  modes.add("auto");
 
-    // Getter functions for current MQTT configuration
-    String getMQTTServer()
-    {
-      return mqtt_server_str;
-    }
+  // Supported fan modes
+  JsonArray fanModes = climateDoc["fan_modes"].to<JsonArray>();
+  fanModes.add("low");
+  fanModes.add("medium");
+  fanModes.add("high");
+  fanModes.add("auto");
 
-    int getMQTTPort()
-    {
-      return mqtt_port;
-    }
+  // Topics
+  climateDoc["temperature_command_topic"] = temp_command_topic;
+  climateDoc["temperature_state_topic"] = target_temp_topic;
+  climateDoc["mode_command_topic"] = mode_command_topic;
+  climateDoc["mode_state_topic"] = mode_topic;
+  climateDoc["fan_mode_command_topic"] = fan_mode_command_topic;
+  climateDoc["fan_mode_state_topic"] = fan_mode_topic;
+  climateDoc["current_temperature_topic"] = temp_topic;
 
-    String getMQTTUser()
-    {
-      return mqtt_user_str;
-    }
+  // Temperature settings
+  climateDoc["min_temp"] = 16;
+  climateDoc["max_temp"] = 30;
+  climateDoc["temp_step"] = 1.0; //change target temperature in 1 degree steps
+  climateDoc["temperature_unit"] = "C";
+  climateDoc["precision"] = 0.5; //temperature from AC sensor has 0.5 precision
 
-    String getMQTTPassword()
-    {
-      return mqtt_password_str;
-    }
+  // MQTT settings
+  climateDoc["retain"] = false;
+  climateDoc["qos"] = 1;
 
-    String getMQTTDeviceName()
-    {
-      return device_name_str;
-    }
+  // Publish discovery
+  String climateConfig;
+  serializeJson(climateDoc, climateConfig);
+  bool climateResult = publishWithRetry(climate_conf_topic.c_str(), climateConfig);
+  print_logf("[MQTT] Climate discovery: %s (size: %d)", climateResult ? "SUCCESS" : "FAILED", climateConfig.length());
+}
+
+// mqtt configuration from web
+bool testMQTTConnection()
+{
+  print_log("[MQTT] Testing connection...");
+
+  // Try to connect to MQTT broker
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    print_log("[MQTT] WiFi not connected");
+    return false;
+  }
+
+  // Test connection
+  WiFiClient testClient;
+  if (!testClient.connect(mqtt_server_str.c_str(), mqtt_port))
+  {
+    print_log("[MQTT] Cannot reach MQTT server");
+    return false;
+  }
+  testClient.stop();
+
+  // Try MQTT connection
+  PubSubClient testMqtt(testClient);
+  testMqtt.setServer(mqtt_server_str.c_str(), mqtt_port);
+
+  if (testMqtt.connect(device_name_str.c_str(), mqtt_user_str.c_str(), mqtt_password_str.c_str()))
+  {
+    print_log("[MQTT] Test connection successful");
+    testMqtt.disconnect();
+    return true;
+  }
+  else
+  {
+    print_logf("[MQTT] Test connection failed, rc=%d", testMqtt.state());
+    return false;
+  }
+}
+
+void resetMQTTDiscovery()
+{
+  print_log("[MQTT] Resetting discovery...");
+
+  if (!mqttClient.connected())
+  {
+    print_log("[MQTT] Not connected, cannot reset discovery");
+    return;
+  }
+
+  // Send empty payloads to remove discovery
+  //String climateTopic = "homeassistant/climate/" + device_name_str + "/config";      
+  String climateTopic=climate_conf_topic;
+  mqttClient.publish(climateTopic.c_str(), "", true);
+  
+  print_log("[MQTT] Discovery reset messages sent");
+}
+
+// Getter functions for current MQTT configuration
+String getMQTTServer()
+{
+  return mqtt_server_str;
+}
+
+int getMQTTPort()
+{
+  return mqtt_port;
+}
+
+String getMQTTUser()
+{
+  return mqtt_user_str;
+}
+
+String getMQTTPassword()
+{
+  return mqtt_password_str;
+}
+
+String getMQTTDeviceName()
+{
+  return device_name_str;
+}
+
+bool getMQTTEnabled() {
+  return air_status.mqtt_enabled;
+}
+
+void setMQTTEnabled(bool enabled) {
+  air_status.mqtt_enabled = enabled;
+}

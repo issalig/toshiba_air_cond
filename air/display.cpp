@@ -1,3 +1,16 @@
+/*
+GNU GENERAL PUBLIC LICENSE
+
+Version 2, June 1991
+
+Copyright (C) 1989, 1991 Free Software Foundation, Inc.  
+51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+
+Everyone is permitted to copy and distribute verbatim copies
+of this license document, but changing it is not allowed.
+
+*/
+
 #include "display.h"
 
 #ifdef USE_SCREEN
@@ -65,6 +78,7 @@ void showSplashScreen() {
   display.println(F("Starting..."));
   
   display.display();
+  delay(2000); // Show splash screen for 2 seconds
 }
 
 void showIPDisplay() {

@@ -28,7 +28,7 @@ of this license document, but changing it is not allowed.
 #define COUNT 3
 
 
-#define MAX_RX_BUFFER 128    //maximum rx buffer size
+#define MAX_RX_BUFFER 256    //maximum rx buffer size
 #define MAX_CMD_BUFFER 32    //maximum message size
 
 #define FAN_AUTO   2
@@ -42,14 +42,40 @@ of this license document, but changing it is not allowed.
 #define MODE_DRY  4
 #define MODE_AUTO 6//5
 
-#define MSG_UNK           0
-#define MSG_SENSOR_ERROR  1
-#define MSG_STATUS        2
-#define MSG_STATUS_EXT    3
-#define MSG_MASTER_ACK    4
-#define MSG_MASTER_ALIVE  5
-#define MSG_STATUS_MODE   6
-#define MSG_SENSOR_ANSWER 7
+#define MSG_UNKNOWN         0
+#define MSG_SENSOR_ERROR    1
+#define MSG_STATUS          2
+#define MSG_STATUS_EXT      3
+#define MSG_MASTER_ACK      4
+#define MSG_MASTER_ALIVE    5
+#define MSG_STATUS_MODE     6
+#define MSG_SENSOR_ANSWER   7
+#define MSG_MODEL_ANSWER    8
+#define MSG_TEMP_LIMITS     9
+#define MSG_FEATURES       10 
+#define MSG_SETPOINT       11
+#define MSG_DN_CODE        12
+#define MSG_MASTER_BUSY    13
+#define MSG_ANNOUNCE       14
+#define MSG_SAVE_RATIO_REQUEST 15
+#define MSG_SAVE_RATIO_ANSWER  16
+#define MSG_TIME_COUNTER       17
+#define MSG_DN_CODE_REQUEST    18
+#define MSG_FAN_MODES_REQUEST  19
+#define MSG_FAN_MODES_ANSWER   20
+#define MSG_REMOTE_SENSOR_TEMP 21
+#define MSG_REMOTE_PING        22
+#define MSG_MASTER_PONG        23
+#define MSG_MODEL_REQUEST      24
+#define MSG_SETPOINT_REQUEST    25
+#define MSG_TEMP_LIMITS_REQUEST 26
+#define MSG_SENSOR_QUERY        27
+#define MSG_POWER               28
+#define MSG_SET_TEMP_FAN        29
+#define MSG_SET_MODE            30
+#define MSG_TIME_COUNTER_ANSWER 31
+#define MSG_SAVE                32
+#define MSG_TIMER               33
 
 #define MAX_OBSERVED_REMOTES 8
 
@@ -65,14 +91,14 @@ of this license document, but changing it is not allowed.
 //pg 18 http://www.toshiba-aircon.co.uk/assets/uploads/product_assets/20131115_IM_1115460101_Standard_Duct_RAV-SM_6BTP-E_EN.pdf
 //indoor unit data
 #define INDOOR_ROOM           0x00 //Room Temp (Control Temp) (°C) 
-//#define INDOOR_ROOM           0x01 //Room temperature (remote controller)
+#define INDOOR_ROOM_REMOTE           0x01 //Room temperature (remote controller)
 #define INDOOR_TA               0x02 //Indoor unit intake air temperature (TA)
 #define INDOOR_TCJ              0x03 //Indoor unit heat exchanger (coil) temperature (TCJ) TCJ Coil Liquid Temp (°C)
 #define INDOOR_TC               0x04 //Indoor unit heat exchanger (coil) temperature (TC)  Coil Vapour Temp (°C)
 #define INDOOR_FAN_SPEED        0x07 //Fan Speed (rpm)
 #define INDOOR_FAN_RUN_TIME     0xF2 //Fan Run Time (x 100h)
 #define INDOOR_FILTER_TIME      0xF3 //Filter sign time x 1h
-#define INDOOR_DISCHARGE_TEMP   0xF4 //Indoor discharge temperature*1  F8???
+#define INDOOR_DISCHARGE_TEMP   0xF8 //Indoor discharge temperature*1  F8???
  
 //outdoor unit data
 #define OUTDOOR_TE              0x60 //Outdoor unit heat exchanger (coil) temperature (TE)
@@ -96,15 +122,40 @@ of this license document, but changing it is not allowed.
 //TO = Ambient; outdoor unit
 //TS = Suction; outdoor unitTK = Oil sensor (VRF)
 
+// DN code structure
 typedef struct {
-  byte data[1];//MAX_RX_BUFFER];
-  int idx_r = 0;
-  int idx_w = 0;
-  //idx_r is always BEFORE idx_w
-  //idx_w
-} rb_t;
+    uint8_t code;
+    uint8_t value;
+} dn_code_t;
+
+#define MAX_DN_CODES 256
+
+// Announcement states
+#define ANNOUNCE_RETRY_INTERVAL 5000  // 2 seconds between retries
+#define ANNOUNCE_MAX_RETRIES 10       // Maximum retry attempts
+
+typedef enum {
+  ANNOUNCE_UNLINKED = 0,
+  ANNOUNCE_BUSY,
+  ANNOUNCE_LINKED
+} announce_state_t;
+
+
+// Add round buffer structure before air_status_t
+typedef struct {
+    uint8_t buffer[MAX_RX_BUFFER];
+    int write_idx;
+    int read_idx;
+    int count;
+} ring_buffer_t;
 
 typedef struct {
+  uint8_t txpin = 15;//D8; //10 makusets
+  uint8_t rxpin = 13;//D7;
+  unsigned int rxsize = MAX_RX_BUFFER;
+  uint8_t sda_pin = 4;  // D2 on D1 Mini (default I2C SDA)
+  uint8_t scl_pin = 5;  // D1 on D1 Mini (default I2C SCL)
+  
   uint8_t master;
   uint8_t remote;
   uint8_t observed_master;
@@ -119,14 +170,27 @@ typedef struct {
   char fan_str[5];
   uint8_t mode; // 
   char mode_str[5];
+  char model_str[32];  
   uint8_t preheat;                //preheat flag
   uint8_t filter_alert;           //filter alert flag
   uint8_t power;
   byte last_cmd[MAX_CMD_BUFFER];
   uint8_t last_cmd_type; //type of last command sent
 
+  uint8_t temp_limit_min;        //minimum temperature limit
+  uint8_t temp_limit_max;        //maximum temperature limit
+  uint8_t temp_frost_protection; //frost protection temperature
+
+  // Default setpoint temperatures for each mode
+  int8_t temp_default_auto;
+  int8_t temp_default_heat;
+  int8_t temp_default_dry;
+  int8_t temp_default_cool;
+
+  int8_t power_save_ratio;
+
   String buffer_cmd;              //buffer for decoded commands
-  String buffer_rx;               //buffer for raw received data
+  String buffer_raw;               //buffer for raw received data
   byte rx_data[MAX_RX_BUFFER];    //serial rx data
   byte rx_data_count = 0;
   
@@ -135,8 +199,15 @@ typedef struct {
   uint8_t timer_mode_req;
   uint8_t timer_time_req;
   bool timer_enabled;
-  int decode_errors = 0;
-
+  
+  // Statistics tracking
+  unsigned long decoded_msgs;        // Successfully decoded complete messages
+  unsigned long decoded_bytes;       // Total bytes in decoded messages
+  unsigned long discarded_bytes;     // Individual bytes skipped (not part of valid message)
+  unsigned long discarded_msgs;      // Sequences of discarded bytes (one or more consecutive discarded bytes)
+  unsigned long recovered_msgs;      // Messages recovered by fixing byte errors
+  unsigned long recovered_bytes;     // Bytes in recovered messages
+  
   unsigned long boot_time;
 
   int sensor_val = 0;     //sensor value
@@ -171,13 +242,36 @@ typedef struct {
   int outdoor_upper_fan_speed = 0; 
   
   float power_consumption = 0;
+
   String ip;   // IP address of the device
-  rb_t rb;     // ring buffer for received data
+  //rb_t rb;     // ring buffer for received data
 
   bool mqtt = false; // MQTT connection status
+  bool mqtt_enabled = false; // MQTT enabled flag
+
+  dn_code_t dn_codes[MAX_DN_CODES];
+  uint8_t dn_codes_count;
+  uint8_t query_dn_code; // current DN code being queried
+
+  bool master_busy = false;  // master busy flag, SETTING flashes on the remote when busy
+  uint8_t time_counter = 0; // time counter from MSG_TIME_COUNTER
+
+  uint8_t announce_state = 0;
+  unsigned long announce_last_time = 0;
+  uint8_t announce_retry_count = 0;
+  
+
+// Add to air_status_t structure (replace curr_w_idx, curr_r_idx)
+ring_buffer_t rb;  // ring buffer for received data
+bool in_discard_sequence;  // Track if we're discarding consecutive bytes
 
   SoftwareSerial serial;
 } air_status_t;
+
+
+void init_air_serial(air_status_t *air);
+//void air_set_serial_config(air_status_t *air, uint8_t tx_pin, uint8_t rx_pin, uint8_t rx_buffer_size);
+//void air_set_i2c_config(air_status_t *air, uint8_t sda_pin, uint8_t scl_pin);
 
 void air_set_temp(air_status_t *air, uint8_t temp);
 void air_set_power_on(air_status_t *air);
@@ -194,7 +288,6 @@ void air_set_mode(air_status_t *air, uint8_t mode);
 void air_set_fan_speed(air_status_t *air, uint8_t fan);
 void air_send_data(air_status_t *air, byte *data, int len);
 void air_set_timer(air_status_t *air, uint8_t mode, uint8_t time);
-void init_air_serial(air_status_t *air);
 void air_send_ping(air_status_t *air);
 void air_send_remote_temp(air_status_t *air, uint8_t value);
 void air_query_sensor(air_status_t *air, uint8_t id);
@@ -202,4 +295,32 @@ void air_query_sensors(air_status_t *air, const byte *ids, size_t num_ids);
 void reset_observed_remotes(air_status_t *air);
 void air_print_status(air_status_t *s);
 int air_parse_serial(air_status_t *air);
+void air_announce_remote(air_status_t *air);
+void request_master_info(air_status_t *air);
+void air_get_time_counter(air_status_t *air);
+// DN code functions
+void air_request_dn_code(air_status_t *air, uint8_t code, uint8_t mode, uint8_t offset);
+void air_request_dn_code_current(air_status_t *air, uint8_t code);
+void air_request_dn_code_previous(air_status_t *air, uint8_t current_code);
+void air_request_dn_next(air_status_t *air, uint8_t current_code);
+void air_scan_dn_codes(air_status_t *air);
+// announcement functions
+void air_unlink_remote(air_status_t *air);
+void air_handle_announcement(air_status_t *air);
+void air_start_announcement(air_status_t *air);
+bool air_is_announced(air_status_t *air);
+
+// Updated parse function with ring buffer
+int air_parse_serial2(air_status_t *air);
+// Message recovery function
+bool air_recover_message(air_status_t *air, byte *cmd, uint8_t packet_len);
+
+// round buffer functions
+void rb_init(ring_buffer_t *rb);
+int rb_available(ring_buffer_t *rb);
+bool rb_write(ring_buffer_t *rb, uint8_t data);
+uint8_t rb_peek(ring_buffer_t *rb, uint8_t *data);
+void rb_consume(ring_buffer_t *rb, int count);
+
+
 #endif // AC_PROTOCOL_H

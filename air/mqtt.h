@@ -27,11 +27,13 @@ bool testMQTTConnection();
 void resetMQTTDiscovery();
 void sendMQTTDiscovery();
 
-// Getter functions
+// Setter/getter functions
 String getMQTTServer();
 int getMQTTPort();
 String getMQTTUser();
 String getMQTTPassword();
 String getMQTTDeviceName();
+bool getMQTTEnabled();
+void setMQTTEnabled(bool enabled);
 
 #endif
