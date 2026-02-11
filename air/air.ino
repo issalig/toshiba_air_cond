@@ -5,6 +5,7 @@
 
   History:      01/06/2020 initial version
                 24/07/2025 v2.0 superloaded with MQTT, OLED and a lots of goodies
+                2026 remote announce, dn codes, pin configuration, serial output debug and more
 
   Instructions:
                 HW
@@ -26,18 +27,25 @@
                 https://diyprojects.io/esp8266-web-server-part-5-add-google-charts-gauges-and-charts/#.X0gBsIbtY5k
 
   Dependencies:
-                ESPSoftwareSerial
-                Adafruit SSD1306
-                Adafruit GFX Library
-                WifiManager
-                ESP8266WiFi
-                links2004/WebSockets
-                ArduinoJson
-                LittleFS
-                arduino-libraries/NTPClient
-                adafruit/DHT sensor library
-                adafruit/Adafruit BMP085 Library
-                knolleary/PubSubClient
+            |-- EspSoftwareSerial @ 8.2.0
+            |-- Adafruit SSD1306 @ 2.5.14
+            |-- Adafruit GFX Library @ 1.12.1
+            |-- WiFiManager @ 2.0.17
+            |-- ESP8266WiFi @ 1.0
+            |-- WebSockets @ 2.7.3
+            |-- ArduinoJson @ 7.4.2
+            |-- LittleFS @ 0.1.0
+            |-- PubSubClient @ 2.8.0
+            |-- NTPClient @ 3.2.1
+            |-- Adafruit Unified Sensor @ 1.1.15
+            |-- Adafruit AHTX0 @ 2.0.5
+            |-- Adafruit BMP280 Library @ 3.0.0
+            |-- Adafruit BME280 Library @ 2.3.0
+            |-- ArduinoOTA @ 1.0
+            |-- ESP8266WebServer @ 1.0
+            |-- ESP8266mDNS @ 1.2
+            |-- Ticker @ 1.0
+            |-- Wire @ 1.0
 
   This code in under license GPL v2
 
@@ -52,9 +60,11 @@
   of this license document, but changing it is not allowed.
 */
 
-#include "config.h" // check it for settings
+#include "config.h" // check it for compilation time settings
+#include "settings.h" // check it for persistent settings structure
 #include "file_manager_html.h" //unified file manager
 #include "display.h"
+#include "sensors.h"
 
 #include "LittleFS.h"
 #include <ESP8266WiFi.h>
@@ -69,7 +79,10 @@
 #include <WebSocketsServer.h> //https://github.com/Links2004/arduinoWebSockets/
 #endif
 
-#include <SPI.h>
+// SPI.h removed - not used and causes conflicts with I2C on GPIO14
+//#include <SPI.h>
+
+#include <Adafruit_Sensor.h>
 
 #ifdef USE_OTA
 #include <ArduinoOTA.h>
@@ -93,7 +106,6 @@
 #include "mqtt.h"
 extern bool getMQTTStatus();
 #endif 
-
 
 //for LED status
 #include <Ticker.h>
@@ -136,6 +148,11 @@ Adafruit_AHTX0 aht;
 Adafruit_BMP280 bmp280;
 #endif
 
+#ifdef USE_BME280
+#include <Adafruit_BME280.h>
+Adafruit_BME280 bme280;
+#endif
+
 #ifdef USE_AHT20
 float aht_t_current = -999.0;
 bool humidity_status = false;
@@ -144,6 +161,12 @@ bool humidity_status = false;
 #ifdef USE_BMP280
 float bmp280_t_current = -999.0;
 bool pressure_status = false;
+#endif
+
+#ifdef USE_BME280
+float bme280_t_current = -999.0;
+bool bme280_pressure_status = false;
+bool bme280_humidity_status = false;
 #endif
 
 
@@ -192,13 +215,14 @@ my_timer timerReadSerial;
 my_timer timerSaveFile;
 my_timer timerMQTT; 
 my_timer timerAutonomous;
+
 //MySimpleTimer timerTelegram;
 
 bool autonomous_mode = false; // use autonomous mode if there is no wired remote
 bool simulation_mode = false; // Set to true to enable simulation mode without AC unit
+bool listen_mode = false; // listen mode to just read serial data
 
-
-int temp_interval = 1800; //in secs, 30 mins for temperature readings
+int temperature_interval = 1800;//1800; //in secs, 30 mins for temperature readings
 
 //bool mqtt_enabled = true;
 
@@ -223,9 +247,6 @@ void setup() {
   delay(10);
   print_log("Air conditioning starts!");
 
-  #ifdef USE_SCREEN
-  startDisplay();
-  #endif  
   startWifiManager();          // Use wifimanager to connect
   //is_reset_button();
   #ifdef USE_OTA
@@ -233,9 +254,15 @@ void setup() {
   #endif
 
   startLittleFS();             // Start the LittleFS and list all contents
+  startSettings();             // Load and apply settings
+
   startWebSocket();            // Start a WebSocket server
   startMDNS();                 // Start the mDNS responder
   startServer();               // Start a HTTP server with a file read handler and an upload handler
+
+  // Run I2C scanner during startup to diagnose sensor issues
+  print_logf("[STARTUP] I2C Configuration: SDA=GPIO%d, SCL=GPIO%d\n", air_status.sda_pin, air_status.scl_pin);
+  i2c_scanner();
 
   init_air_serial(&air_status);// Start air conditioning structure and software serial
   air_status.ip = WiFi.localIP().toString();
@@ -244,6 +271,15 @@ void setup() {
   startStatus();               // Start timer for status print (10s)
   startTime();                 // Get time from NTP server
   startTemperature();          // Start timer for temperature readings (120s)
+
+  #ifdef USE_SCREEN
+  startDisplay();
+  #endif  
+
+  // Show IP address on display after WiFi is connected
+  #ifdef USE_SCREEN
+  showIPDisplay();
+  #endif
 
   #ifdef USE_MQTT
   if (WiFi.status() == WL_CONNECTED) {
@@ -263,14 +299,13 @@ void setup() {
     initSimulationMode();
   }
 
-
-  Serial.println();
-  Serial.println("=== ESP8266 Flash Info ===");
-  Serial.printf("Flash Chip ID: %08X\n", ESP.getFlashChipId());
-  Serial.printf("Flash Size: %u bytes (%.1f MB)\n", ESP.getFlashChipRealSize(), ESP.getFlashChipRealSize() / 1024.0 / 1024.0);
-  Serial.printf("Sketch Size: %u bytes\n", ESP.getSketchSize());
-  Serial.printf("Free Sketch Space: %u bytes\n", ESP.getFreeSketchSpace());
-  Serial.printf("Filesystem Size: %u bytes\n", ESP.getFlashChipSize() - ESP.getSketchSize());
+  // Serial.println();
+  // Serial.println("=== ESP8266 Flash Info ===");
+  // Serial.printf("Flash Chip ID: %08X\n", ESP.getFlashChipId());
+  // Serial.printf("Flash Size: %u bytes (%.1f MB)\n", ESP.getFlashChipRealSize(), ESP.getFlashChipRealSize() / 1024.0 / 1024.0);
+  // Serial.printf("Sketch Size: %u bytes\n", ESP.getSketchSize());
+  // Serial.printf("Free Sketch Space: %u bytes\n", ESP.getFreeSketchSpace());
+  // Serial.printf("Filesystem Size: %u bytes\n", ESP.getFlashChipSize() - ESP.getSketchSize());
 
 }
 
@@ -289,94 +324,28 @@ void startTime() {
   air_status.boot_time = boot_time;
 }
 
-// Structure to hold environmental sensor readings
-struct env_snapshot {
-  float temp;
-  float humidity;
-  float pressure;
-  bool temp_valid;
-  bool humidity_valid;
-  bool pressure_valid;
-  String temp_source;
-  String humidity_source;
-  String pressure_source;
-};
+void startSettings() {
+  // Try to load settings
+  settings_t saved_settings;
+  if (loadSettings(&air_status, &saved_settings)) {
+    print_log("[SETTINGS] Applying saved settings");
+    applySettings(&air_status, &saved_settings);   
+  } else {
+    // Set default I2C pins if no settings file exists
+    air_status.sda_pin = 4;  // Default SDA D2 (GPIO4)
+    air_status.scl_pin = 5;  // Default SCL D1 (GPIO5)
+    print_logf("[SETTINGS] No settings found, using defaults SDA %d SCL %d", air_status.sda_pin, air_status.scl_pin);
+    Wire.begin(air_status.sda_pin, air_status.scl_pin);
 
-// Common sensor reading function - reads all available environmental sensors
-// and returns the best available readings with source information
-env_snapshot readEnvironmentalSensors(const char* context = "") {
-  env_snapshot snapshot = {
-    .temp = -999.0,
-    .humidity = -999.0,
-    .pressure = -999.0,
-    .temp_valid = false,
-    .humidity_valid = false,
-    .pressure_valid = false,
-    .temp_source = "None",
-    .humidity_source = "None",
-    .pressure_source = "None"
-  };
-
-#ifdef USE_AHT20
-  if (humidity_status) {
-    sensors_event_t humidity, temp;
-    if (aht.getEvent(&humidity, &temp)) {
-      aht_t_current = temp.temperature;
-      sensor_humidity_current = humidity.relative_humidity;
-      
-      // AHT20 is preferred for both temperature and humidity
-      snapshot.temp = aht_t_current;
-      snapshot.humidity = sensor_humidity_current;
-      snapshot.temp_valid = true;
-      snapshot.humidity_valid = true;
-      snapshot.temp_source = "AHT20";
-      snapshot.humidity_source = "AHT20";
-      
-      if (strlen(context) > 0) {
-        print_logf("[AHT20][%s] temp %.1f hum %.1f", context, aht_t_current, sensor_humidity_current);
-      }
-    } else {
-      print_logf("[AHT20][%s] Failed to read sensor", context);
-      aht_t_current = -999.0;
-      sensor_humidity_current = -999.0;
-    }
+    // set serial pins
+    air_status.txpin = 15; // TX D8 (GPIO15)
+    air_status.rxpin = 13; // RX D7 (GPIO13)
   }
-  yield();
-#endif
-
-#ifdef USE_BMP280
-  if (pressure_status) {
-    bmp280_t_current = bmp280.readTemperature();
-    sensor_pressure_current = bmp280.readPressure() / 100.0F;
-    
-    // Use BMP280 temperature only if AHT20 failed or not available
-    if (!snapshot.temp_valid && bmp280_t_current > -999.0) {
-      snapshot.temp = bmp280_t_current;
-      snapshot.temp_valid = true;
-      snapshot.temp_source = "BMP280";
-    }
-    
-    // BMP280 is primary pressure source
-    if (sensor_pressure_current > -999.0) {
-      snapshot.pressure = sensor_pressure_current;
-      snapshot.pressure_valid = true;
-      snapshot.pressure_source = "BMP280";
-    }
-    
-    if (strlen(context) > 0) {
-      print_logf("[BMP280][%s] temp %.1f press %.1f hPa", context, bmp280_t_current, sensor_pressure_current);
-    }
-  }
-  yield();
-#endif
-
-  return snapshot;
 }
-
 
 void startTemperature() {
   my_timer_set_unit(&timerTemperature, 1000); // 1000ms
-  my_timer_set_interval(&timerTemperature, temp_interval); //update every XX s
+  my_timer_set_interval(&timerTemperature, temperature_interval); //update every XX s
   my_timer_repeat(&timerTemperature);
   my_timer_start(&timerTemperature); 
 
@@ -389,28 +358,9 @@ void startTemperature() {
   memset(timestamps, 0, MAX_LOG_DATA * sizeof(unsigned long));
 
   // Initialize sensors
-#ifdef USE_AHT20
-  if (!aht.begin()) {
-    print_log("[AHT20] Could not find a valid sensor, check wiring!");
-    humidity_status = false;
-  } else {
-    humidity_status = true;
-  }
-#endif
-
-#ifdef USE_BMP280
-  if (!bmp280.begin()) {
-    print_log("[BMP280] Could not find a valid sensor, check wiring!");
-    pressure_status = false;
-  } else {
-    pressure_status = true;
-    bmp280.setSampling(Adafruit_BMP280::MODE_NORMAL,
-                      Adafruit_BMP280::SAMPLING_X2,
-                      Adafruit_BMP280::SAMPLING_X16,
-                      Adafruit_BMP280::FILTER_X16,
-                      Adafruit_BMP280::STANDBY_MS_500);
-  }
-#endif
+  initAHT20Sensor();
+  initBMP280Sensor();
+  initBME280Sensor();
 
   // Get initial sensor readings
   env_snapshot snapshot = readEnvironmentalSensors("INIT");
@@ -453,11 +403,13 @@ void startTemperature() {
 
 void startStatus() {
   my_timer_set_unit(&timerStatus, 1000); // 1000ms
-  my_timer_set_interval(&timerStatus, 120); //update every XX s
+  my_timer_set_interval(&timerStatus, 150); //update every XX s
   my_timer_repeat(&timerStatus);
   my_timer_start(&timerStatus);
 
   air_query_sensors(&air_status, sensor_ids, sizeof(sensor_ids)); //query sensors on start
+
+  request_master_info(&air_status); //request master info on start
 }
 
 void startReadSerial() {
@@ -508,10 +460,10 @@ void handleTimerOnOff() {
   }
 }
 
-//for temp logging every temp_interval (30 mins by default)
+//for temp logging every temperature_interval (30 mins by default)
 void handleTemperature() {
   if (my_timer_is_time(&timerTemperature)) {
-    Serial.println("[HANDLE] handleTemperature");
+    print_log("[HANDLE] handleTemperature");
     if (!simulation_mode) {
       air_send_ping(&air_status);
     }
@@ -538,7 +490,7 @@ void handleTemperature() {
     temp_idx = (temp_idx + 1) % MAX_LOG_DATA;
 
     #ifdef USE_SCREEN
-    showDisplay();
+    showDisplay(); // Update display with new readings
     #endif
     yield();
   }
@@ -569,7 +521,7 @@ void getTemperatureCurrent() {
 }
 
 //get current status, temperature and sensors. not intended for logging
-//mainly use for web interface status request
+//mainly used for web interface status request
 void handleStatus() {
   if (my_timer_is_time(&timerStatus)) {
     Serial.println("[HANDLE] handleStatus");
@@ -580,7 +532,9 @@ void handleStatus() {
       // In test mode, skip querying sensors from AC unit
       Serial.println("[SIMULATION MODE] Skipping AC sensor queries");
     } else {
-      air_query_sensors(&air_status, sensor_ids, sizeof(sensor_ids));
+      //air_query_sensors(&air_status, sensor_ids, sizeof(sensor_ids));
+      //only sensor 02
+      air_query_sensor(&air_status, INDOOR_TA);
       yield();
     }
 
@@ -612,7 +566,8 @@ void handleAutonomousMode() {
       print_log(F("[AUTONOMOUS] Ping sent"));
     } else {
       // Send temperature message using best available external sensor
-      float temp_to_send = air_status.remote_sensor_temp; // Default fallback
+      //float temp_to_send = air_status.remote_sensor_temp; // Default fallback
+      float temp_to_send = air_status.indoor_ta; // assuming there is no remote sensor 
       String sensor_used = "AC sensor";
       
       #ifdef USE_AHT20
@@ -636,6 +591,15 @@ void handleAutonomousMode() {
       air_send_remote_temp(&air_status, temp_to_send);
       print_logf("[AUTONOMOUS] Temperature sent: %.1f°C from %s", temp_to_send, sensor_used.c_str());
     }
+
+    air_handle_announcement(&air_status); // Handle announcement state machine
+    
+
+    //send ping: 40 00 15 07 08 0C 81 00 00 48 00 9F every 30s
+    //send remotetemp: 40 00 17 08 08 80 EF 00 2C 08 00 6A 76 every 30s
+    //send time counter: 40 00 15 06 08 E8 00 01 00 9E 2C every 1 minute, the response is an incremental hour counter.
+
+
     
     // Alternate between ping and temperature
     send_ping = !send_ping;
@@ -646,6 +610,28 @@ void handleAutonomousMode() {
 /*__________________________________________________________LOOP__________________________________________________________*/
 
 void loop() {
+  if (listen_mode) {
+    // LISTEN MODE - Only essential operations to avoid missing serial data
+    handleReadSerial();      // Priority: Read serial as often as possible
+    
+    #ifdef USE_ASYNC
+    // AsyncWebSocket is handled automatically by the server
+    #else
+    webSocket.loop();        // Handle websocket for control/monitoring
+    #endif
+    
+    server.handleClient();   // Handle web requests (minimal overhead)
+    
+    #ifdef USE_OTA
+    ArduinoOTA.handle();     // Keep OTA available for updates
+    #endif
+    
+    yield();                 // Allow WiFi stack to function
+    
+  } else {
+
+  // NORMAL MODE - Full functionality
+
   handleTimerOnOff();//yield(); //now yield is done inside the handlers
   handleTemperature();//yield();
   handleStatus();//yield();
@@ -673,10 +659,11 @@ void loop() {
   
   handleSaveFile();yield();
   handleAutonomousMode();//yield();
-
+  
   #ifdef USE_TELEGRAM
   handleTelegramMessages();//yield();
   #endif
+  }
 }
 
 /*__________________________________________________________START_FUNCTIONS__________________________________________________________*/
@@ -763,7 +750,7 @@ void stopWebSocket() {
   // For links2004 WebSocket server
   webSocket.disconnect();  // Disconnect all clients
   webSocket.close();       // Close the WebSocket server
-  Serial.println("WebSocket server stopped.");
+  Serial.println("[WEBSOCKET] Server stopped.");
 #endif
 }
 
@@ -777,9 +764,6 @@ void startMDNS() { // Start the mDNS responder
 void startServer() { // Start a HTTP server with a file read handler and an upload handler
 #ifdef USE_ASYNC
   Serial.print("Using Async");
-  server.on("/edit.html",  HTTP_POST, [](AsyncWebServerRequest * request) { // If a POST request is sent to the /edit.html address,
-    server.send(200, "text/plain", "");
-  }, handleFileUpload);                       // go to 'handleFileUpload'
 
   server.onNotFound(handleNotFound);          // if someone requests any other file or page, go to function 'handleNotFound'
   // and check if the file exists
@@ -795,7 +779,7 @@ void startServer() { // Start a HTTP server with a file read handler and an uplo
   });
 
   server.on("/upload", HTTP_POST, []() {  
-    server.send(200, "text/plain", "Upload successful!");
+    // Response handled by handleFileUpload which sends a 303 Redirect
   }, handleFileUpload);                       
 
   // Built-in file manager (same as upload for unified interface)
@@ -839,11 +823,6 @@ void startServer() { // Start a HTTP server with a file read handler and an uplo
         filename = "/" + filename;
       }
       
-      // Prevent deletion of critical files
-      // if (filename == "/index.html") {
-      //   server.send(200, "application/json", "{\"success\":false,\"error\":\"Cannot delete critical system files\"}");
-      //   return;
-      // }
       
       if (LittleFS.exists(filename)) {
         if (LittleFS.remove(filename)) {
@@ -917,11 +896,46 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 
 void handleNotFound() { // if the requested file or page doesn't exist, return a 404 not found error
   if (!handleFileRead(server.uri())) {        // check if the file exists in the flash memory (LittleFS), if so, send it
-    server.send(404, "text/plain", "404: File Not Found: " + server.uri());
+    // File not found - show user-friendly error page with link to file manager
+    String requestedFile = server.uri();
+    String html = F("<!DOCTYPE html><html><head>"
+                   "<meta charset='utf-8'>"
+                   "<meta name='viewport' content='width=device-width,initial-scale=1.0'>"
+                   "<title>File Not Found</title>"
+                   "<style>"
+                   "body{font-family:Arial,sans-serif;background:#f4f8fb;margin:0;padding:20px;}"
+                   ".card{max-width:600px;margin:50px auto;background:#fff;border-radius:12px;"
+                   "box-shadow:0 4px 24px rgba(0,47,122,0.13);padding:30px;text-align:center;}"
+                   "h1{color:#002F7A;margin-top:0;}"
+                   ".icon{font-size:64px;color:#dc3545;margin:20px 0;}"
+                   "p{color:#555;line-height:1.6;margin:15px 0;}"
+                   ".btn{display:inline-block;background:#002F7A;color:#fff;padding:12px 30px;"
+                   "text-decoration:none;border-radius:8px;margin:10px;font-size:16px;"
+                   "transition:background 0.3s;}"
+                   ".btn:hover{background:#00878f;}"
+                   ".code{background:#f8f9fa;padding:8px 12px;border-radius:4px;"
+                   "font-family:monospace;color:#333;display:inline-block;margin:10px 0;}"
+                   ".btn-secondary{background:#6c757d;}"
+                   ".btn-secondary:hover{background:#5a6268;}"
+                   "</style></head><body>"
+                   "<div class='card'>"
+                   "<div class='icon'>📁</div>"
+                   "<h1>File Not Found</h1>"
+                   "<p>The requested file does not exist:</p>"
+                   "<p class='code'>");
+    html += requestedFile;
+    html += F("</p>"
+              "<p>You can upload missing files using the File Manager.<p>"
+              "<p>There should be an index.html or index.html.gz file in the root directory, otherwise the web interface will not be available.</p>"
+              "<a href='/filemanager' class='btn'>Go to File Manager</a>"
+              "<a href='/' class='btn btn-secondary'>Go to Home</a>"
+              "</div></body></html>");
+    
+    server.send(404, "text/html", html);
   }
 }
 
-bool handleFileRead(String path) { // send the right file to the client (if it exists)
+bool handleFileRead00(String path) { // send the right file to the client (if it exists)
   bool ret;
 
   Serial.println("handleFileRead: " + path);
@@ -949,7 +963,7 @@ bool handleFileRead(String path) { // send the right file to the client (if it e
   return ret;
 }
 
-void handleFileUpload() { // upload a new file to the LittleFS
+void handleFileUpload00() { // upload a new file to the LittleFS
   HTTPUpload& upload = server.upload();
   String path;
   if (upload.status == UPLOAD_FILE_START) {
@@ -975,6 +989,128 @@ void handleFileUpload() { // upload a new file to the LittleFS
     } else {
       server.send(500, "text/plain", "500: couldn't create file");
     }
+  }
+}
+
+// ...existing code...
+
+bool handleFileRead(String path) { // send the right file to the client (if it exists)
+  bool ret;
+
+  Serial.println("handleFileRead: " + path);
+  if (path.endsWith("/")) path += "index.html";          // If a folder is requested, send the index file
+  String contentType = getContentType(path);             // Get the MIME type
+  String pathWithGz = path + ".gz";
+  if (LittleFS.exists(pathWithGz) || LittleFS.exists(path)) { // If the file exists, either as a compressed archive, or normal
+    if (LittleFS.exists(pathWithGz))                         // If there's a compressed version available
+      path += ".gz";                                         // Use the compressed verion
+    File file = LittleFS.open(path, "r");                    // Open the file
+    if (!file) {
+      Serial.println("[FILE] Open failed" + path);
+      ret = false;
+    } else {
+      // For large files, use chunked streaming with yields
+      size_t fileSize = file.size();
+      
+      if (fileSize > 50000) { // Files larger than 50KB need special handling
+        print_logf("[FILE] Large file detected (%d bytes), using chunked streaming\n", fileSize);
+        
+        // Send headers manually
+        server.setContentLength(fileSize);
+        server.send(200, contentType, "");
+        
+        // Stream file in chunks
+        const size_t CHUNK_SIZE = 1024; // 1KB chunks
+        uint8_t buffer[CHUNK_SIZE];
+        size_t bytesRemaining = fileSize;
+        size_t bytesRead;
+        
+        while (bytesRemaining > 0 && file.available()) {
+          bytesRead = file.read(buffer, min(CHUNK_SIZE, bytesRemaining));
+          
+          if (bytesRead > 0) {
+            // Send chunk to client
+            WiFiClient client = server.client();
+            client.write(buffer, bytesRead);
+            bytesRemaining -= bytesRead;
+            
+            // Yield every chunk to prevent watchdog reset
+            yield();
+            delay(1); // Small delay to allow WiFi stack to process
+          } else {
+            break; // Error reading file
+          }
+        }
+        
+        file.close();
+        print_logf("[FILE] Streamed %d bytes\n", fileSize - bytesRemaining);
+        ret = true;
+        
+      } else {
+        // For small files, use standard streaming
+        size_t sent = server.streamFile(file, contentType);
+        (void)sent;
+        file.close();
+        Serial.println(String("[FILE] Sent file: ") + path);
+        ret = true;
+      }
+    }
+  } else {
+    Serial.println(String("[FILE] File Not Found: ") + path);
+    ret = false;
+  }
+
+  return ret;
+}
+
+// ...existing code...
+
+void handleFileUpload() { 
+  HTTPUpload& upload = server.upload();
+  String path;
+  
+  if (upload.status == UPLOAD_FILE_START) {
+    path = upload.filename;
+    if (!path.startsWith("/")) path = "/" + path;
+    if (!path.endsWith(".gz")) {
+      String pathWithGz = path + ".gz";
+      if (LittleFS.exists(pathWithGz))
+        LittleFS.remove(pathWithGz);
+    }
+    print_logf("[FILE] Upload Start: %s\n", path.c_str());
+    fsUploadFile = LittleFS.open(path, "w");
+    
+    if (!fsUploadFile) {
+      print_logf("[FILE] Failed to open file for writing: %s\n", path.c_str());
+      server.send(500, "application/json", "{\"success\":false,\"error\":\"Failed to open file\"}");
+      return;
+    }
+    
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
+    if (fsUploadFile) {
+      size_t written = fsUploadFile.write(upload.buf, upload.currentSize);
+      if (written != upload.currentSize) {
+        print_log("[FILE] Write error\n");
+      }
+    }
+    yield(); // Prevent watchdog timer reset on large files
+    
+  } else if (upload.status == UPLOAD_FILE_END) {
+    if (fsUploadFile) {
+      fsUploadFile.close();
+      print_logf("[FILE] Upload Complete: %s (%u bytes)\n", 
+                 upload.filename.c_str(), upload.totalSize);
+      server.send(200, "application/json", "{\"success\":true}");
+    } else {
+      server.send(500, "application/json", "{\"success\":false,\"error\":\"Upload failed\"}");
+    }
+    
+  } else if (upload.status == UPLOAD_FILE_ABORTED) {
+    if (fsUploadFile) {
+      fsUploadFile.close();
+    }
+    print_log("[FILE] Upload aborted\n");
+    server.send(500, "application/json", "{\"success\":false,\"error\":\"Upload aborted\"}");
   }
 }
 
@@ -1134,6 +1270,217 @@ void runSimulationMode() {
     lastTempUpdate = currentTime;
   }
 }
+
+void air_set_serial_config(air_status_t *air, uint8_t tx_pin, uint8_t rx_pin, uint8_t rx_buffer_size) {
+    // Validate pin numbers (ESP8266 valid GPIO pins)
+    if (tx_pin > 16 || rx_pin > 16) {
+        print_log("[SERIAL_CONFIG] Invalid pin numbers\n");
+        return;
+    }
+    
+    // Validate buffer size (reasonable limits)
+    if (rx_buffer_size < 64 || rx_buffer_size > 2048) {
+        print_log("[SERIAL_CONFIG] Invalid buffer size (must be 64-2048)\n");
+        return;
+    }
+    
+    // End current serial connection
+    air->serial.end();
+    
+    // Update configuration
+    air->txpin = tx_pin;
+    air->rxpin = rx_pin;
+    air->rxsize = rx_buffer_size;
+    
+    // Reinitialize serial with new settings
+    air->serial.begin(2400, SWSERIAL_8E1, air->rxpin, air->txpin, false, air->rxsize);
+    air->serial.enableIntTx(false);
+    
+    print_logf("[SERIAL_CONFIG] Applied - TX: D%d (GPIO %d), RX: D%d (GPIO %d), Buffer: %d bytes\n", 
+               tx_pin, tx_pin, rx_pin, rx_pin, rx_buffer_size);
+}
+
+// Helper function to scan a specific I2C address and report result
+bool scanI2CAddress(byte address) {
+    Wire.beginTransmission(address);
+    byte error = Wire.endTransmission();
+    
+    if (error == 0) {
+        print_logf("[I2C_SCANNER] Device found at address 0x%02X", address);
+        if (address == 0x38) {
+            print_log(" (AHT20/AHT21)");
+        } else if (address == 0x76 || address == 0x77) {
+            print_log(" (BMP280/BME280)");
+        } else if (address == 0x3C || address == 0x3D) {
+            print_log(" (SSD1306 OLED)");
+        }
+        print_log("\n");
+        return true;
+    } else {
+        // Show what kind of error we got
+        const char* error_msg = "";
+        switch (error) {
+            case 1: error_msg = "Data too long"; break;
+            case 2: error_msg = "NACK on address (no device)"; break;
+            case 3: error_msg = "NACK on data"; break;
+            case 4: error_msg = "Other error"; break;
+            default: error_msg = "Unknown error"; break;
+        }
+        print_logf("[I2C_SCANNER] Address 0x%02X: %s\n", address, error_msg);
+        return false;
+    }
+}
+
+// Helper function to scan devices on current I2C pins
+int scanCurrentI2CPins() {
+    print_log("[I2C_SCANNER] Scanning for I2C devices on current pins...\n");
+    print_logf("[I2C_SCANNER] Current config: SDA=GPIO%d, SCL=GPIO%d\n", air_status.sda_pin, air_status.scl_pin);
+    
+    int nDevices = 0;
+    
+    // Scan common sensor and display addresses
+    byte addresses[] = {0x38, 0x3C, 0x3D, 0x76, 0x77};
+    for(int i = 0; i < 5; i++) {
+        if (scanI2CAddress(addresses[i])) {
+            nDevices++;
+        }
+    }
+    
+    return nDevices;
+}
+
+// Helper function to try a specific I2C pin combination
+int tryI2CPinCombination(uint8_t sda, uint8_t scl) {
+    Wire.begin(sda, scl);
+    delay(50); // Short delay for I2C bus to stabilize
+    
+    int found = 0;
+    // Check common I2C device addresses (sensors and displays)
+    byte addresses[] = {0x38, 0x3C, 0x3D, 0x76, 0x77};
+    for(int i = 0; i < 5; i++) {
+        Wire.beginTransmission(addresses[i]);
+        if (Wire.endTransmission() == 0) {
+            found++;
+        }
+    }
+    
+    if (found > 0) {
+        print_logf("[I2C_SCANNER] Found %d device(s) on SDA=GPIO%d, SCL=GPIO%d:\n", found, sda, scl);
+        // Rescan to show details
+        for(int i = 0; i < 5; i++) {
+            scanI2CAddress(addresses[i]);
+        }
+    }
+    
+    return found;
+}
+
+// Helper function to scan alternative I2C pin combinations
+void scanAlternativeI2CPins() {
+    print_log("[I2C_SCANNER] No I2C devices found on current pins\n");
+    print_log("[I2C_SCANNER] Will try alternative pin combinations...\n");
+    print_log("[I2C_SCANNER] This may take a minute, please wait...\n");
+    
+    // Valid GPIO pins for ESP8266 (D1 Mini): 0, 2, 4, 5, 12, 13, 14, 15
+    uint8_t valid_pins[] = {0, 2, 4, 5, 12, 13, 14, 15};
+    int num_valid_pins = 8;
+    int combinations_tested = 0;
+    
+    // Exclude RX and TX pins
+    uint8_t rx_pin = air_status.rxpin;
+    uint8_t tx_pin = air_status.txpin;
+    
+    print_logf("[I2C_SCANNER] Excluding serial pins: RX=%d, TX=%d\n", rx_pin, tx_pin);
+    
+    // Try different pin combinations
+    for (int sda_idx = 0; sda_idx < num_valid_pins; sda_idx++) {
+        uint8_t sda = valid_pins[sda_idx];
+        
+        // Skip if this is a serial pin
+        if (sda == rx_pin || sda == tx_pin) continue;
+        
+        for (int scl_idx = 0; scl_idx < num_valid_pins; scl_idx++) {
+            uint8_t scl = valid_pins[scl_idx];
+            
+            // Skip if same pin, or if this is a serial pin
+            if (scl == sda || scl == rx_pin || scl == tx_pin) continue;
+            
+            yield(); // Prevent watchdog timer reset
+            combinations_tested++;
+            
+            tryI2CPinCombination(sda, scl);
+        }
+    }
+    
+    print_logf("[I2C_SCANNER] Tested %d pin combinations, no devices found\n", combinations_tested);
+    print_log("[I2C_SCANNER] Check: 1) Sensor power (3.3V) 2) Wiring 3) Pull-up resistors\n");
+    
+    // Restore original I2C pins
+    Wire.begin(air_status.sda_pin, air_status.scl_pin);
+    print_log("[I2C_SCANNER] Restored original I2C pin configuration\n");
+}
+
+void i2c_scanner() {
+    int nDevices = scanCurrentI2CPins();
+    
+    if (nDevices == 0) {
+        scanAlternativeI2CPins();
+    } else {
+        print_logf("[I2C_SCANNER] Scan complete: %d device(s) found on current pins\n", nDevices);
+    }
+}
+
+void air_set_i2c_config(air_status_t *air, uint8_t sda_pin, uint8_t scl_pin) {
+    // Validate pin numbers (ESP8266 valid GPIO pins)
+    if (sda_pin > 16 || scl_pin > 16) {
+        print_log("[I2C_CONFIG] Invalid pin numbers\n");
+        return;
+    }
+    
+    // Update configuration
+    air->sda_pin = sda_pin;
+    air->scl_pin = scl_pin;
+    
+    // Reinitialize I2C with new pins
+    Wire.begin(air->sda_pin, air->scl_pin);
+    
+    print_logf("[I2C_CONFIG] Applied - SDA: D%d (GPIO %d), SCL: D%d (GPIO %d)\n", 
+               sda_pin, sda_pin, scl_pin, scl_pin);
+    
+    // Reinitialize I2C sensors after pin change
+    delay(100); // Give I2C bus time to stabilize
+    
+    print_log("[I2C_CONFIG] Reinitializing sensors...");
+    
+    // Store initial status to detect failures
+    bool initial_humidity = humidity_status;
+    bool initial_pressure = pressure_status;
+    bool initial_bme280 = bme280_pressure_status;
+    
+    // Reinitialize all sensors
+    initAHT20Sensor();
+    initBMP280Sensor();
+    initBME280Sensor();
+    
+    // Check if any sensor failed compared to initial state
+    bool any_sensor_failed = false;
+    #ifdef USE_AHT20
+    if (initial_humidity && !humidity_status) any_sensor_failed = true;
+    #endif
+    #ifdef USE_BMP280
+    if (initial_pressure && !pressure_status) any_sensor_failed = true;
+    #endif
+    #ifdef USE_BME280
+    if (initial_bme280 && !bme280_pressure_status) any_sensor_failed = true;
+    #endif
+    
+    // Run I2C scanner if any sensor failed to initialize
+    if (any_sensor_failed) {
+        print_log("[I2C_CONFIG] Running I2C scanner to discover devices...\n");
+        i2c_scanner();
+    }
+}
+
 /*__________________________________________________________HELPER_FUNCTIONS__________________________________________________________*/
 
 String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
