@@ -312,13 +312,8 @@ Temp up button is connected to R24 and R46
 
 Data packages have the following format:
 
-|Source | Dest | Opcode 1  | Data Length | Data | CRC |
-|---|---|---|---|---|---|
-
-And Data field is composed of the following parts:
-
-| R/W mode | Opcode 2 | Payload |
-|---|---|---|
+|Source | Dest | Opcode 1  | Data Length | R/W mode | Opcode 2 | Payload | CRC |
+|---|---|---|---|---|---|---|---|
 
 
 Source/Dest (1 byte): 
@@ -328,34 +323,11 @@ Source/Dest (1 byte):
 |40 | remote controller in the range [0x40..] |
 |FE | broadcast |
 |F0 | Group
-|52 |??|
+|52 | ?? |
 
-Operation code 1 (1 byte) 
-- From master (00)
-  |Opc1|Desc|Example|
-  |---|---|---|
-  |10| ping | 00 FE **10** 02 80 8A E6|
-  |11| parameters (temp. power, mode, fan, save)| 00 52 **11** 04 80 86 84 01 C4| 
-  |1A| sensor value | 00 40 **1A** 07 80 EF 80 00 2C 00 2B B5|
-  |1C| status |00 FE **1C** 0D 80 81 8D AC 00 00 76 00 33 33 01 00 01 B9|
-  |58| extended status | 00 FE **58** 0F 80 81 34 A8 00 00 6C 6D E9 00 55 55 01 00 01 DC|
-  |18| pong, answer to remote control ping |00 40 **18** 08 80 0C 00 03 00 00 48 00 97|
-  |18| master ack after setting param  |00 40 **18** 02 80 A1 7B|
-- From remote (40)
-  |Opc1|Desc|Example|
-  |---|---|---|
-  |11| set power | 40 00 **11** 03 08 41 03 18 |
-  |11| set mode | 40 00 **11** 03 08 42 01 19 (heat)|
-  |11| set temp | 40 00 **11** 08 08 4C 09 1D 6C 00 05 05 65|
-  |11| set save | 40 00 **11** 04 08 54 01 01 09|
-  |15| ping | 40 00 **15** 07 08 0C 81 00 00 48 00 9F  |
-  |17| sensor query | 40 00 **17** 08 08 80 EF 00 2C 08 00 02 1E |
-  |55| temperature | 40 00 **55** 05 08 81 00 69 00 F0 |
-  
+
 Data length (1 byte)
 - Length of data field
-
-Data (composed of the following parts)
 
 R/W mode (1 byte)
 |Mode|Desc|
@@ -363,52 +335,78 @@ R/W mode (1 byte)
 |08 |for Write mode (from remote 40)|
 |80 |for Read mode (from master 00)|
 
-Opcode2
-
-  - From master (00)
-  
-    | Opcode2 | Desc | Example |
-    |---|---|---|
-    | 81 | status | 00 FE 1C 0D 80 **81** 34 A8 00 00 6C 00 55 55 01 00 01 1E |
-    | 81 | extended status | 00 FE 58 0F 80 **81** 35 AC 02 00 6E 6F E9 00 55 55 01 00 01 DB|
-    | 8A | alive   |00 FE 10 02 80 **8A** E6|
-    | A1 | ack after setting param  |00 40 18 02 80 **A1** 7B|
-    | 86 | mode  |00 52 11 04 80 **86** 24 05 60| 
-    | 0C | pong,answer to ping opc2 0C | 00 40 18 08 80 **0C** 00 03 00 00 48 00 97 | 
-
-  - From remote (40)
-    
-    | Opcode2 | Desc | Example |
-    |---|---|---|
-    | 41 |power|40 00 11 03 08 **41** 02 19|
-    | 42 |mode|40 00 11 03 08 **42** 02 1A|
-    | 4C |temp, fan, mode|40 00 11 08 08 **4C** 11 1A 6E 00 55 55 78|
-    | 54 |save (opc1 11)|40 00 11 04 08 **54** 01 00 08 |
-    | 80 |sensor query|40 00 17 08 08 **80** EF 00 2C 08 00 02 1E|
-    | 81 |sensor room temp |40 00 55 05 08 **81** 00 6A 00 F3|
-    | 0C 81 | ping |40 00 15 07 08 **0C 81** 00 00 48 00 9F|
-    | 0C 82 |timer |40 00 11 09 08 **0C 82** 00 00 30 05 01 01 EB|
-    
-    
+Payload can be empty such as in ping message 00 FE 10 02 80 8A E6.
 
 CRC is computed as Checksum8 XOR of all the bytes (Compute it at https://www.scadacore.com/tools/programming-calculators/online-checksum-calculator/)
+
+
+OpCode1 (byte 2)  indicates the function of the message and OpCode2 (byte 5) specifies the feature or register being targeted.
+
+| OpCode1 | Description | Type | Example |
+|---|---|---|---|
+| `10` | Ping / Alive | `MSG_MASTER_ALIVE` | `00 FE 10 02 80 8A E6` |
+| `11` | Write / Control | `MSG_POWER`, `MSG_SET_...` | `40 00 11 03 08 41 03 18` |
+| `15` | Request / Query | `MSG_MODEL_REQUEST`... | `40 F0 15 02 00 08 AF` |
+| `17` | Sensor Query | `MSG_SENSOR_QUERY` | `40 00 17 08 08 80 EF ...` |
+| `18` | Response / Report | `MSG_MODEL_ANSWER`... | `00 40 18 14 80 08 52 ...` |
+| `1A` | Sensor Answer | `MSG_SENSOR_ANSWER` | `00 40 1A 07 80 EF 80 00 ...` |
+| `1C` | Status | `MSG_STATUS` | `00 FE 1C 0D 80 81 8D ...` |
+| `52` | Remote Start | - | - |
+| `55` | Remote Temp | `MSG_REMOTE_SENSOR_TEMP` | `40 00 55 05 08 81 00 69 ...` |
+| `58` | Ext. Status | `MSG_STATUS_EXT` | `00 FE 58 0F 80 81 34 ...` |
+
+| OpCode2 | Description | Type | Example |
+|---|---|---|---|
+| `02` | DN Codes | `MSG_DN_CODE` | `40 00 15 05 08 02 F5 ...` |
+| `07` | Save Ratio | `MSG_SAVE_RATIO_...` | `00 40 18 03 80 07 4B 97` |
+| `08` | Model Info | `MSG_MODEL_...` | `00 40 18 14 80 08 52 ...` |
+| `0A` | Temp Limits | `MSG_TEMP_LIMITS` | `00 40 18 10 80 0A ...` |
+| `0C` | Pong / Ping | `MSG_REMOTE_PING` | `40 00 15 07 08 0C 81 ...` |
+| `0D` | Announce | `MSG_ANNOUNCE` | `40 F0 15 02 00 0D AA` |
+| `0F` | Setpoints | `MSG_SETPOINT` | `00 40 18 09 80 0F ...` |
+| `10` | Fan Caps | `MSG_FAN_MODES_...` | `00 40 18 0E 80 10 ...` |
+| `27` | Errors | `MSG_SENSOR_ERROR` | `00 40 18 05 80 27 ...` |
+| `41` | Power | `MSG_POWER` | `40 00 11 03 08 41 03 18` |
+| `42` | Mode | `MSG_SET_MODE` | `40 00 11 03 08 42 01 19` |
+| `4C` | Temp/Fan | `MSG_SET_TEMP_FAN` | `40 00 11 08 08 4C ...` |
+| `54` | Eco / Save | MSG_SAVE | `40 00 11 04 08 54 ...` |
+| `80` | Sensor ID | `MSG_SENSOR_QUERY` | `40 00 17 08 08 80 ...` |
+| `81` | Status | `MSG_STATUS` | `00 FE 1C 0D 80 81 ...` |
+| `86` | Mode Stat | `MSG_STATUS_MODE` | `00 52 11 04 80 86 ...` |
+| `8A` | Alive | `MSG_MASTER_ALIVE` | `00 FE 10 02 80 8A E6` |
+| `A1` | ACK | `MSG_MASTER_ACK` | `00 40 18 02 80 A1 7B` |
+| `A3` | Busy | `MSG_MASTER_BUSY` | `00 40 18 02 80 A3 79` |
+| `E8` | Time | `MSG_TIME_COUNTER` | `40 00 15 06 08 E8 ...` |
+| `EF` | Sensor Val | `MSG_SENSOR_ANSWER` | `00 40 1A 07 80 EF ...` |
 
 # Message types
 
 [Up](#toshiba_air_cond) [Previous](#Data-format) [Next](#Other-info)
 
-The protocol relies on a command/response structure. Most control commands are sent by the Remote (Source 0x40), and the Master (Source 0x00) responds with status updates or acknowledgments.
+The protocol relies on a command/response structure. Most control commands are sent by the Remote (0x40), and the Master (0x00) responds with status updates or acknowledgments.
+
 
 ## 1. Control Commands (Remote -> Master)
 These commands control the state of the AC unit.
 
-| Command | OpCode 1 | Data Structure (Example) | Description |
-|---|---|---|---|
-| **Power** | `11` | `40 00 11 03 08 41 [Val] [CRC]` | `Val`: `03`=ON, `02`=OFF |
-| **Mode** | `11` | `40 00 11 03 08 42 [Mode] [CRC]` | `Mode`: `01`=Heat, `02`=Cool, `03`=Fan, `04`=Dry, `05`=Auto |
-| **Enc. Data**| `11` | `40 00 11 08 08 4C [Mode+] [Fan+] [Temp+] ...` | Combined Setpoint (Temp, Fan, Mode) |
-| **Save** | `11` | `40 00 11 04 08 54 01 [Val] [CRC]` | `Val`: `01`=ON, `00`=OFF |
-| **Ping** | `15` | `40 00 15 07 08 0C 81 ...` | Keep-alive / Status Request |
+| Command | OpCode 1 | OpCode 2 | Type | Data Structure (Example) | Description |
+|---|---|---|---|---|---|
+| **Power** | `11` | `41` | `MSG_POWER` | `40 00 11 03 08 41 [Value] [CRC]`  | `Value`: `03`=ON, `02`=OFF |
+| **Mode**  | `11` | `42` | `MSG_SET_MODE` | `40 00 11 03 08 42 [Mode] [CRC]` | `Mode`: `01`=Heat, `02`=Cool, `03`=Fan, `04`=Dry, `05`=Auto |
+| **Enc. Data**| `11` | `4C` | `MSG_SET_TEMP_FAN` | `40 00 11 08 08 4C [Mode+] [Fan+]...` | Combined Setpoint (Temp, Fan, Mode) |
+| **Save** | `11` | `54` | `MSG_SAVE` | `40 00 11 04 08 54 01 [Value] [CRC]` | `Value`: `01`=ON, `00`=OFF |
+| **Ping** | `15` | `0C 81` | `MSG_REMOTE_PING` | `40 00 15 07 08 0C 81 ...` | Keep-alive / check presence |
+| **Timer** | `11` | `0C 82` | - | `40 00 11 09 08 0C 82 ...` | Timer settings |
+| **Req. DN** | `15` | `02` | `MSG_DN_CODE_REQUEST` | `40 00 15 05 08 02 [Code] ...` | Request DN Code value. `Code` in byte 6 |
+| **Save Ratio** | `15` | `07` | `MSG_SAVE_RATIO_REQUEST` | `40 00 15 04 08 07 ...` | Request power save ratio |
+| **Model** | `15` | `08` | `MSG_MODEL_REQUEST` | `40 00 15 02 08 08 ...` | Request model information |
+| **Limits** | `15` | `0A` | `MSG_TEMP_LIMITS_REQUEST` | `40 00 15 02 08 0A ...` | Request temp limits |
+| **Features** | `15` | `0D` | `MSG_ANNOUNCE` | `40 F0 15 02 00 0D ...` | Announce / Request features |
+| **Setpoints** | `15` | `0F` | `MSG_SETPOINT_REQUEST` | `40 00 15 02 08 0F ...` | Request setpoints |
+| **Fan Caps** | `15` | `10` | `MSG_FAN_MODES_REQUEST` | `40 00 15 02 08 10 ...` | Request fan capabilities |
+| **Time Cnt** | `15` | `E8` | `MSG_TIME_COUNTER` | `40 00 15 06 08 E8 ...` | Request time counter (?) |
+| **Sens Query**| `17` | `80` | `MSG_SENSOR_QUERY` | `40 00 17 08 08 80 EF ...` | Request specific sensor value |
+| **Rem. Temp** | `55` | `81` | `MSG_REMOTE_SENSOR_TEMP` | `40 00 55 05 08 81 ...` | Report remote controller temperature |
 
 **Encoded Data Packet (OpCode 4C) Breakdown:**
 The `4C` packet is used when changing Temperature or Fan Speed. It contains multiple state variables.
@@ -418,19 +416,30 @@ The `4C` packet is used when changing Temperature or Fan Speed. It contains mult
 *   **Byte 8 (Temp)**: `((TargetTemp + 35) << 1)`
 *   **ModeCheck**: `0x33` for Cool/Dry/Fan/Auto, `0x55` for Heat.
 
-## 2. Status Reports (Master -> Remote)
+## 2. Status Reports & Answers (Master -> Remote)
 The Master unit periodically broadcasts its status or responds to specific queries.
 
-| Type | OpCode 1 | OpCode 2 | Description |
-|---|---|---|---|
-| **Status** | `1C` | `81` | Standard periodic status (Power, Mode, Fan, RoomTemp) |
-| **Ext. Status**| `58` | `81` | Extended status (Filter, Preheat, Errors, Extra Temps) |
-| **Alive** | `10` | `8A` | Frequent Keep-Alive broadcast from Master |
-| **ACK** | `18` | `A1` | Acknowledgment after a valid setting change |
-| **Mode Stat**| `11` | `86` | Mode confirmation |
-| **Pong** | `18` | `0C` | Response to Remote Ping |
+| Message | OpCode 1 | OpCode 2 | Type | Description |
+|---|---|---|---|---|
+| **Status** | `1C` | `81` | `MSG_STATUS` | Standard periodic status (Power, Mode, Fan, RoomTemp) |
+| **Ext. Status**| `58` | `81` | `MSG_STATUS_EXT` | Extended status (Filter, Preheat, Errors, Extra Temps) |
+| **Alive** | `10` | `8A` | `MSG_MASTER_ALIVE` | Frequent Keep-Alive broadcast from Master |
+| **ACK** | `18` | `A1` | `MSG_MASTER_ACK` | Acknowledgment after a valid setting change |
+| **Busy** | `18` | `A3` | `MSG_MASTER_BUSY` | Master is busy processing command |
+| **Pong** | `18` | `0C` | `MSG_MASTER_PONG` | Response to Remote Ping |
+| **Mode Stat**| `11` | `86` | `MSG_STATUS_MODE` | Mode confirmation |
+| **DN Code** | `18` | `02` | `MSG_DN_CODE` | Response with DN Code value |
+| **Save Ratio**| `18` | `07` | `MSG_SAVE_RATIO_ANSWER` | Response with power save ratio |
+| **Model** | `18` | `08` | `MSG_MODEL_ANSWER` | Response with model string |
+| **Limits** | `18` | `0A` | `MSG_TEMP_LIMITS` | Response with temp limits |
+| **Features** | `18` | `0D` | `MSG_FEATURES` | Response with supported features |
+| **Setpoints** | `18` | `0F` | `MSG_SETPOINT` | Response with setpoints |
+| **Fan Caps** | `18` | `10` | `MSG_FAN_MODES_ANSWER` | Response with fan capabilities |
+| **Errors** | `18` | `27` | `MSG_SENSOR_ERROR` | Error history report |
+| **Time Cnt** | `18` | `E8` | `MSG_TIME_COUNTER_ANSWER` | Response with time counter |
+| **Sensor** | `1A` | `EF` | `MSG_SENSOR_ANSWER` | Response with sensor value |
 
-**Status Packet Parsing (OpCode 1C):**
+**Status Packet (OpCode 1C):**
 `00 FE 1C 0D 80 81 [D1] [D2] 00 00 [Temp] 00 [Chk] [Chk] [Sv] 00 [Pwr] [CRC]`
 *   **D1 (Mode)**: Mode is in bits 7-5. `0x80` mask often seen.
 *   **D2 (Fan)**: Fan speed in bits 7-5.
@@ -450,8 +459,56 @@ These messages occur during startup or when "exploring" the system.
 | **DN Code** | `15`/`18`| `02` | Request/Response Configuration Codes (Settings) |
 
 **DN Codes**: Used to configure deep settings of the AC (e.g., jumper settings, addresses).
-*   Request: `40 00 15 05 08 02 F5 00 [Code] [CRC]`
-*   Response: `00 40 18 07 80 02 01 [Val] [Next] 00 [CRC]`
+*   Request: `40 00 15 05 08 02 F5 00 01 [CRC]` (Example: Request DN Code 00, value F5?) -> *Note: Decoding logic implies byte 6 is requested code*
+*   Request (Actual from logs): `40 00 15 05 08 02 F5 00 01 AE`
+*   Response: `00 40 18 07 80 02 01 02 05 00 00 DB` (Next Code: 01, Value: 02)
+
+**Model**:
+*   Request: `40 F0 15 02 00 08 AF`
+*   Response: `00 00 18 0D 00 08 [Model String] [CRC]` (e.g. `RAV-SM406...`)
+
+**Temp Limits**:
+*   Request: `40 00 15 02 08 0A 55`
+*   Response: `00 40 18 10 80 0A 00 2F 0F 80 6A 80 6A 80 6A 80 6A 04 56 00 B0` (Example)
+    *   Byte 9: Max Temp (`0x80` -> 29°C)
+    *   Byte 10: Min Temp (`0x6A` -> 18°C)
+    *   Byte 17: Frost Protection Flag (`0x04` = Enabled)
+    *   Byte 18: Frost Protection Temp (`0x56` -> 8°C)
+    *   Formula: `(Value >> 1) - 35`
+
+**Power Save Ratio**:
+*   Request: `40 00 15 04 08 07 00 C2 9C`
+*   Response: `00 40 18 03 80 07 4B 97` (Value: 0x4B = 75%)
+
+**Current Setpoint**:
+*   Request: `40 00 15 02 08 0F 50`
+*   Response: `00 40 18 09 80 0F 7A 74 78 78 25 52 05 A2` (Example)
+    *   Bytes 6-9: Default temperatures for Auto, Heat, Dry, Cool.
+    *   Formula: `(Value >> 1) - 35`
+    *   Example Values:
+        *   Auto: `0x7A` -> 26°C
+        *   Heat: `0x74` -> 23°C
+        *   Dry:  `0x78` -> 25°C
+        *   Cool: `0x78` -> 25°C
+
+**Announce (Remote -> Group)**:
+*   Request: `40 F0 15 02 00 0D AA` (Announce presence)
+*   Response: `00 40 18 0E 80 10 ... C6` (Fan Modes Answer)
+    *   Detail: `00 40 18 0E 80 10 00 35 33 35 33 35 33 35 33 00 00 00 C6` (Describes fan speeds per mode)
+*   Response: `00 40 18 12 80 0D 08 00 FE ... CD` (Features / Link Success)
+
+**Time Sync / Counter**:
+*   Message: `40 00 15 06 08 E8 00 01 00 9E 2C` (Sent every minute by Remote in some units)
+
+**Master Busy**:
+*   Message: `00 40 18 02 80 A3 79` (Indicates Master is busy, e.g. after mode change)
+
+**Remote Temp Report**:
+*   Message: `40 00 55 05 08 81 00 [Val] 00 [CRC]`
+    *   Value = `(Temp + 35) << 1`
+
+
+
 
 ## 4. Sensor & Maintenance
 Messages for reading specific sensor values or error history.
@@ -467,7 +524,7 @@ Messages for reading specific sensor values or error history.
 *   Value is typically signed int16. For temperatures, often `Value / 2 - 35` or raw.
 
 # Sensor addresses
-These are the sensor addresses for sensor query.
+These are the sensor addresses for80 sensor query.
 
 | No.  | Desc  | Example value  |
 |---|---|---|
@@ -487,13 +544,6 @@ These are the sensor addresses for sensor query.
 | 70 | Compressor Frequency (rps)| 0 |
 | 72 | Fan Speed (Lower) (rpm) | 0 |
 | 73 | Fan Speed (Upper) (rpm) | defined in manual, not working  |
-| 74 | ? | 43, is this fan speed upper? |
-| 75 | ? | 0 |
-| 76 | ? | 0 |
-| 77 | ? | 0 |
-| 78 | ? | 0 |
-| 79 | ? | 0 |
-| f0 | ? | 204 |
 | f1 | Compressor cumulative operating hours (x100 h) | 7 |
 | f2 | Fan Run Time (x 100h) | 8 |
 | f3 | Filter sign time x 1h | 37 |
@@ -510,7 +560,7 @@ These are the sensor addresses for sensor query.
 
 - Clearer Protocol documentation
 
-- Check other circuits as:
+- Check other circuits as:80
   - https://easyeda.com/marcegli/door-opener
   - https://frog32.ch/smart-intercom.html 
   - https://electronics.stackexchange.com/questions/458996/logic-level-converter-for-nodemcu-esp8266-input-24v-16v-hi-lo-500-baud 
