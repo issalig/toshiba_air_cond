@@ -23,9 +23,12 @@ of this license document, but changing it is not allowed.
 #define BCAST   0xFE         // broadcast address, used to send commands to all slaves
 
 //position of bytes in packet
-#define FROM  0
-#define TO    1
-#define COUNT 3
+#define PKG_FROM      0
+#define PKG_TO        1
+#define PKG_OPCODE1   2
+#define PKG_COUNT     3
+#define PKG_MODE      4
+#define PKG_OPCODE2   5
 
 
 #define MAX_RX_BUFFER 256    //maximum rx buffer size
@@ -260,10 +263,10 @@ typedef struct {
   unsigned long announce_last_time = 0;
   uint8_t announce_retry_count = 0;
   
-
-// Add to air_status_t structure (replace curr_w_idx, curr_r_idx)
-ring_buffer_t rb;  // ring buffer for received data
-bool in_discard_sequence;  // Track if we're discarding consecutive bytes
+  // Add to air_status_t structure (replace curr_w_idx, curr_r_idx)
+  ring_buffer_t rb;  // ring buffer for received data
+  bool in_discard_sequence;  // Track if we're discarding consecutive bytes
+  bool enable_recovery;  // Flag to enable/disable message recovery
 
   SoftwareSerial serial;
 } air_status_t;
@@ -319,7 +322,8 @@ bool air_recover_message(air_status_t *air, byte *cmd, uint8_t packet_len);
 void rb_init(ring_buffer_t *rb);
 int rb_available(ring_buffer_t *rb);
 bool rb_write(ring_buffer_t *rb, uint8_t data);
-uint8_t rb_peek(ring_buffer_t *rb, uint8_t *data);
+//uint8_t rb_peek(ring_buffer_t *rb, uint8_t *data);
+uint8_t rb_peek(ring_buffer_t *rb, int offset);
 void rb_consume(ring_buffer_t *rb, int count);
 
 

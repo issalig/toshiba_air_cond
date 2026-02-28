@@ -19,9 +19,21 @@
 
 #define MIN_PACKET_SIZE 6 // src dest op len cmd crc
 
-#define DEBUG 1
+#define DEBUG 0
 
 /*____________________________UTILS_______________________________ */
+
+// Make format_hex_byte even faster with lookup table
+static const char hex_chars[] = "0123456789ABCDEF";
+
+String format_hex_byte2(uint8_t byte) {
+  char result[4];
+  result[0] = hex_chars[byte >> 4];
+  result[1] = hex_chars[byte & 0x0F];
+  result[2] = ' ';
+  result[3] = '\0';
+  return String(result);
+}
 
 // Format byte as 2-digit uppercase hex with space
 String format_hex_byte(uint8_t byte) {
@@ -260,8 +272,11 @@ void init_air_serial(air_status_t *air) {
   rb_init(&air->rb);
   air->in_discard_sequence = false;
 
-  //air->serial.begin(2400, SWSERIAL_8E1, D7, D8, false);//, 256, 11*16);
-  air->serial.begin(2400, SWSERIAL_8E1, air->rxpin, air->txpin, false, air->rxsize, 128);
+  // Initialize recovery flag
+  air->enable_recovery = true;
+
+  air->serial.begin(2400, SWSERIAL_8E1, D7, D8, false);//, 256, 11*16);
+  //air->serial.begin(2400, SWSERIAL_8E1, air->rxpin, air->txpin, false, air->rxsize, 128);
   //begin(uint32_t baud, SoftwareSerialConfig config, int8_t rxPin, int8_t txPin, bool invert, int bufCapacity = 64, int isrBufCapacity = 0);
 
   // high speed half duplex, turn off interrupts during tx
@@ -817,60 +832,177 @@ bool air_recover_message(air_status_t *air, byte *cmd, uint8_t packet_len) {
     }
   }
   
-  byte original_src = cmd[FROM];
-  byte original_dst = cmd[TO];
+  byte original_src = cmd[PKG_FROM];
+  byte original_dst = cmd[PKG_TO];
   
   // Strategy 1: Try fixing source address
   for (int i = 0; i < sizeof(common_sources) / sizeof(common_sources[0]); i++) {
-    cmd[FROM] = common_sources[i];
+    cmd[PKG_FROM] = common_sources[i];
     
     if (check_crc(cmd, packet_len)) {
-      print_logf("[RECOVER] Fixed SRC: 0x%02X -> 0x%02X Len: %d\n", original_src, cmd[FROM], packet_len);
+      print_logf("[RECOVER] Fixed SRC: 0x%02X -> 0x%02X Len: %d\n", original_src, cmd[PKG_FROM], packet_len);
       return true;
     }
   }
   
   // Restore original source
-  cmd[FROM] = original_src;
+  cmd[PKG_FROM] = original_src;
   
   // Strategy 2: Try fixing destination address
   for (int i = 0; i < sizeof(common_dests) / sizeof(common_dests[0]); i++) {
-    cmd[TO] = common_dests[i];
+    cmd[PKG_TO] = common_dests[i];
     
     if (check_crc(cmd, packet_len)) {
-      print_logf("[RECOVER] Fixed DST: 0x%02X -> 0x%02X Len: %d\n", original_dst, cmd[TO], packet_len);
+      print_logf("[RECOVER] Fixed DST: 0x%02X -> 0x%02X Len: %d\n", original_dst, cmd[PKG_TO], packet_len);
       return true;
     }
   }
   
   // Restore original destination
-  cmd[TO] = original_dst;
+  cmd[PKG_TO] = original_dst;
   
   // Strategy 3: Try fixing both source AND destination
   for (int i = 0; i < sizeof(common_sources) / sizeof(common_sources[0]); i++) {
     for (int j = 0; j < sizeof(common_dests) / sizeof(common_dests[0]); j++) {
-      cmd[FROM] = common_sources[i];
-      cmd[TO] = common_dests[j];
+      cmd[PKG_FROM] = common_sources[i];
+      cmd[PKG_TO] = common_dests[j];
       
       if (check_crc(cmd, packet_len)) {
         print_logf("[RECOVER] Fixed SRC+DST: 0x%02X->0x%02X, 0x%02X->0x%02X Len: %d\n", 
-                   original_src, cmd[FROM], original_dst, cmd[TO], packet_len);
+                   original_src, cmd[PKG_FROM], original_dst, cmd[PKG_TO], packet_len);
         return true;
       }
     }
   }
   
   // Recovery failed - restore original values
-  cmd[FROM] = original_src;
-  cmd[TO] = original_dst;
+  cmd[PKG_FROM] = original_src;
+  cmd[PKG_TO] = original_dst;
   
   return false;
 }
 
 /*____________________________PARSE FUNCTION_______________________________ */
 
+// Optimized parse function with ring buffer and recovery
+int air_parse_serial_print(air_status_t *air) {
+  SoftwareSerial *ss = &(air->serial);
+  ring_buffer_t *rb = &(air->rb);
+  bool decoded_any = false;
+  byte cmd[MAX_CMD_BUFFER];
+  
+  // STEP 1: Read all available serial data into ring buffer
+  while (ss->available()) {
+    byte ch = (byte)ss->read();
+    
+    if (!rb_write(rb, ch)) {
+      air->discarded_bytes++;
+      break;
+    }
+  }
+  
+  // STEP 2: Parse messages from buffer
+  while (rb_available(rb) >= MIN_PACKET_SIZE) {
+    
+    // Declare ALL variables at the top of the loop
+    uint8_t packet_len;
+    bool valid_packet;
+    bool recovered;
+    byte discarded;
+    
+    // Quick length check without copying
+    packet_len = rb_peek(rb, 3) + 5;
+    
+    // Fast validation
+    if (packet_len < MIN_PACKET_SIZE || packet_len > MAX_CMD_BUFFER) {
+      goto discard_byte;
+    }
+    
+    // Wait for complete packet
+    if (rb_available(rb) < packet_len) {
+      break;
+    }
+    
+    // Copy packet only once
+    for (int k = 0; k < packet_len; k++) {
+      cmd[k] = rb_peek(rb, k);
+    }
+    
+    // Validate CRC
+    valid_packet = check_crc(cmd, packet_len);
+    recovered = false;
+    
+    if (!valid_packet && air->enable_recovery) {
+      recovered = air_recover_message(air, cmd, packet_len);
+      valid_packet = recovered;
+    }
+    
+    if (valid_packet) {
+      // Valid packet found!
+      
+      // Build command string efficiently
+      air->buffer_cmd.reserve(packet_len * 3 + 20);
+      if (recovered) {
+        air->buffer_cmd += "<REC>";
+      }
+      
+      for (int k = 0; k < packet_len; k++) {
+        air->last_cmd[k] = cmd[k];
+        air->buffer_cmd += format_hex_byte(cmd[k]);
+      }
+      
+      if (recovered) {
+        air->buffer_cmd += "</REC>";
+        air->recovered_msgs++;
+      }
+      
+      // Decode the command
+      air_decode_command(cmd, air);
+      
+      // Update statistics
+      air->decoded_msgs++;
+      air->decoded_bytes += packet_len;
+      decoded_any = true;
+      
+      // Remove processed packet
+      rb_consume(rb, packet_len);
+      
+      // Reset discard flag
+      air->in_discard_sequence = false;
+      
+      // Notify WebSocket
+      notifyTXRXData();
+      
+      continue;
+    }
+    
+discard_byte:
+    // Discard first byte
+    discarded = rb_peek(rb, 0);
+    air->buffer_raw += "<ERR>" + format_hex_byte(discarded) + "</ERR>";
+    air->discarded_bytes++;
+    
+    if (!air->in_discard_sequence) {
+      air->discarded_msgs++;
+      air->in_discard_sequence = true;
+    }
+    
+    rb_consume(rb, 1);
+  }
+  
+  // Send buffered data if any
+  if (air->buffer_raw.length() > 0 || air->buffer_cmd.length() > 0) {
+    notifyTXRXData();
+  }
+  
+  return decoded_any;
+}
+
 // New optimized parse function with ring buffer and recovery
 int air_parse_serial(air_status_t *air) {
+  //bool prev_log_mode = get_log_async_mode();
+  set_log_async_mode(true);
+
   SoftwareSerial *ss = &(air->serial);
   ring_buffer_t *rb = &(air->rb);
   bool decoded_any = false;
@@ -936,8 +1068,8 @@ int air_parse_serial(air_status_t *air) {
     valid_packet = check_crc(cmd, packet_len);
     recovered = false;
     
-    if (!valid_packet) {
-      // Attempt message recovery
+    if (!valid_packet && air->enable_recovery) {
+      // Attempt message recovery only if enabled
       recovered = air_recover_message(air, cmd, packet_len) && (air_decode_command(cmd, air) != MSG_UNKNOWN);
       valid_packet = recovered;      
     }
@@ -951,24 +1083,30 @@ int air_parse_serial(air_status_t *air) {
 
         //print info about recovered message, packet len
         print_logf("[RECOVERED MSG] Len: %d From: 0x%02X To: 0x%02X\n", 
-                   packet_len, cmd[FROM], cmd[TO]);
+                   packet_len, cmd[PKG_FROM], cmd[PKG_TO]);
       }
       
       // Build command string with recovery marker
+      air->buffer_cmd.reserve(air->buffer_cmd.length() + (packet_len * 3) + 20);
+      air->buffer_raw.reserve(air->buffer_raw.length() + (packet_len * 3) + 20);
+
       if (recovered) {
         air->buffer_cmd += "<REC>"; // Mark start of recovered message
       }
       
       for (int k = 0; k < packet_len; k++) {
-        Serial.print(cmd[k] < 0x10 ? " 0" : " ");
-        Serial.printf("%02X", cmd[k]);
+        //Serial.print(cmd[k] < 0x10 ? " 0" : " ");
+        //Serial.printf("%02X", cmd[k]);
         air->last_cmd[k] = cmd[k];
-        air->buffer_cmd += ((cmd[k] < 0x10) ? "0" : "") + String(cmd[k], HEX) + " ";
+        
+        String hex_byte = format_hex_byte(cmd[k]);
+        air->buffer_cmd += hex_byte;
+        
         // Add to raw buffer with recovery marker
         if (recovered) {
           air->buffer_raw += "<REC>";
         }
-        air->buffer_raw += ((cmd[k] < 0x10) ? "0" : "") + String(cmd[k], HEX) + " ";
+        air->buffer_raw += hex_byte;
         if (recovered) {
           air->buffer_raw += "</REC>";
         }
@@ -1011,7 +1149,8 @@ discard_byte:
 #endif
     
     // Mark discarded byte in raw buffer
-    air->buffer_raw += "<ERR>" + String((discarded < 0x10) ? "0" : "") + String(discarded, HEX) + "</ERR> ";
+    air->buffer_raw.reserve(air->buffer_raw.length() + 15);
+    air->buffer_raw += "<ERR>" + format_hex_byte(discarded) + "</ERR> ";
     air->discarded_bytes++;
     
     // Count new discard sequence
@@ -1029,6 +1168,7 @@ discard_byte:
     notifyTXRXData();
   }
   
+  //set_log_async_mode(false); // back to sync mode
   return decoded_any;
 }
 
@@ -1037,7 +1177,7 @@ discard_byte:
 // reads serial and gets a valid command in air.rx_data
 // calls decode command to fill air structure
 // returns true if one or command commands are decoded, false otherwise
-int air_parse_serialKK(air_status_t *air) {
+int air_parse_serial_old(air_status_t *air) {
   int i, j_init, k;
   uint8_t mylen = 0;
   byte ch;
@@ -1406,7 +1546,7 @@ void air_request_setpoint_defaults(air_status_t *air) {
 }
 
 void request_master_info(air_status_t *air) {
-  unsigned int i, retries=3;
+  unsigned int i, retries=5;
 
   for(i=0; i< retries; i++){
     air_request_model(air);  

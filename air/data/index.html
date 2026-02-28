@@ -331,6 +331,8 @@ const dnCodeDescriptions = {
     0xFE: "Group control"
 };
 
+var lastMessageTimestamp = Date.now(); // Track last message time
+
 ///////////////////////
 //Websocket connections
 ///////////////////////
@@ -846,26 +848,58 @@ function parseStatus(json)
         updateAnnounceStatusDisplay(json.announce_state);
     }
 
-  if (json.discarded_msgs !== undefined) {
+  /*if (json.discarded_msgs !== undefined) {
     document.getElementById('discarded_msgs').textContent = json.discarded_msgs;
-  }
+  }*/
 
   if (json.decoded_msgs !== undefined) {
     document.getElementById('decoded_msgs').textContent = json.decoded_msgs;
   }
   
   // Calculate and display error ratio
-  if (json.decoded_msgs !== undefined && json.discarded_msgs > 0) {
+  /*if (json.decoded_msgs !== undefined && json.discarded_msgs > 0) {
     const errorRatio = ((json.discarded_msgs / (json.discarded_msgs + json.decoded_msgs)) * 100).toFixed(2);
     document.getElementById('error_ratio').textContent = errorRatio + '%';
   } else {
     document.getElementById('error_ratio').textContent = '0%';
+  }*/
+
+  //display discarded messages with percentage
+  if (json.discarded_msgs !== undefined) {
+    let discardedText = json.discarded_msgs;
+    
+    // Calculate discarded percentage if we have decoded messages
+    if (json.decoded_msgs !== undefined && json.decoded_msgs > 0) {
+      const totalMessages = json.decoded_msgs + json.discarded_msgs;
+      if (totalMessages > 0) {
+        const discardedPercentage = ((json.discarded_msgs / totalMessages) * 100).toFixed(2);
+        discardedText += ` (${discardedPercentage}%)`;
+      }
+    }
+    
+    document.getElementById('discarded_msgs').textContent = discardedText;
   }
 
-  //display recovred messages
-  if (json.recovered_msgs !== undefined) {
+  //display recovered messages
+  /*if (json.recovered_msgs !== undefined) {
         document.getElementById('recovered_msgs').textContent = json.recovered_msgs;
- }
+ }*/
+
+   //display recovered messages
+  if (json.recovered_msgs !== undefined) {
+    let recoveredText = json.recovered_msgs;
+    
+    // Calculate recovered percentage if we have decoded messages
+    if (json.decoded_msgs !== undefined && json.decoded_msgs > 0) {
+      const totalMessages = json.decoded_msgs + (json.discarded_msgs || 0);
+      if (totalMessages > 0) {
+        const recoveredPercentage = ((json.recovered_msgs / totalMessages) * 100).toFixed(2);
+        recoveredText += ` (${recoveredPercentage}%)`;
+      }
+    }
+    
+    document.getElementById('recovered_msgs').textContent = recoveredText;
+  }
 
   document.getElementById('heap').textContent = json.heap;
 
@@ -1203,6 +1237,9 @@ function parseTXRXData(json) {
         return;
     }
 
+    // Update last message timestamp whenever we receive a message
+    lastMessageTimestamp = Date.now();
+
     debug_cmd_typed = document.getElementById('check_cmd_typed').checked;
     debug_cmd_timestamp = document.getElementById('check_cmd_timestamp').checked;
     debug_rx = document.getElementById('check_rx').checked;
@@ -1284,6 +1321,30 @@ function parseTXRXData(json) {
         }
     }
 }
+
+// Add a function to update the display periodically
+function updateLastMessageTime() {
+    const lastMsgElem = document.getElementById('last_message_time');
+    if (!lastMsgElem) return;
+    
+    const now = Date.now();
+    const diffMs = now - lastMessageTimestamp;
+    const diffSeconds = Math.floor(diffMs / 1000);
+    
+    let displayText;
+    if (diffSeconds < 60) {
+        displayText = diffSeconds + 's ago';
+    } else if (diffSeconds < 3600) {
+        displayText = Math.floor(diffSeconds / 60) + 'm ago';
+    } else {
+        displayText = Math.floor(diffSeconds / 3600) + 'h ago';
+    }
+    
+    lastMsgElem.textContent = displayText;
+}
+// Call updateLastMessageTime every second to refresh the display
+setInterval(updateLastMessageTime, 1000);
+
 
 // Add function to toggle traffic capture
 function toggleTrafficCapture() {
@@ -4416,9 +4477,9 @@ window.onload = function() {
                                     <span id="recovered_msgs" style="color: #0b832b; font-weight: bold;">--</span>
                                 </div>                                
                                 <div>
-                                    <span style="color: #666;">Error Ratio:</span><br>
-                                    <span id="error_ratio" style="color: #f44336; font-weight: bold;">--</span>
-                                </div>
+                                    <span style="color: #666;">Last Message:</span><br>
+                                    <span id="last_message_time" style="color: #002F7A; font-weight: bold;">--</span>
+                                </div>                                
                             </div>
                         </div>
                         <!-- End System Information -->
